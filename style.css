@@ -1296,7 +1296,7 @@ body.is-admin .app {
 }
 
 .joke-gift-fly.is-shaking .joke-gift-wiggle {
-  animation: joke-gift-wiggle 0.48s ease-in-out infinite;
+  animation: joke-gift-wiggle 1.8s ease-in-out infinite;
 }
 
 @keyframes joke-gift-wiggle {
@@ -1306,11 +1306,11 @@ body.is-admin .app {
   }
 
   25% {
-    transform: translateX(-10px) rotate(-8deg);
+    transform: translateX(-5px) rotate(-3deg);
   }
 
   75% {
-    transform: translateX(10px) rotate(8deg);
+    transform: translateX(5px) rotate(3deg);
   }
 }
 
