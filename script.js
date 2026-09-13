@@ -1123,8 +1123,8 @@ function playDrumroll() {
 
   const now = context.currentTime;
 
-  for (let index = 0; index < 8; index += 1) {
-    const start = now + index * 0.25;
+  for (let index = 0; index < 18; index += 1) {
+    const start = now + index * 0.22;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = "triangle";
@@ -1195,7 +1195,7 @@ function playJokeFanfare() {
 function playNextGiftWait(layer) {
   showJokeDrum();
   playDrumroll();
-  afterJoke(2100, () => {
+  afterJoke(4200, () => {
     playJokeFanfare();
     afterJoke(700, () => {
       hideJokeDrum();
@@ -1285,7 +1285,7 @@ function playLastGiftWait() {
   const fly = document.getElementById("jokeGiftFly");
   showJokeDrum();
   playDrumroll();
-  afterJoke(2100, () => {
+  afterJoke(4200, () => {
     hideJokeDrum();
     const drum = document.getElementById("jokeDrum");
     if (drum) {
