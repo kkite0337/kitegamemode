@@ -876,6 +876,7 @@ function findAccount(id, password) {
 
 const GIFT_LAYER_COUNT = 4;
 const JOKE_PUNCHLINE = "김우진 동그라미";
+const JOKE_NUDGE = "아 진짜 마지막^^";
 const JOKE_GIFT_FRAMES = [4, 3, 2, 1];
 const JOKE_SUSPENSE = {
   1: "과연?!?",
@@ -1008,7 +1009,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=104`;
+  const src = `assets/gift-${frame}.png?v=105`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1185,6 +1186,10 @@ function popNestedGift(layer) {
   }
 
   playJokeTada();
+  const nudge = document.getElementById("jokeNudge");
+  if (nudge) {
+    nudge.textContent = JOKE_NUDGE;
+  }
   jokePage.classList.add("is-nudge");
   fly?.classList.remove("is-shaking");
   afterJoke(3000, () => {
