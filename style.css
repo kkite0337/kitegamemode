@@ -201,6 +201,11 @@ body.is-admin .app {
   width: 100%;
 }
 
+.play-screen,
+#adminPlay {
+  overflow-y: auto;
+}
+
 .center-form {
   width: min(280px, 100%);
   flex: 0;
@@ -590,6 +595,47 @@ body.is-admin .app {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.menu-reveal:has(.menu-roulette.is-in) .menu-tally {
+  gap: 8px;
+}
+
+.menu-reveal:has(.menu-roulette.is-in) .menu-tally__item {
+  font-size: 18px;
+}
+
+.menu-roulette {
+  position: relative;
+  width: min(280px, 78vw);
+  margin-top: 28px;
+  opacity: 0;
+  transform: scale(0.86) translateY(-18px);
+}
+
+.menu-roulette.is-in {
+  animation: menu-thud 0.55s cubic-bezier(0.18, 1.32, 0.28, 1) forwards;
+}
+
+.menu-roulette__pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 20px solid #1f1b16;
+  transform: translateX(-50%);
+}
+
+.menu-roulette__wheel {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 50%;
+  filter: drop-shadow(0 10px 18px rgba(31, 27, 22, 0.16));
 }
 
 .profile-field input[readonly] {

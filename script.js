@@ -108,6 +108,140 @@ const MENU_LABELS = {
   양: "양식",
   동: "동남아",
 };
+const MENU_COLORS = {
+  한: "#e11d48",
+  중: "#f59e0b",
+  일: "#ec4899",
+  양: "#2563eb",
+  동: "#16a34a",
+};
+
+function sanitizeRoulette(slices) {
+  return (Array.isArray(slices) ? slices : []).filter((item) => MENU_OPTIONS.includes(item));
+}
+
+function pickRoulette(first, second) {
+  const left = sanitizeRoulette(first);
+  const right = sanitizeRoulette(second);
+  return left.length ? left : right;
+}
+
+function collectMenuPicks() {
+  const picks = [];
+  gamePlayers().forEach((id) => {
+    picks.push(...normalizeMenuPicks(gameState.menus[id]?.picks));
+  });
+  return picks;
+}
+
+function circularDist(index, other, size) {
+  const gap = Math.abs(index - other);
+  return Math.min(gap, size - gap);
+}
+
+function arrangeMenuSlices(picks) {
+  const items = (Array.isArray(picks) ? picks : []).filter((item) => MENU_OPTIONS.includes(item));
+  const size = items.length;
+  if (size <= 1) {
+    return items.slice();
+  }
+
+  const counts = new Map();
+  items.forEach((item) => {
+    counts.set(item, (counts.get(item) || 0) + 1);
+  });
+  const types = [...counts.entries()].sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+    return MENU_OPTIONS.indexOf(left[0]) - MENU_OPTIONS.indexOf(right[0]);
+  });
+
+  const result = new Array(size).fill(null);
+
+  function planPositions(count, start) {
+    return Array.from({ length: count }, (_, index) => Math.round(start + (index * size) / count) % size);
+  }
+
+  function nearestEmpty(target) {
+    let best = -1;
+    let bestGap = size + 1;
+    for (let index = 0; index < size; index += 1) {
+      if (result[index] !== null) {
+        continue;
+      }
+      const gap = circularDist(index, target, size);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = index;
+      }
+    }
+    return best;
+  }
+
+  function scorePlan(positions) {
+    const used = new Set();
+    let collisions = 0;
+    let occupiedHits = 0;
+    let minPair = size;
+    positions.forEach((position) => {
+      if (used.has(position)) {
+        collisions += 1;
+      }
+      used.add(position);
+      if (result[position] !== null) {
+        occupiedHits += 1;
+      }
+    });
+    for (let i = 0; i < positions.length; i += 1) {
+      for (let j = i + 1; j < positions.length; j += 1) {
+        minPair = Math.min(minPair, circularDist(positions[i], positions[j], size));
+      }
+    }
+    return -occupiedHits * 1000 - collisions * 100 + minPair;
+  }
+
+  types.forEach(([type, count]) => {
+    let bestStart = 0;
+    let bestScore = -Infinity;
+    for (let start = 0; start < size; start += 1) {
+      const score = scorePlan(planPositions(count, start));
+      if (score > bestScore) {
+        bestScore = score;
+        bestStart = start;
+      }
+    }
+
+    planPositions(count, bestStart).forEach((target) => {
+      const slot = result[target] === null ? target : nearestEmpty(target);
+      if (slot >= 0) {
+        result[slot] = type;
+      }
+    });
+  });
+
+  return result.map((item, index) => item || items[index]);
+}
+
+function currentRoulette() {
+  const stored = sanitizeRoulette(gameState.roulette);
+  if (stored.length) {
+    return stored;
+  }
+
+  return arrangeMenuSlices(collectMenuPicks());
+}
+
+function ensureRoulette() {
+  const stored = sanitizeRoulette(gameState.roulette);
+  if (stored.length) {
+    gameState.roulette = stored;
+    return stored;
+  }
+
+  gameState.roulette = arrangeMenuSlices(collectMenuPicks());
+  return gameState.roulette;
+}
 
 function emptyMenu() {
   return { picks: [], submitted: false, updatedAt: 0 };
@@ -198,10 +332,13 @@ function sanitizeGameState(game, resetAt = currentResetAt()) {
     next.resultPicked = { drink: false, price: false };
     next.priceShares = {};
     next.personalSteps = emptyPersonalSteps();
+    next.roulette = [];
     if (next.phase !== "idle" && next.phase !== "pick" && next.phase !== "entry" && next.phase !== "play") {
       next.game = next.pendingGame || "";
       next.phase = next.pendingGame ? "pick" : "idle";
     }
+  } else {
+    next.roulette = sanitizeRoulette(next.roulette);
   }
   return next;
 }
@@ -283,6 +420,7 @@ function mergeGameState(local, remote, preferRemote = false) {
         price: Boolean(primary.resultPicked?.price),
       },
       personalSteps: mergePersonalSteps(local.personalSteps, remote.personalSteps),
+      roulette: pickRoulette(primary.roulette, secondary.roulette),
     },
     currentResetAt(),
   );
@@ -311,6 +449,7 @@ function emptyGame() {
     resultPicked: { drink: false, price: false },
     priceShares: {},
     personalSteps: emptyPersonalSteps(),
+    roulette: [],
   };
 }
 
@@ -433,6 +572,7 @@ function loadGame() {
       resultPicked: { drink: false, price: false, ...parsed.resultPicked },
       priceShares: { ...parsed.priceShares },
       personalSteps: { ...emptyPersonalSteps(), ...parsed.personalSteps },
+      roulette: sanitizeRoulette(parsed.roulette),
     });
   } catch {
     return emptyGame();
@@ -613,6 +753,7 @@ function gameSignature(state) {
     resultPicked: state.resultPicked,
     priceShares: state.priceShares,
     personalSteps: state.personalSteps,
+    roulette: state.roulette,
   });
 }
 
@@ -1047,6 +1188,59 @@ function menuTallyLine(item) {
   return `${escapeHtml(item.label)} <span class="menu-tally__count">${item.count}표</span>`;
 }
 
+function menuRouletteMarkup(slices, visible = false) {
+  const items = sanitizeRoulette(slices);
+  if (!items.length) {
+    return "";
+  }
+
+  const size = 280;
+  const center = size / 2;
+  const radius = 128;
+  const start0 = -Math.PI / 2;
+  const sliceAngle = (Math.PI * 2) / items.length;
+  const fontSize = items.length <= 6 ? 20 : items.length <= 12 ? 15 : 11;
+  const labelOf = (key) => (items.length <= 8 ? MENU_LABELS[key] || key : key);
+
+  let slicesMarkup = "";
+  if (items.length === 1) {
+    const key = items[0];
+    slicesMarkup = `
+      <circle cx="${center}" cy="${center}" r="${radius}" fill="${MENU_COLORS[key]}"></circle>
+      <text x="${center}" y="${center - 36}" fill="#fff" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
+    `;
+  } else {
+    slicesMarkup = items
+      .map((key, index) => {
+        const from = start0 + index * sliceAngle;
+        const to = start0 + (index + 1) * sliceAngle;
+        const large = sliceAngle > Math.PI ? 1 : 0;
+        const x0 = center + radius * Math.cos(from);
+        const y0 = center + radius * Math.sin(from);
+        const x1 = center + radius * Math.cos(to);
+        const y1 = center + radius * Math.sin(to);
+        const mid = (from + to) / 2;
+        const lx = center + radius * 0.62 * Math.cos(mid);
+        const ly = center + radius * 0.62 * Math.sin(mid);
+        return `
+          <path d="M ${center} ${center} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${MENU_COLORS[key]}" stroke="#fffdf8" stroke-width="3"></path>
+          <text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" fill="#fff" font-size="${fontSize}" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
+        `;
+      })
+      .join("");
+  }
+
+  return `
+    <div class="menu-roulette${visible ? " is-in" : ""}">
+      <div class="menu-roulette__pointer" aria-hidden="true"></div>
+      <svg class="menu-roulette__wheel" viewBox="0 0 ${size} ${size}" role="img" aria-label="메뉴 룰렛">
+        ${slicesMarkup}
+        <circle cx="${center}" cy="${center}" r="20" fill="#fffdf8" stroke="#d6cbb8" stroke-width="3"></circle>
+      </svg>
+    </div>
+  `;
+}
+
 function menuRevealFinalMarkup() {
   return `
     <div class="menu-reveal">
@@ -1055,6 +1249,7 @@ function menuRevealFinalMarkup() {
           .map((item) => `<p class="menu-tally__item is-in">${menuTallyLine(item)}</p>`)
           .join("")}
       </div>
+      ${menuRouletteMarkup(currentRoulette(), true)}
     </div>
   `;
 }
@@ -1144,6 +1339,25 @@ async function runMenuReveal(container, token) {
     line.classList.add("is-in");
     playThud();
     await delay(820);
+  }
+
+  if (token !== menuTalkToken) {
+    return;
+  }
+
+  await delay(360);
+  if (token !== menuTalkToken) {
+    return;
+  }
+
+  const stage = container.querySelector(".menu-reveal");
+  if (stage) {
+    stage.insertAdjacentHTML("beforeend", menuRouletteMarkup(currentRoulette()));
+    const wheel = stage.querySelector(".menu-roulette");
+    if (wheel) {
+      void wheel.offsetWidth;
+      wheel.classList.add("is-in");
+    }
   }
 
   if (token === menuTalkToken) {
@@ -2094,6 +2308,7 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "confirm-menu-result") {
+    ensureRoulette();
     gameState.phase = "menu-reveal";
     saveGame({ immediate: true });
     refreshVisible();
