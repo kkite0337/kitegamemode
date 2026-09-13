@@ -313,19 +313,40 @@ function faceRows(image) {
   return rows;
 }
 
+function percentile(values, p) {
+  if (!values.length) {
+    return 0;
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * p)));
+  return sorted[index];
+}
+
 function pickHeadRows(rows) {
   if (!rows.length) {
     return rows;
   }
 
-  const peak = rows.reduce((best, row) => (row.w > best.w ? row : best), rows[0]);
+  const yMin = rows[0].y;
+  const yMax = rows[rows.length - 1].y;
+  const span = Math.max(1, yMax - yMin);
+  const band = rows.filter((row) => {
+    const t = (row.y - yMin) / span;
+    return t >= 0.16 && t <= 0.84;
+  });
+  const peak = (band.length ? band : rows).reduce((best, row) => (row.w > best.w ? row : best), rows[0]);
   let top = rows.indexOf(peak);
   while (top > 0) {
     const prev = rows[top - 1];
-    if (peak.y - prev.y > 6 || prev.w < peak.w * 0.2) {
+    const cur = rows[top];
+    if (cur.y - prev.y > 8) {
       break;
     }
-    if (prev.count <= 7 && rows[top].count >= 12 && peak.y - prev.y > peak.w * 0.08) {
+    if (prev.w < peak.w * 0.28) {
+      break;
+    }
+    if (prev.count <= 8 && cur.count >= 14 && peak.y - prev.y > peak.w * 0.1) {
       break;
     }
     top -= 1;
@@ -335,13 +356,14 @@ function pickHeadRows(rows) {
   let slim = peak.w;
   while (bottom < rows.length - 1) {
     const next = rows[bottom + 1];
-    if (next.y - rows[bottom].y > 6) {
+    const cur = rows[bottom];
+    if (next.y - cur.y > 8) {
       break;
     }
-    if (next.y - peak.y > peak.w * 0.12 && next.w > slim * 1.18) {
+    if (next.y - peak.y > peak.w * 0.1 && next.w > slim * 1.15 && next.count < cur.count * 0.65) {
       break;
     }
-    if (next.w < peak.w * 0.14) {
+    if (next.w < peak.w * 0.16 && next.count < 10) {
       break;
     }
     slim = Math.min(slim, next.w);
@@ -361,11 +383,15 @@ function faceMap(image, size) {
     left: ox + row.left * scale,
     right: ox + row.right * scale,
     w: row.w * scale,
+    count: row.count,
   }));
-  const lefts = mapped.map((row) => row.left).sort((a, b) => a - b);
-  const rights = mapped.map((row) => row.right).sort((a, b) => a - b);
-  const innerLeft = lefts[Math.floor(lefts.length * 0.64)] ?? mapped[0].left;
-  const innerRight = rights[Math.floor(rights.length * 0.36)] ?? mapped[0].right;
+  const mid = mapped.slice(
+    Math.floor(mapped.length * 0.22),
+    Math.max(Math.floor(mapped.length * 0.22) + 1, Math.ceil(mapped.length * 0.78)),
+  );
+  const coreW = percentile((mid.length ? mid : mapped).map((row) => row.w), 0.45);
+  const cx =
+    mapped.reduce((sum, row) => sum + (row.left + row.right) / 2, 0) / Math.max(mapped.length, 1);
   return {
     ox,
     oy,
@@ -373,9 +399,8 @@ function faceMap(image, size) {
     rows: mapped,
     top: mapped[0]?.y ?? size * 0.2,
     bottom: mapped[mapped.length - 1]?.y ?? size * 0.7,
-    innerLeft,
-    innerRight,
-    cx: ((mapped[0]?.left ?? 0) + (mapped[0]?.right ?? size)) / 2,
+    coreW: Math.max(48, coreW),
+    cx,
   };
 }
 
@@ -385,42 +410,84 @@ function nearestRow(profile, y) {
 
 function cavityAt(profile, y) {
   if (!profile.rows.length) {
-    return { left: profile.innerLeft, right: profile.innerRight };
+    return { left: profile.cx - profile.coreW / 2, right: profile.cx + profile.coreW / 2 };
   }
 
   const row = nearestRow(profile, y);
-  const pad = row.w * 0.16;
+  const pad = Math.max(7, Math.min(row.w * 0.08, 18));
   let left = row.left + pad;
   let right = row.right - pad;
-  if (right - left > 12) {
-    left = Math.max(left, profile.innerLeft);
-    right = Math.min(right, profile.innerRight);
+  if (row.w > profile.coreW * 1.1) {
+    left = Math.max(left, profile.cx - profile.coreW / 2 + pad);
+    right = Math.min(right, profile.cx + profile.coreW / 2 - pad);
   }
-  if (right - left < row.w * 0.3) {
-    left = row.left + row.w * 0.18;
-    right = row.right - row.w * 0.18;
-  }
-  if (right <= left) {
-    const mid = (row.left + row.right) / 2;
-    return { left: mid - 8, right: mid + 8 };
+  if (right - left < 18) {
+    return { left: profile.cx - 9, right: profile.cx + 9 };
   }
   return { left, right };
 }
 
-function fitInside(profile, cx, cy, maxW, maxH) {
-  const headTop = profile.top + (profile.bottom - profile.top) * 0.08;
-  const headBottom = profile.bottom - (profile.bottom - profile.top) * 0.06;
-  const y = Math.min(Math.max(cy, headTop + maxH * 0.35), headBottom - maxH * 0.35);
-  const top = cavityAt(profile, y - maxH * 0.3);
+function placeFeature(profile, cx, cy, maxW, maxH) {
+  const headTop = profile.top + (profile.bottom - profile.top) * 0.1;
+  const headBottom = profile.bottom - (profile.bottom - profile.top) * 0.08;
+  const y = Math.min(Math.max(cy, headTop + maxH * 0.4), headBottom - maxH * 0.35);
+  const top = cavityAt(profile, y - maxH * 0.28);
   const mid = cavityAt(profile, y);
-  const low = cavityAt(profile, y + maxH * 0.3);
+  const low = cavityAt(profile, y + maxH * 0.28);
   const left = Math.max(top.left, mid.left, low.left);
   const right = Math.min(top.right, mid.right, low.right);
-  const avail = Math.max(10, right - left);
-  const width = Math.min(maxW, avail * 0.9);
-  const height = Math.min(maxH, (profile.bottom - profile.top) * 0.2);
+  const width = Math.min(maxW, Math.max(12, right - left) * 0.92);
+  const height = Math.min(maxH, (profile.bottom - profile.top) * 0.26);
   const x = Math.min(Math.max(cx, left + width / 2), right - width / 2);
   return { cx: x, cy: y, w: width, h: height };
+}
+
+function clipHead(ctx, profile) {
+  if (!profile.rows.length) {
+    return;
+  }
+
+  ctx.beginPath();
+  profile.rows.forEach((row, index) => {
+    const hole = cavityAt(profile, row.y);
+    if (index === 0) {
+      ctx.moveTo(hole.left, row.y);
+    } else {
+      ctx.lineTo(hole.left, row.y);
+    }
+  });
+  for (let index = profile.rows.length - 1; index >= 0; index -= 1) {
+    const row = profile.rows[index];
+    ctx.lineTo(cavityAt(profile, row.y).right, row.y);
+  }
+  ctx.closePath();
+  ctx.clip();
+}
+
+function densestUpperY(image) {
+  const box = inkBounds(image);
+  const probe = document.createElement("canvas");
+  probe.width = image.width;
+  probe.height = image.height;
+  const ctx = probe.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(box.x, box.y, box.w, box.h).data;
+  const limit = Math.max(1, Math.floor(box.h * 0.62));
+  let bestY = box.y + Math.floor(box.h * 0.18);
+  let best = 0;
+  for (let y = 0; y < limit; y += 1) {
+    let count = 0;
+    for (let x = 0; x < box.w; x += 1) {
+      if (isInkPixel(pixels, (y * box.w + x) * 4)) {
+        count += 1;
+      }
+    }
+    if (count > best) {
+      best = count;
+      bestY = box.y + y;
+    }
+  }
+  return { box, anchorY: bestY };
 }
 
 function drawPart(ctx, image, cx, cy, maxW, maxH, flip = false) {
@@ -463,42 +530,60 @@ async function fillResultCanvas(canvas) {
 
   const profile = faceImage
     ? faceMap(faceImage, size)
-    : { rows: [], top: size * 0.22, bottom: size * 0.62, innerLeft: size * 0.32, innerRight: size * 0.68, cx: size / 2 };
-  const headH = Math.max(40, profile.bottom - profile.top);
-  const headW = Math.max(40, profile.innerRight - profile.innerLeft);
-  const cx = (profile.innerLeft + profile.innerRight) / 2;
+    : { rows: [], top: size * 0.22, bottom: size * 0.62, coreW: size * 0.42, cx: size / 2 };
+  const headH = Math.max(48, profile.bottom - profile.top);
+  const headW = Math.max(48, profile.coreW);
+  const cx = profile.cx;
   const eyeY = profile.top + headH * 0.38;
   const eyeBand = cavityAt(profile, eyeY);
-  const eyeSpan = Math.max(20, eyeBand.right - eyeBand.left);
-  const eye = fitInside(profile, 0, eyeY, eyeSpan * 0.26, headH * 0.18);
-  const eyeGap = Math.min(eye.w * 0.45, eyeSpan * 0.1);
-  const leftEye = fitInside(profile, cx - eye.w / 2 - eyeGap / 2, eyeY, eye.w, eye.h);
-  const rightEye = fitInside(profile, cx + eye.w / 2 + eyeGap / 2, eyeY, eye.w, eye.h);
-  const nose = fitInside(profile, cx, profile.top + headH * 0.56, headW * 0.18, headH * 0.16);
-  const mouth = fitInside(profile, cx, profile.top + headH * 0.74, headW * 0.28, headH * 0.14);
-  const crown = cavityAt(profile, profile.top + headH * 0.1);
-  const hairW = Math.min(headW * 1.08, (crown.right - crown.left) * 1.12);
-  const hairH = headH * 0.4;
-  const hair = { cx, cy: profile.top + hairH * 0.22, w: hairW, h: hairH };
-  const body = bodyBox
-    ? {
-        cx: (size - faceImage.width * scale) / 2 + (bodyBox.x + bodyBox.w / 2) * scale,
-        cy: (size - faceImage.height * scale) / 2 + (bodyBox.y + bodyBox.h * 0.8) * scale,
-        w: bodyBox.w * scale * 0.42,
-        h: bodyBox.h * scale * 0.28,
-      }
-    : { cx, cy: profile.bottom + headH * 0.25, w: headW * 0.7, h: headH * 0.45 };
+  const eyeSpan = Math.max(24, eyeBand.right - eyeBand.left);
+  const eyeW = Math.min(headW * 0.22, eyeSpan * 0.28, headH * 0.2);
+  const eyeH = Math.min(headH * 0.16, eyeW * 0.95);
+  const eyeGap = Math.min(eyeW * 0.55, eyeSpan * 0.12);
+  const leftEye = placeFeature(profile, cx - eyeW / 2 - eyeGap / 2, eyeY, eyeW, eyeH);
+  const rightEye = placeFeature(profile, cx + eyeW / 2 + eyeGap / 2, eyeY, eyeW, eyeH);
+  const nose = placeFeature(profile, cx, profile.top + headH * 0.55, headW * 0.16, headH * 0.14);
+  const mouth = placeFeature(profile, cx, profile.top + headH * 0.73, headW * 0.3, headH * 0.13);
 
-  const layers = [
-    ["cloth", body.cx, body.cy, body.w, body.h, false],
-    ["hair", hair.cx, hair.cy, hair.w, hair.h, false],
+  const clothCx = bodyBox
+    ? (size - faceImage.width * scale) / 2 + (bodyBox.x + bodyBox.w / 2) * scale
+    : cx;
+  if (slot.picks.cloth) {
+    try {
+      const clothImage = await loadImage(slot.picks.cloth);
+      const clothBox = inkBounds(clothImage);
+      const clothW = headW * 0.8;
+      const clothHFit = Math.min(clothBox.h * (clothW / Math.max(clothBox.w, 1)), headH * 0.85);
+      drawPart(ctx, clothImage, clothCx, profile.bottom + clothHFit * 0.22, clothW, clothHFit, false);
+    } catch {
+      // skip a missing cloth
+    }
+  }
+
+  if (slot.picks.hair) {
+    try {
+      const hairImage = await loadImage(slot.picks.hair);
+      const { box: hairBox, anchorY } = densestUpperY(hairImage);
+      const hairW = headW * 1.04;
+      const hairHFit = Math.min(hairBox.h * (hairW / Math.max(hairBox.w, 1)), headH * 1.05);
+      const crownY = profile.top + Math.min(14, headH * 0.06);
+      const local = (anchorY - hairBox.y) / Math.max(hairBox.h, 1);
+      const hairCy = crownY + hairHFit / 2 - local * hairHFit;
+      drawPart(ctx, hairImage, cx, hairCy, hairW, hairHFit, false);
+    } catch {
+      // skip a missing hair
+    }
+  }
+
+  ctx.save();
+  clipHead(ctx, profile);
+  const faceParts = [
     ["E", leftEye.cx, leftEye.cy, leftEye.w, leftEye.h, false],
     ["E", rightEye.cx, rightEye.cy, rightEye.w, rightEye.h, true],
     ["N", nose.cx, nose.cy, nose.w, nose.h, false],
     ["M", mouth.cx, mouth.cy, mouth.w, mouth.h, false],
   ];
-
-  for (const [id, x, y, maxW, maxH, flip] of layers) {
+  for (const [id, x, y, maxW, maxH, flip] of faceParts) {
     if (!slot.picks[id]) {
       continue;
     }
@@ -509,6 +594,7 @@ async function fillResultCanvas(canvas) {
       // skip a missing layer
     }
   }
+  ctx.restore();
 }
 
 function renderResult() {
@@ -717,8 +803,34 @@ document.addEventListener("click", (event) => {
   }
 });
 
+async function renderPreview() {
+  const splash = document.getElementById("stopSplash");
+  if (splash) {
+    splash.hidden = true;
+  }
+  document.querySelector(".stop-app")?.classList.add("is-ready");
+  whoLabel.textContent = "미리보기";
+  const faces = SLOT_SETS.find((set) => set.id === "F")?.files || [];
+  const sample = Object.fromEntries(
+    SLOT_SETS.filter((set) => set.id !== "F").map((set) => [set.id, set.files[0]]),
+  );
+  stage.innerHTML = `
+    <div class="preview-grid">
+      ${faces.map((_, index) => `<canvas class="result-canvas" id="preview${index}" width="720" height="720"></canvas>`).join("")}
+    </div>
+  `;
+  for (let index = 0; index < faces.length; index += 1) {
+    slot.picks = { ...sample, F: faces[index] };
+    await fillResultCanvas(document.getElementById(`preview${index}`));
+  }
+}
+
 document.body.classList.toggle("is-embedded", embedded);
-renderStop();
-showIntroLogo();
-requestHost();
-startMqtt();
+if (params.get("preview") === "1") {
+  renderPreview();
+} else {
+  renderStop();
+  showIntroLogo();
+  requestHost();
+  startMqtt();
+}
