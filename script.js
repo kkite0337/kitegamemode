@@ -115,6 +115,13 @@ const MENU_COLORS = {
   양: "#2563eb",
   동: "#16a34a",
 };
+const MENU_FLAGS = {
+  한: "🇰🇷",
+  중: "🇨🇳",
+  일: "🇯🇵",
+  양: "🇺🇸",
+  동: "🇹🇭",
+};
 
 function sanitizeRoulette(slices) {
   return (Array.isArray(slices) ? slices : []).filter((item) => MENU_OPTIONS.includes(item));
@@ -1295,8 +1302,9 @@ function menuRouletteMarkup(slices, visible = false) {
   const radius = 118;
   const start0 = -Math.PI / 2;
   const sliceAngle = (Math.PI * 2) / items.length;
-  const fontSize = items.length <= 4 ? 22 : items.length <= 8 ? 16 : 12;
-  const labelOf = (key) => MENU_LABELS[key] || key;
+  const flagSize = items.length <= 4 ? 34 : items.length <= 8 ? 26 : 20;
+  const flagRadius = items.length <= 4 ? 78 : items.length <= 8 ? 72 : 64;
+  const flagOf = (key) => MENU_FLAGS[key] || "";
 
   const pegs = items
     .map((_, index) => {
@@ -1312,7 +1320,6 @@ function menuRouletteMarkup(slices, visible = false) {
     const key = items[0];
     slicesMarkup = `
       <circle cx="${center}" cy="${center}" r="${radius}" fill="${MENU_COLORS[key]}"></circle>
-      <text x="${center}" y="${center - 40}" fill="#fff" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
     `;
   } else {
     slicesMarkup = items
@@ -1324,16 +1331,20 @@ function menuRouletteMarkup(slices, visible = false) {
         const y0 = center + radius * Math.sin(from);
         const x1 = center + radius * Math.cos(to);
         const y1 = center + radius * Math.sin(to);
-        const mid = (from + to) / 2;
-        const lx = center + radius * 0.62 * Math.cos(mid);
-        const ly = center + radius * 0.62 * Math.sin(mid);
         return `
           <path d="M ${center} ${center} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${MENU_COLORS[key]}" stroke="#fff7e6" stroke-width="2"></path>
-          <text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" fill="#fff" font-size="${fontSize}" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
         `;
       })
       .join("");
   }
+
+  const flagsMarkup = items
+    .map((key, index) => {
+      const angle = items.length === 1 ? 0 : (index + 0.5) * (360 / items.length);
+      const lift = items.length === 1 ? 52 : flagRadius;
+      return `<span class="menu-roulette__flag" style="font-size:${flagSize}px;transform:translate(-50%,-50%) rotate(${angle}deg) translateY(-${lift}px) rotate(${-angle}deg)">${flagOf(key)}</span>`;
+    })
+    .join("");
 
   return `
     <div class="menu-roulette${visible ? " is-in" : ""}">
@@ -1346,6 +1357,7 @@ function menuRouletteMarkup(slices, visible = false) {
         ${pegs}
         <circle cx="${center}" cy="${center}" r="22" fill="#fffdf8" stroke="#c9a227" stroke-width="4"></circle>
       </svg>
+      ${flagsMarkup}
       </div>
     </div>
   `;

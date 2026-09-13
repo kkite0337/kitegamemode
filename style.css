@@ -650,8 +650,18 @@ body.is-admin .app {
 }
 
 .menu-roulette__spin {
+  position: relative;
   transform-origin: 50% 50%;
   will-change: transform;
+}
+
+.menu-roulette__flag {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
 }
 
 .menu-roulette__wheel {
