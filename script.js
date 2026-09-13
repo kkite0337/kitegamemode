@@ -43,7 +43,9 @@ function emptyPersonalSteps() {
 function emptyGame() {
   return {
     game: "",
+    pendingGame: "",
     phase: "idle",
+    players: [],
     drinks: emptyDrinks(),
     assignment: {},
     opened: emptyOpened(),
@@ -51,6 +53,26 @@ function emptyGame() {
     priceShares: {},
     personalSteps: emptyPersonalSteps(),
   };
+}
+
+function gamePlayers() {
+  const selected = Array.isArray(gameState.players) ? gameState.players : [];
+  const allowed = new Set(participantIds());
+  return selected.filter((id) => allowed.has(id));
+}
+
+function playerAccounts() {
+  return gamePlayers()
+    .map((id) => ACCOUNTS.find((account) => account.id === id))
+    .filter(Boolean);
+}
+
+function isGameActive() {
+  return Boolean(gameState.game) && gameState.phase !== "idle" && gameState.phase !== "pick";
+}
+
+function isInCurrentGame(id = currentAccount?.id) {
+  return Boolean(id) && gamePlayers().includes(id);
 }
 
 function emptyUserProfile(resetAt = 0) {
@@ -134,6 +156,8 @@ function loadGame() {
     return {
       ...emptyGame(),
       ...parsed,
+      pendingGame: parsed.pendingGame || "",
+      players: Array.isArray(parsed.players) ? parsed.players : [],
       drinks: { ...emptyDrinks(), ...parsed.drinks },
       opened: { ...emptyOpened(), ...parsed.opened },
       resultPicked: { drink: false, price: false, ...parsed.resultPicked },
@@ -291,7 +315,9 @@ function saveGame(options = {}) {
 function gameSignature(state) {
   return JSON.stringify({
     game: state.game,
+    pendingGame: state.pendingGame,
     phase: state.phase,
+    players: state.players,
     drinks: state.drinks,
     assignment: state.assignment,
     opened: state.opened,
@@ -430,6 +456,14 @@ function completeUserSetup() {
 }
 
 function currentDrink() {
+  if (!currentAccount) {
+    return { name: "", price: "", submitted: false };
+  }
+
+  if (!gameState.drinks[currentAccount.id]) {
+    gameState.drinks[currentAccount.id] = { name: "", price: "", submitted: false };
+  }
+
   return gameState.drinks[currentAccount.id];
 }
 
@@ -450,7 +484,7 @@ function showUserView() {
 
   registerForm.hidden = true;
 
-  if (gameState.game === "drink" && personalStep() !== "done") {
+  if (isGameActive() && isInCurrentGame() && (gameState.game !== "drink" || personalStep() !== "done")) {
     userMain.hidden = true;
     userPlay.hidden = false;
     renderUserPlay();
@@ -679,7 +713,7 @@ function giftMarkup(kind) {
 }
 
 function userDrinksListMarkup() {
-  const users = ACCOUNTS.filter((account) => account.role === "user");
+  const users = playerAccounts();
 
   return users
     .map((account) => {
@@ -714,8 +748,8 @@ function delay(ms) {
 }
 
 function totalDrinkPrice() {
-  return ACCOUNTS.reduce(
-    (sum, account) => sum + parsePrice(gameState.drinks[account.id].price),
+  return gamePlayers().reduce(
+    (sum, id) => sum + parsePrice(gameState.drinks[id]?.price),
     0,
   );
 }
@@ -814,7 +848,7 @@ function payoutMarkup() {
 }
 
 function resultTableMarkup() {
-  const rows = ACCOUNTS.map((account) => {
+  const rows = playerAccounts().map((account) => {
     const profile = profiles[account.id] || { name: "" };
     const giverId = gameState.assignment[account.id];
     const drinkName = giverId ? gameState.drinks[giverId]?.name || "" : "";
@@ -954,7 +988,16 @@ function clearPriceTalk(container) {
   delete container.dataset.priceTalk;
 }
 
+function otherGamePlayMarkup() {
+  return `<div class="wait-screen"><p>게임 진행</p></div>`;
+}
+
 function renderUserPlay() {
+  if (gameState.game !== "drink") {
+    userPlay.innerHTML = otherGamePlayMarkup();
+    return;
+  }
+
   if (gameState.phase !== "price-reveal") {
     clearPriceTalk(userPlay);
   }
@@ -991,12 +1034,46 @@ function renderUserPlay() {
   userPlay.innerHTML = waitMarkup("잠시만 기다려주세요.");
 }
 
+function playerPickMarkup() {
+  const selected = new Set(gamePlayers());
+  const cards = ACCOUNTS.map((account) => {
+    const profile = profiles[account.id] || emptyUserProfile();
+    const checked = selected.has(account.id) ? " checked" : "";
+    return `
+      <label class="player-pick__item">
+        <input class="player-pick__check" type="checkbox" data-player-id="${escapeAttr(account.id)}"${checked}>
+        <span class="player-pick__photo${profile.photo ? " has-photo" : ""}">
+          ${photoMarkup(profile.photo, `${account.id} 사진`)}
+        </span>
+        <span class="player-pick__meta">
+          <span class="player-pick__name">${escapeHtml(profile.name || "아직 없음")}</span>
+          <span class="player-pick__nick">${escapeHtml(profile.nickname || "아직 없음")}</span>
+        </span>
+      </label>
+    `;
+  }).join("");
+
+  return `
+    <div class="player-pick">
+      <p class="player-pick__title">사용자 선택</p>
+      <div class="player-pick__list">${cards}</div>
+      <p class="player-pick__error" id="playerPickError" hidden>한 명 이상 선택하세요</p>
+      <button class="btn-primary" type="button" data-action="confirm-players">완료</button>
+    </div>
+  `;
+}
+
 function renderAdminPlay() {
   if (gameState.phase !== "price-reveal") {
     clearPriceTalk(adminPlay);
   }
 
-  if (gameState.game !== "drink") {
+  if (gameState.phase === "pick") {
+    adminPlay.innerHTML = playerPickMarkup();
+    return;
+  }
+
+  if (!gameState.game) {
     adminPlay.innerHTML = `
       <div class="game-choices">
         ${GAME_CHOICES.map(
@@ -1011,9 +1088,15 @@ function renderAdminPlay() {
     return;
   }
 
-  const drink = currentDrink();
+  if (gameState.game !== "drink") {
+    adminPlay.innerHTML = otherGamePlayMarkup();
+    return;
+  }
 
-  if (gameState.phase === "entry" && !drink.submitted) {
+  const drink = currentDrink();
+  const adminPlaying = isInCurrentGame();
+
+  if (gameState.phase === "entry" && adminPlaying && !drink.submitted) {
     adminPlay.innerHTML = drinkFormMarkup(drink);
     return;
   }
@@ -1059,14 +1142,45 @@ function renderAdminPlay() {
   adminPlay.innerHTML = resultButtonsMarkup();
 }
 
-function startDrinkGame() {
+function beginPlayerPick(gameId) {
+  const pending = GAME_CHOICES.some((game) => game.id === gameId) ? gameId : "";
+  if (!pending) {
+    return;
+  }
+
   gameState = emptyGame();
-  gameState.game = "drink";
-  gameState.phase = "entry";
+  gameState.pendingGame = pending;
+  gameState.phase = "pick";
+  gameState.players = participantIds().filter((id) => profiles[id]?.submitted);
   userPlay.dataset.fanfare = "";
   userPlay.dataset.priceTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  saveGame();
+  refreshVisible();
+}
+
+function confirmPlayerPick() {
+  const checked = [...document.querySelectorAll("[data-player-id]:checked")].map((input) => input.dataset.playerId);
+  const players = checked.filter((id) => participantIds().includes(id));
+  const error = document.getElementById("playerPickError");
+  if (!players.length) {
+    if (error) {
+      error.hidden = false;
+    }
+    return;
+  }
+
+  if (error) {
+    error.hidden = true;
+  }
+
+  const gameId = gameState.pendingGame;
+  gameState = emptyGame();
+  gameState.game = gameId;
+  gameState.pendingGame = "";
+  gameState.players = players;
+  gameState.phase = gameId === "drink" ? "entry" : "play";
   saveGame();
   refreshVisible();
 }
@@ -1100,9 +1214,7 @@ function assignDrinks() {
     return;
   }
 
-  const ids = ACCOUNTS.map((account) => account.id).filter(
-    (id) => gameState.drinks[id].submitted,
-  );
+  const ids = gamePlayers().filter((id) => gameState.drinks[id]?.submitted);
 
   if (ids.length < 2) {
     gameState.assignment = Object.fromEntries(ids.map((id) => [id, id]));
@@ -1173,8 +1285,8 @@ function assignPriceShares() {
     return;
   }
 
-  const ids = ACCOUNTS.map((account) => account.id);
-  const total = ids.reduce((sum, id) => sum + parsePrice(gameState.drinks[id].price), 0);
+  const ids = gamePlayers();
+  const total = ids.reduce((sum, id) => sum + parsePrice(gameState.drinks[id]?.price), 0);
   const amounts = randomSplitByTen(total, ids.length);
 
   for (let index = amounts.length - 1; index > 0; index -= 1) {
@@ -1381,8 +1493,13 @@ function handlePlayClick(event) {
     return;
   }
 
-  if (button.dataset.game === "drink") {
-    startDrinkGame();
+  if (button.dataset.game) {
+    beginPlayerPick(button.dataset.game);
+    return;
+  }
+
+  if (button.dataset.action === "confirm-players") {
+    confirmPlayerPick();
     return;
   }
 
