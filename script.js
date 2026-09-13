@@ -1062,8 +1062,11 @@ function unwrapSantaGift() {
     gift.classList.add("is-shaking");
     afterJoke(1000, () => {
       gift.classList.remove("is-shaking");
-      playJokeFinale();
-      giftUnwrapBusy = false;
+      gift.classList.add("is-fading");
+      afterJoke(420, () => {
+        playJokeFinale();
+        giftUnwrapBusy = false;
+      });
     });
   });
 }
@@ -1083,8 +1086,13 @@ function jokeFireworkMarkup() {
 }
 
 function playJokeFinale() {
+  const fly = document.getElementById("jokeGiftFly");
   const party = document.getElementById("jokeParty");
   jokePage.classList.add("is-punchline");
+
+  if (fly) {
+    fly.hidden = true;
+  }
 
   if (party) {
     party.hidden = false;
