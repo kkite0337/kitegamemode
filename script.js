@@ -1,4 +1,5 @@
 const SESSION_KEY = "gift-draw-session";
+const SESSION_RESET_KEY = "gift-draw-session-reset";
 const PROFILE_KEY = "gift-draw-profiles";
 const PROFILE_RESET_KEY = "gift-draw-profile-reset";
 const GAME_KEY = "gift-draw-game";
@@ -289,9 +290,22 @@ function showPage(page) {
   document.body.classList.toggle("is-admin", page === "admin");
 }
 
+function currentResetAt() {
+  return Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
+}
+
+function sessionInvalidatedByReset(account) {
+  if (!account || account.role !== "user") {
+    return false;
+  }
+
+  return currentResetAt() > Number(sessionStorage.getItem(SESSION_RESET_KEY) || 0);
+}
+
 function enterAccount(account) {
   currentAccount = account;
   sessionStorage.setItem(SESSION_KEY, account.id);
+  sessionStorage.setItem(SESSION_RESET_KEY, String(currentResetAt()));
   loginError.hidden = true;
   userLabel.textContent = account.id;
   refreshVisible();
@@ -300,7 +314,9 @@ function enterAccount(account) {
 function logout() {
   currentAccount = null;
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_RESET_KEY);
   loginForm.reset();
+  loginError.hidden = true;
   showPage("login");
   loginId.focus();
 }
@@ -308,6 +324,11 @@ function logout() {
 function restoreSession() {
   const savedId = sessionStorage.getItem(SESSION_KEY);
   const account = ACCOUNTS.find((item) => item.id === savedId);
+  if (account && sessionInvalidatedByReset(account)) {
+    logout();
+    return;
+  }
+
   if (account) {
     enterAccount(account);
     return;
@@ -1461,6 +1482,11 @@ restoreSession();
 
 window.addEventListener("pageshow", () => {
   reloadProfilesFromStorage();
+  if (currentAccount && sessionInvalidatedByReset(currentAccount)) {
+    logout();
+    return;
+  }
+
   if (currentAccount) {
     refreshVisible();
   }
