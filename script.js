@@ -101,6 +101,13 @@ function sanitizeDrinks(drinks, resetAt = currentResetAt()) {
 }
 
 const MENU_OPTIONS = ["한", "중", "일", "양", "동"];
+const MENU_LABELS = {
+  한: "한식",
+  중: "중식",
+  일: "일식",
+  양: "양식",
+  동: "동남아",
+};
 
 function emptyMenu() {
   return { picks: [], submitted: false, updatedAt: 0 };
@@ -476,6 +483,7 @@ let syncWs = null;
 let syncWsRestart = 0;
 let mqttClient = null;
 let priceTalkToken = 0;
+let menuTalkToken = 0;
 
 function profileSignature(state) {
   return JSON.stringify(state);
@@ -1019,6 +1027,149 @@ function allMenusSubmitted() {
   return gamePlayers().every((id) => gameState.menus[id]?.submitted);
 }
 
+function menuTallies() {
+  const counts = Object.fromEntries(MENU_OPTIONS.map((key) => [key, 0]));
+  gamePlayers().forEach((id) => {
+    normalizeMenuPicks(gameState.menus[id]?.picks).forEach((pick) => {
+      counts[pick] += 1;
+    });
+  });
+
+  return MENU_OPTIONS.map((key) => ({
+    key,
+    label: MENU_LABELS[key] || key,
+    count: counts[key],
+  }));
+}
+
+function menuTallyLine(item) {
+  return `${escapeHtml(item.label)} <span class="menu-tally__count">${item.count}표</span>`;
+}
+
+function menuRevealFinalMarkup() {
+  return `
+    <div class="menu-reveal">
+      <div class="menu-tally">
+        ${menuTallies()
+          .map((item) => `<p class="menu-tally__item is-in">${menuTallyLine(item)}</p>`)
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function playThud() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const context = new AudioContextClass();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const now = context.currentTime;
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(110, now);
+  oscillator.frequency.exponentialRampToValueAtTime(42, now + 0.2);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.32, now + 0.014);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.32);
+}
+
+function stopMenuReveal() {
+  menuTalkToken += 1;
+}
+
+function clearMenuReveal(container) {
+  if (!container?.dataset.menuReveal) {
+    return;
+  }
+
+  stopMenuReveal();
+  delete container.dataset.menuReveal;
+}
+
+function isMenuRevealBusy() {
+  return userPlay?.dataset.menuReveal === "running" || adminPlay?.dataset.menuReveal === "running";
+}
+
+async function runMenuReveal(container, token) {
+  const intro = container.querySelector(".menu-reveal__intro");
+  if (!intro) {
+    return;
+  }
+
+  const typed = await typeChunks(
+    intro,
+    [{ text: "우리가 오늘 무엇을 먹을지 골라보겠습니다", cls: "" }],
+    token,
+    () => menuTalkToken,
+  );
+
+  if (!typed) {
+    return;
+  }
+
+  await delay(1500);
+  if (token !== menuTalkToken) {
+    return;
+  }
+
+  intro.classList.add("is-out");
+  await delay(460);
+  if (token !== menuTalkToken) {
+    return;
+  }
+
+  intro.remove();
+  const list = document.createElement("div");
+  list.className = "menu-tally";
+  container.querySelector(".menu-reveal")?.append(list);
+
+  for (const item of menuTallies()) {
+    if (token !== menuTalkToken) {
+      return;
+    }
+
+    const line = document.createElement("p");
+    line.className = "menu-tally__item";
+    line.innerHTML = menuTallyLine(item);
+    list.append(line);
+    void line.offsetWidth;
+    line.classList.add("is-in");
+    playThud();
+    await delay(820);
+  }
+
+  if (token === menuTalkToken) {
+    container.dataset.menuReveal = "done";
+  }
+}
+
+function renderMenuReveal(container) {
+  if (container.dataset.menuReveal === "running") {
+    return;
+  }
+
+  if (container.dataset.menuReveal === "done") {
+    container.innerHTML = menuRevealFinalMarkup();
+    return;
+  }
+
+  container.dataset.menuReveal = "running";
+  const token = ++menuTalkToken;
+  container.innerHTML = `
+    <div class="menu-reveal">
+      <p class="menu-reveal__intro"></p>
+    </div>
+  `;
+  runMenuReveal(container, token);
+}
+
 function adminReviewMarkup(listMarkup, canGoResult) {
   return `
     <div class="drink-status-list">${listMarkup}</div>
@@ -1043,7 +1194,7 @@ function totalDrinkPrice() {
   );
 }
 
-async function typeChunks(line, chunks, token) {
+async function typeChunks(line, chunks, token, getToken = () => priceTalkToken) {
   for (const chunk of chunks) {
     const span = document.createElement("span");
     if (chunk.cls) {
@@ -1053,7 +1204,7 @@ async function typeChunks(line, chunks, token) {
     line.append(span);
 
     for (const char of chunk.text) {
-      if (token !== priceTalkToken) {
+      if (token !== getToken()) {
         return false;
       }
 
@@ -1062,7 +1213,7 @@ async function typeChunks(line, chunks, token) {
     }
   }
 
-  return token === priceTalkToken;
+  return token === getToken();
 }
 
 function currentPriceShare() {
@@ -1366,6 +1517,15 @@ function renderUserPlay() {
   }
 
   if (gameState.game === "game2") {
+    if (gameState.phase !== "choose") {
+      clearMenuReveal(userPlay);
+    }
+
+    if (gameState.phase === "choose") {
+      renderMenuReveal(userPlay);
+      return;
+    }
+
     renderMenuPlay(userPlay);
     return;
   }
@@ -1468,6 +1628,10 @@ function renderAdminPlay() {
   }
 
   if (gameState.game === "game2") {
+    if (gameState.phase !== "choose") {
+      clearMenuReveal(adminPlay);
+    }
+
     const menu = currentMenu();
     const adminPlaying = isInCurrentGame();
 
@@ -1478,6 +1642,11 @@ function renderAdminPlay() {
 
     if (gameState.phase === "entry" || gameState.phase === "review") {
       adminPlay.innerHTML = adminReviewMarkup(userMenusListMarkup(), allMenusSubmitted());
+      return;
+    }
+
+    if (gameState.phase === "choose") {
+      renderMenuReveal(adminPlay);
       return;
     }
 
@@ -1550,6 +1719,8 @@ function beginPlayerPick(gameId) {
   userPlay.dataset.priceTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  clearMenuReveal(userPlay);
+  clearMenuReveal(adminPlay);
   saveGame();
   refreshVisible();
 }
@@ -1560,6 +1731,8 @@ function goToMainMenu() {
   userPlay.dataset.priceTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  clearMenuReveal(userPlay);
+  clearMenuReveal(adminPlay);
   adminView = "main";
   saveGame({ immediate: true });
   refreshVisible();
@@ -1905,7 +2078,7 @@ function handlePlayClick(event) {
     }
 
     gameState.phase = "choose";
-    saveGame();
+    saveGame({ immediate: true });
     refreshVisible();
     return;
   }
@@ -3084,6 +3257,10 @@ function shouldRefreshAfterRemote(result) {
   }
 
   if (isEditingDrink() || isEditingMenu()) {
+    return false;
+  }
+
+  if (gameState.game === "game2" && gameState.phase === "choose" && isMenuRevealBusy()) {
     return false;
   }
 

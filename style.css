@@ -529,6 +529,69 @@ body.is-admin .app {
   margin-top: 0;
 }
 
+.menu-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(360px, 100%);
+}
+
+.menu-reveal__intro {
+  margin: 0;
+  min-height: 3.4em;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.7;
+  transition: opacity 0.45s ease;
+}
+
+.menu-reveal__intro.is-out {
+  opacity: 0;
+}
+
+.menu-tally {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.menu-tally__item {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  opacity: 0;
+  transform: translateY(-72px) scale(1.16);
+}
+
+.menu-tally__item.is-in {
+  animation: menu-thud 0.52s cubic-bezier(0.18, 1.32, 0.28, 1) forwards;
+}
+
+.menu-tally__count {
+  color: #dc2626;
+}
+
+@keyframes menu-thud {
+  0% {
+    opacity: 0;
+    transform: translateY(-72px) scale(1.18);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translateY(8px) scale(1.06);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .profile-field input[readonly] {
   background: #f3efe6;
   color: #5c574e;
