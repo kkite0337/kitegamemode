@@ -449,6 +449,7 @@ const PHASE_RANK = {
   choose: 4,
   "menu-reveal": 5,
   "menu-spin": 6,
+  "menu-payout": 7,
   "drink-reveal": 5,
   "price-reveal": 6,
 };
@@ -1382,7 +1383,7 @@ function menuConfettiMarkup() {
   return `<div class="menu-confetti" aria-hidden="true">${bits}</div>`;
 }
 
-function menuWinMarkup(winner) {
+function menuWinMarkup(winner, forAdmin = false) {
   const label = MENU_LABELS[winner] || winner;
   return `
     <div class="menu-win">
@@ -1390,7 +1391,25 @@ function menuWinMarkup(winner) {
       <div class="menu-win__card">
         <p class="menu-win__title">축하합니다!</p>
         <p class="menu-win__prize">${escapeHtml(label)}당첨!</p>
+        ${forAdmin ? `<button class="btn-primary next-btn" type="button" data-action="go-menu-meal">넘어가기</button>` : ""}
       </div>
+    </div>
+  `;
+}
+
+function winningMealLabel() {
+  const spin = currentSpin();
+  const winner = spin.winner || currentRoulette()[spin.targetIndex] || "";
+  return MENU_LABELS[winner] || winner || "아직 없음";
+}
+
+function menuMealMarkup() {
+  return `
+    <div class="payout-screen">
+      <button class="account-copy" type="button" data-action="copy-account">${escapeHtml(accountLabel())}</button>
+      <p class="payout-copy" id="copyNotice" hidden>복사되었습니다</p>
+      <p class="payout-label">식사</p>
+      <p class="payout-value">${escapeHtml(winningMealLabel())}</p>
     </div>
   `;
 }
@@ -1455,7 +1474,7 @@ function showMenuWin(container, winner) {
     return;
   }
 
-  container.insertAdjacentHTML("beforeend", menuWinMarkup(winner));
+  container.insertAdjacentHTML("beforeend", menuWinMarkup(winner, container === adminPlay));
   playFanfare();
 }
 
@@ -2026,6 +2045,11 @@ function renderUserPlay() {
       return;
     }
 
+    if (gameState.phase === "menu-payout") {
+      userPlay.innerHTML = menuMealMarkup();
+      return;
+    }
+
     renderMenuPlay(userPlay);
     return;
   }
@@ -2165,6 +2189,11 @@ function renderAdminPlay() {
 
     if (gameState.phase === "menu-spin") {
       renderMenuSpin(adminPlay);
+      return;
+    }
+
+    if (gameState.phase === "menu-payout") {
+      adminPlay.innerHTML = menuMealMarkup();
       return;
     }
 
@@ -2648,6 +2677,13 @@ function handlePlayClick(event) {
     reloadProfilesFromStorage();
     gameState = loadGame();
     lastGameSignature = gameSignature(gameState);
+    refreshVisible();
+    return;
+  }
+
+  if (button.dataset.action === "go-menu-meal") {
+    gameState.phase = "menu-payout";
+    saveGame({ immediate: true });
     refreshVisible();
     return;
   }
