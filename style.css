@@ -1215,7 +1215,8 @@ body.is-admin .app {
   animation: joke-click-pulse 1.4s ease-in-out infinite;
 }
 
-.joke-page.is-unwrapped .joke-unwrap {
+.joke-page.is-unwrapped .joke-unwrap,
+.joke-page.is-punchline .joke-unwrap {
   opacity: 0;
   animation: none;
 }
@@ -1747,10 +1748,13 @@ body.is-admin .app {
   cursor: pointer;
 }
 
-.joke-page.is-opened .joke-click {
+.joke-page.is-opened .joke-click,
+.joke-page.is-gift-ready .joke-click,
+.joke-page.is-unwrapped .joke-click,
+.joke-page.is-punchline .joke-click {
   opacity: 0;
+  animation: none;
   pointer-events: none;
-  transition: opacity 0.4s ease;
 }
 
 .joke-page.is-opened .santa-sock {
