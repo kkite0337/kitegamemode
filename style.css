@@ -546,6 +546,15 @@ body.is-admin .app {
   word-break: break-word;
 }
 
+.admin-refresh-status {
+  width: min(280px, 100%);
+  margin: 0 0 4px;
+  text-align: center;
+  color: #d97706;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .btn-refresh,
 .btn-reset {
   width: min(280px, 100%);

@@ -113,7 +113,7 @@ function loadProfiles() {
   return Object.fromEntries(
     userIds().map((id) => {
       const loaded = pickRicherProfile(readStoredProfile(id), legacy[id]);
-      if ((loaded.resetAt || 0) < resetAt) {
+      if ((loaded.resetAt || 0) < resetAt && (loaded.updatedAt || 0) <= resetAt) {
         return [id, emptyUserProfile(resetAt)];
       }
 
@@ -167,6 +167,7 @@ const adminToSettings = document.getElementById("adminToSettings");
 const adminToMain = document.getElementById("adminToMain");
 const resetUsers = document.getElementById("resetUsers");
 const refreshUsers = document.getElementById("refreshUsers");
+const refreshStatus = document.getElementById("refreshStatus");
 
 let currentAccount = null;
 let adminView = "settings";
@@ -1207,11 +1208,27 @@ document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
 adminToMain.addEventListener("click", () => showAdminView("main"));
 resetUsers.addEventListener("click", resetUserProfiles);
+function showRefreshStatus() {
+  if (!refreshStatus) {
+    return;
+  }
+
+  const submittedCount = userIds().filter((id) => profiles[id]?.submitted).length;
+  refreshStatus.hidden = false;
+  refreshStatus.textContent = `불러왔습니다. 제출 완료 ${submittedCount}명 / 전체 ${userIds().length}명`;
+}
+
 refreshUsers.addEventListener("click", () => {
   reloadProfilesFromStorage();
   gameState = loadGame();
   lastGameSignature = gameSignature(gameState);
-  refreshVisible();
+  lastProfileSignature = profileSignature(profiles);
+  if (adminView === "settings") {
+    renderAdmin();
+  } else {
+    refreshVisible();
+  }
+  showRefreshStatus();
 });
 
 registerForm.addEventListener("submit", (event) => {
