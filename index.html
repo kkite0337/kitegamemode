@@ -11,7 +11,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=81">
+  <link rel="stylesheet" href="style.css?v=82">
 </head>
 <body>
   <main class="app">
@@ -64,6 +64,16 @@
       <p class="joke-click">클릭해보세요!</p>
       <p class="joke-unwrap">선물을 풀러보세요</p>
       <p class="joke-line">민지언니 바~보</p>
+      <div class="joke-drum" id="jokeDrum" hidden aria-hidden="true">
+        <div class="joke-drum__hit is-left">
+          <span class="joke-drum__stick"></span>
+          <span class="joke-drum__pad"></span>
+        </div>
+        <div class="joke-drum__hit is-right">
+          <span class="joke-drum__stick"></span>
+          <span class="joke-drum__pad"></span>
+        </div>
+      </div>
       <div class="joke-party" id="jokeParty" hidden aria-hidden="true"></div>
       <div class="joke-gift-fly" id="jokeGiftFly" hidden>
         <div class="gift" id="jokeGift" data-step="0" data-layer="0">
@@ -107,7 +117,7 @@
   </main>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="accounts.js?v=81"></script>
-  <script src="script.js?v=81"></script>
+  <script src="accounts.js?v=82"></script>
+  <script src="script.js?v=82"></script>
 </body>
 </html>

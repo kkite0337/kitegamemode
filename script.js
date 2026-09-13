@@ -911,6 +911,7 @@ function resetJokeScene() {
   const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
   const party = document.getElementById("jokeParty");
+  const drum = document.getElementById("jokeDrum");
 
   clearJokeTimers();
   giftUnwrapBusy = false;
@@ -934,6 +935,11 @@ function resetJokeScene() {
     party.innerHTML = "";
     party.hidden = true;
     jokePage.appendChild(party);
+  }
+
+  if (drum) {
+    drum.classList.remove("is-playing");
+    drum.hidden = true;
   }
 }
 
@@ -1052,9 +1058,11 @@ function unwrapSantaGift() {
 
     const layer = Number(gift.dataset.layer || 0);
     if (layer + 1 < GIFT_LAYER_COUNT) {
-      gift.classList.add("is-fading");
-      afterJoke(480, () => {
-        popNestedGift(gift, layer + 1);
+      afterJoke(380, () => {
+        gift.classList.add("is-fading");
+        afterJoke(480, () => {
+          playNextGiftWait(gift, layer + 1);
+        });
       });
       return;
     }
@@ -1068,6 +1076,64 @@ function unwrapSantaGift() {
         playJokeFinale();
         giftUnwrapBusy = false;
       });
+    });
+  });
+}
+
+function playDrumroll() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const context = new AudioContextClass();
+  const now = context.currentTime;
+
+  for (let index = 0; index < 8; index += 1) {
+    const start = now + index * 0.25;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.value = index % 2 === 0 ? 86 : 118;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.24, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.18);
+  }
+}
+
+function playNextGiftWait(gift, layer) {
+  const drum = document.getElementById("jokeDrum");
+  const fly = document.getElementById("jokeGiftFly");
+
+  if (fly) {
+    fly.style.visibility = "hidden";
+  }
+
+  if (drum) {
+    drum.hidden = false;
+    drum.classList.remove("is-playing");
+    void drum.offsetWidth;
+    drum.classList.add("is-playing");
+  }
+
+  playDrumroll();
+  afterJoke(2100, () => {
+    playFanfare();
+    afterJoke(700, () => {
+      if (drum) {
+        drum.classList.remove("is-playing");
+        drum.hidden = true;
+      }
+
+      if (fly) {
+        fly.style.visibility = "";
+      }
+
+      popNestedGift(gift, layer);
     });
   });
 }

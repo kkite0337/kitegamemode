@@ -1649,7 +1649,7 @@ body.is-admin .app {
   animation: gift-paper-off 0.7s ease-in forwards;
 }
 
-.gift[data-layer="2"][data-step="4"] .gift-inner {
+.gift[data-step="4"] .gift-inner {
   opacity: 1;
   animation: gift-inner-pop 0.45s 0.2s ease-out both;
 }
@@ -1845,8 +1845,113 @@ body.is-admin .app {
 }
 
 .joke-page.is-opened .santa-sock {
-  opacity: 0.2;
-  transition: opacity 0.5s ease 0.28s;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.joke-drum {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 84px;
+  pointer-events: none;
+}
+
+.joke-drum[hidden] {
+  display: none !important;
+}
+
+.joke-drum__hit {
+  position: relative;
+  width: 96px;
+  height: 120px;
+}
+
+.joke-drum__pad {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e8c39b 0 28%, #a16207 55%, #713f12 100%);
+  box-shadow: inset 0 -10px 0 rgba(69, 26, 3, 0.28), 0 8px 0 #451a03;
+  transform: translateX(-50%);
+}
+
+.joke-drum.is-playing .joke-drum__hit.is-left .joke-drum__pad {
+  animation: joke-drum-pad 0.5s ease-in-out 4;
+}
+
+.joke-drum.is-playing .joke-drum__hit.is-right .joke-drum__pad {
+  animation: joke-drum-pad 0.5s 0.25s ease-in-out 4;
+}
+
+.joke-drum__stick {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 10px;
+  height: 72px;
+  border-radius: 999px;
+  background: linear-gradient(#f5d0a9, #b45309);
+  transform-origin: 50% 8%;
+}
+
+.joke-drum__hit.is-left .joke-drum__stick {
+  transform: translateX(-50%) rotate(22deg);
+}
+
+.joke-drum__hit.is-right .joke-drum__stick {
+  transform: translateX(-50%) rotate(-22deg);
+}
+
+.joke-drum.is-playing .joke-drum__hit.is-left .joke-drum__stick {
+  animation: joke-drum-left 0.5s ease-in-out 4;
+}
+
+.joke-drum.is-playing .joke-drum__hit.is-right .joke-drum__stick {
+  animation: joke-drum-right 0.5s ease-in-out 4;
+}
+
+@keyframes joke-drum-left {
+  0%,
+  50%,
+  100% {
+    transform: translateX(-50%) rotate(24deg) translateY(-10px);
+  }
+
+  25% {
+    transform: translateX(-50%) rotate(-6deg) translateY(16px);
+  }
+}
+
+@keyframes joke-drum-right {
+  0%,
+  50%,
+  100% {
+    transform: translateX(-50%) rotate(-24deg) translateY(-10px);
+  }
+
+  75% {
+    transform: translateX(-50%) rotate(6deg) translateY(16px);
+  }
+}
+
+@keyframes joke-drum-pad {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+
+  40% {
+    transform: translateX(-50%) scale(1.08);
+  }
 }
 
 .santa-sock.is-opening .santa-sock__shape {
