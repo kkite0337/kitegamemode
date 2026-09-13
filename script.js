@@ -888,6 +888,7 @@ const jokeActionTimers = [];
 let giftUnwrapBusy = false;
 let jokeAudioCtx = null;
 let jokeApplause = null;
+let jokeDrumroll = null;
 
 function afterJoke(ms, fn) {
   const id = window.setTimeout(() => {
@@ -932,6 +933,17 @@ function resumeJokeAudio() {
   return jokeAudioCtx;
 }
 
+function stopJokeDrumroll() {
+  if (!jokeDrumroll) {
+    return;
+  }
+
+  jokeDrumroll.pause();
+  jokeDrumroll.removeAttribute("src");
+  jokeDrumroll.load();
+  jokeDrumroll = null;
+}
+
 function stopJokeApplause() {
   if (!jokeApplause) {
     return;
@@ -974,7 +986,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=97`;
+  const src = `assets/gift-${frame}.png?v=98`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1023,6 +1035,7 @@ function resetJokeScene() {
     suspense.textContent = "";
   }
 
+  stopJokeDrumroll();
   stopJokeApplause();
 }
 
@@ -1232,27 +1245,13 @@ function unwrapSantaGift() {
 }
 
 function playDrumroll() {
-  const context = resumeJokeAudio();
-  if (!context) {
-    return;
-  }
+  stopJokeDrumroll();
+  resumeJokeAudio();
 
-  const now = context.currentTime;
-
-  for (let index = 0; index < 18; index += 1) {
-    const start = now + index * 0.22;
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = "triangle";
-    oscillator.frequency.value = index % 2 === 0 ? 86 : 118;
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.24, start + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(start);
-    oscillator.stop(start + 0.18);
-  }
+  const audio = new Audio("assets/drumroll.mp3");
+  audio.volume = 0.78;
+  jokeDrumroll = audio;
+  audio.play().catch(() => {});
 }
 
 function hideJokeDrum() {
@@ -1263,6 +1262,7 @@ function hideJokeDrum() {
 
   drum.classList.remove("is-playing", "is-suspense", "is-fading");
   drum.hidden = true;
+  stopJokeDrumroll();
 }
 
 function showJokeDrum() {
