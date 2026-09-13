@@ -1236,9 +1236,10 @@ body.is-admin .app {
 .joke-gift-photo {
   position: relative;
   z-index: 4;
-  width: 168px;
-  height: 168px;
+  width: 180px;
+  height: 180px;
   object-fit: contain;
+  object-position: center 78%;
   pointer-events: none;
   filter: drop-shadow(0 10px 14px rgba(70, 52, 28, 0.16));
 }
@@ -1327,8 +1328,8 @@ body.is-admin .app {
   z-index: 30;
   display: grid;
   place-items: center;
-  width: 168px;
-  height: 168px;
+  width: 180px;
+  height: 180px;
   transition: opacity 0.45s ease, filter 0.45s ease;
   margin: 0;
   pointer-events: none;
