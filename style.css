@@ -502,7 +502,7 @@ body.is-admin .app {
 #adminSettings .admin-list,
 .admin-list--people {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: start;
   justify-content: center;
   gap: 10px;
@@ -752,6 +752,6 @@ body.is-admin .app {
 
 .admin-list--people {
   display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   flex-direction: unset;
 }

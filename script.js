@@ -3,8 +3,12 @@ const PROFILE_KEY = "gift-draw-profiles";
 const PROFILE_RESET_KEY = "gift-draw-profile-reset";
 const GAME_KEY = "gift-draw-game";
 
+function participantIds() {
+  return ACCOUNTS.map((account) => account.id);
+}
+
 function userIds() {
-  return ACCOUNTS.filter((account) => account.role === "user").map((account) => account.id);
+  return participantIds();
 }
 
 function userProfileKey(id) {
@@ -13,10 +17,7 @@ function userProfileKey(id) {
 
 function emptyProfiles() {
   return Object.fromEntries(
-    ACCOUNTS.filter((account) => account.role === "user").map((account) => [
-      account.id,
-      { name: "", nickname: "", photo: "", submitted: false, updatedAt: 0 },
-    ]),
+    participantIds().map((id) => [id, emptyUserProfile()]),
   );
 }
 
@@ -201,21 +202,19 @@ function saveProfile(id) {
   }
 }
 
-function saveProfiles() {
-  if (currentAccount?.role === "user" && profiles[currentAccount.id]) {
+function saveProfiles(options = {}) {
+  if (currentAccount && profiles[currentAccount.id]) {
     profiles[currentAccount.id].updatedAt = Date.now();
   }
 
-  const merged = loadProfiles();
-  if (currentAccount?.role === "user") {
-    merged[currentAccount.id] = profiles[currentAccount.id];
-  } else if (currentAccount?.role === "admin") {
-    userIds().forEach((id) => {
-      merged[id] = profiles[id];
-    });
+  if (!options.replaceAll) {
+    const merged = loadProfiles();
+    if (currentAccount && profiles[currentAccount.id]) {
+      merged[currentAccount.id] = profiles[currentAccount.id];
+    }
+    replaceProfiles(merged);
   }
 
-  replaceProfiles(merged);
   userIds().forEach(saveProfile);
   if (!writeLocal(PROFILE_KEY, profiles)) {
     writeLocal(PROFILE_KEY, Object.fromEntries(userIds().map((id) => [id, slimProfile(profiles[id])])));
@@ -235,10 +234,9 @@ function resetUserProfiles() {
   }
 
   replaceProfiles(emptyProfiles());
-  userIds().forEach(saveProfile);
+  saveProfiles({ replaceAll: true });
   lastProfileResetAt = Date.now();
   localStorage.setItem(PROFILE_RESET_KEY, String(lastProfileResetAt));
-  lastProfileSignature = profileSignature(profiles);
   refreshVisible();
 }
 
@@ -279,16 +277,8 @@ function enterAccount(account) {
   currentAccount = account;
   sessionStorage.setItem(SESSION_KEY, account.id);
   loginError.hidden = true;
-
-  if (account.role === "admin") {
-    showAdminView(adminView);
-    showPage("admin");
-    return;
-  }
-
   userLabel.textContent = account.id;
-  showUserView();
-  showPage("user");
+  refreshVisible();
 }
 
 function logout() {
@@ -323,12 +313,12 @@ function escapeHtml(value) {
 }
 
 function currentProfile() {
-  if (!currentAccount || currentAccount.role !== "user") {
+  if (!currentAccount) {
     return null;
   }
 
   if (!profiles[currentAccount.id]) {
-    profiles[currentAccount.id] = { name: "", nickname: "", photo: "", submitted: false };
+    profiles[currentAccount.id] = emptyUserProfile();
   }
 
   return profiles[currentAccount.id];
@@ -351,17 +341,7 @@ function completeUserSetup() {
 
   profile.submitted = true;
   saveProfiles();
-  registerForm.hidden = true;
-  userPlay.hidden = true;
-
-  if (gameState.game === "drink" && personalStep() !== "done") {
-    userMain.hidden = true;
-    userPlay.hidden = false;
-    renderUserPlay();
-    return;
-  }
-
-  userMain.hidden = false;
+  refreshVisible();
 }
 
 function currentDrink() {
@@ -417,12 +397,24 @@ function refreshVisible() {
     return;
   }
 
+  if (!currentProfile()?.submitted) {
+    userLabel.textContent = currentAccount.id;
+    registerForm.hidden = false;
+    userMain.hidden = true;
+    userPlay.hidden = true;
+    renderRegister();
+    showPage("user");
+    return;
+  }
+
   if (currentAccount.role === "admin") {
     showAdminView(adminView);
+    showPage("admin");
     return;
   }
 
   showUserView();
+  showPage("user");
 }
 
 function photoMarkup(photo, alt) {
@@ -516,11 +508,12 @@ function displayValue(value) {
 }
 
 function renderAdmin() {
-  const users = ACCOUNTS.filter((account) => account.role === "user");
+  const users = ACCOUNTS;
+  adminList.style.gridTemplateColumns = `repeat(${users.length}, minmax(0, 1fr))`;
 
   adminList.innerHTML = users
     .map((account) => {
-      const profile = profiles[account.id];
+      const profile = profiles[account.id] || emptyUserProfile();
       const hasPhoto = Boolean(profile.photo);
 
       return `
@@ -1172,7 +1165,7 @@ registerForm.addEventListener("input", (event) => {
   }
 
   const profile = currentProfile();
-  if (profile.submitted) {
+  if (!profile || profile.submitted) {
     return;
   }
 
@@ -1383,6 +1376,16 @@ function syncProfilesFromStorage() {
   }
 
   const next = loadProfiles();
+  if (currentAccount && !currentProfile()?.submitted) {
+    userIds().forEach((id) => {
+      if (id !== currentAccount.id) {
+        profiles[id] = next[id];
+      }
+    });
+    lastProfileSignature = profileSignature(profiles);
+    return;
+  }
+
   if (currentAccount?.role === "user") {
     const mine = currentAccount.id;
     userIds().forEach((id) => {
@@ -1401,7 +1404,7 @@ function syncProfilesFromStorage() {
 
   replaceProfiles(next);
   lastProfileSignature = signature;
-  if (currentAccount?.role === "admin" && adminView === "settings") {
+  if (currentAccount?.role === "admin" && adminView === "settings" && !adminPage.hidden) {
     renderAdmin();
   }
 }
