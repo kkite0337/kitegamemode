@@ -50,8 +50,8 @@ function emptyGame() {
   };
 }
 
-function emptyUserProfile() {
-  return { name: "", nickname: "", photo: "", submitted: false, updatedAt: 0 };
+function emptyUserProfile(resetAt = 0) {
+  return { name: "", nickname: "", photo: "", submitted: false, updatedAt: resetAt, resetAt };
 }
 
 function readJson(key, fallback) {
@@ -88,6 +88,10 @@ function readLegacyProfiles() {
 function pickRicherProfile(first, second) {
   const left = { ...emptyUserProfile(), ...first };
   const right = { ...emptyUserProfile(), ...second };
+  if ((left.resetAt || 0) !== (right.resetAt || 0)) {
+    return (left.resetAt || 0) > (right.resetAt || 0) ? left : right;
+  }
+
   if ((left.updatedAt || 0) !== (right.updatedAt || 0)) {
     return (left.updatedAt || 0) > (right.updatedAt || 0) ? left : right;
   }
@@ -102,9 +106,17 @@ function pickRicherProfile(first, second) {
 }
 
 function loadProfiles() {
+  const resetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
   const legacy = readLegacyProfiles();
   return Object.fromEntries(
-    userIds().map((id) => [id, pickRicherProfile(readStoredProfile(id), legacy[id])]),
+    userIds().map((id) => {
+      const loaded = pickRicherProfile(readStoredProfile(id), legacy[id]);
+      if ((loaded.resetAt || 0) < resetAt) {
+        return [id, emptyUserProfile(resetAt)];
+      }
+
+      return [id, loaded];
+    }),
   );
 }
 
@@ -188,6 +200,7 @@ function slimProfile(profile) {
     photo: "",
     submitted: Boolean(profile.submitted),
     updatedAt: profile.updatedAt || 0,
+    resetAt: profile.resetAt || 0,
   };
 }
 
@@ -233,10 +246,13 @@ function resetUserProfiles() {
     return;
   }
 
-  replaceProfiles(emptyProfiles());
+  const resetAt = Date.now();
+  lastProfileResetAt = resetAt;
+  localStorage.setItem(PROFILE_RESET_KEY, String(resetAt));
+  replaceProfiles(Object.fromEntries(userIds().map((id) => [id, emptyUserProfile(resetAt)])));
   saveProfiles({ replaceAll: true });
-  lastProfileResetAt = Date.now();
-  localStorage.setItem(PROFILE_RESET_KEY, String(lastProfileResetAt));
+  gameState = emptyGame();
+  saveGame();
   refreshVisible();
 }
 
@@ -329,6 +345,8 @@ function completeUserSetup() {
   if (!profile) {
     return;
   }
+
+  profile.resetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
 
   const nameInput = document.getElementById("nameInput");
   const nicknameInput = document.getElementById("nicknameInput");
@@ -1367,43 +1385,34 @@ adminPlay.addEventListener("submit", handlePlaySubmit);
 
 function syncProfilesFromStorage() {
   const resetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
-  if (resetAt > lastProfileResetAt) {
-    replaceProfiles(loadProfiles());
-    lastProfileResetAt = resetAt;
-    lastProfileSignature = profileSignature(profiles);
-    refreshVisible();
+  const wasSubmitted = Boolean(currentProfile()?.submitted);
+  const next = loadProfiles();
+  const signature = profileSignature(next);
+
+  if (signature === lastProfileSignature && resetAt === lastProfileResetAt) {
     return;
   }
 
-  const next = loadProfiles();
-  if (currentAccount && !currentProfile()?.submitted) {
+  if (currentAccount && !wasSubmitted && !next[currentAccount.id]?.submitted) {
     userIds().forEach((id) => {
       if (id !== currentAccount.id) {
         profiles[id] = next[id];
       }
     });
+    lastProfileResetAt = resetAt;
     lastProfileSignature = profileSignature(profiles);
-    return;
-  }
-
-  if (currentAccount?.role === "user") {
-    const mine = currentAccount.id;
-    userIds().forEach((id) => {
-      if (id !== mine) {
-        profiles[id] = next[id];
-      }
-    });
-    lastProfileSignature = profileSignature(profiles);
-    return;
-  }
-
-  const signature = profileSignature(next);
-  if (signature === lastProfileSignature) {
     return;
   }
 
   replaceProfiles(next);
+  lastProfileResetAt = resetAt;
   lastProfileSignature = signature;
+
+  if (wasSubmitted && !currentProfile()?.submitted) {
+    refreshVisible();
+    return;
+  }
+
   if (currentAccount?.role === "admin" && adminView === "settings" && !adminPage.hidden) {
     renderAdmin();
   }
@@ -1449,3 +1458,10 @@ setInterval(() => {
 lastProfileSignature = profileSignature(profiles);
 lastGameSignature = gameSignature(gameState);
 restoreSession();
+
+window.addEventListener("pageshow", () => {
+  reloadProfilesFromStorage();
+  if (currentAccount) {
+    refreshVisible();
+  }
+});
