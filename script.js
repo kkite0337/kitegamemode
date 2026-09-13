@@ -1387,8 +1387,7 @@ refreshUsers.addEventListener("click", async () => {
   if (syncIsHost) {
     broadcastPeerState();
   }
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  await pullRemoteState({ replaceCurrent: true });
+  await new Promise((resolve) => setTimeout(resolve, 800));
   reloadProfilesFromStorage();
   gameState = loadGame();
   lastGameSignature = gameSignature(gameState);
@@ -1631,17 +1630,18 @@ function emptyRemoteState() {
   return {
     resetAt: 0,
     profiles: {},
-    game: emptyGame(),
     gameUpdatedAt: 0,
   };
 }
 
 function normalizeRemoteState(raw) {
   const parsed = raw && typeof raw === "object" ? raw : {};
-  const game = parsed.game && typeof parsed.game === "object" ? parsed.game : {};
+  const hasGame = parsed.game && typeof parsed.game === "object";
+  const game = hasGame ? parsed.game : {};
   return {
     resetAt: Number(parsed.resetAt || 0),
     profiles: parsed.profiles && typeof parsed.profiles === "object" ? parsed.profiles : {},
+    hasGame,
     game: {
       ...emptyGame(),
       ...game,
@@ -1663,7 +1663,13 @@ function persistGameLocal() {
 
 function mergeProfileMaps(first, second) {
   return Object.fromEntries(
-    userIds().map((id) => [id, pickRicherProfile(first?.[id], second?.[id])]),
+    userIds().map((id) => {
+      if (!second || !Object.prototype.hasOwnProperty.call(second, id)) {
+        return [id, { ...emptyUserProfile(), ...first?.[id] }];
+      }
+
+      return [id, pickRicherProfile(first?.[id], second[id])];
+    }),
   );
 }
 
@@ -1690,9 +1696,11 @@ function applyRemoteState(remote, options = {}) {
     lastProfileResetAt = remoteReset;
     replaceProfiles(applyResetProfiles(remoteReset, incoming.profiles));
     persistProfilesLocal();
-    gameState = incoming.game;
-    gameUpdatedAt = incoming.gameUpdatedAt;
-    persistGameLocal();
+    if (incoming.hasGame) {
+      gameState = incoming.game;
+      gameUpdatedAt = incoming.gameUpdatedAt;
+      persistGameLocal();
+    }
     return { changed: true, reset: true };
   }
 
@@ -1725,7 +1733,7 @@ function applyRemoteState(remote, options = {}) {
     changed = true;
   }
 
-  if (incoming.gameUpdatedAt > gameUpdatedAt) {
+  if (incoming.hasGame && incoming.gameUpdatedAt > gameUpdatedAt) {
     const typingDrink =
       document.activeElement &&
       (document.activeElement.id === "drinkName" || document.activeElement.id === "drinkPrice");
@@ -1808,12 +1816,36 @@ async function putRemoteState(state) {
   throw lastError || new Error("remote-put-failed");
 }
 
-function currentSyncPayload() {
+function packedProfiles(withPhotos) {
+  return Object.fromEntries(
+    userIds().map((id) => {
+      const item = profiles[id] || emptyUserProfile();
+      return [id, withPhotos ? { ...item } : slimProfile(item)];
+    }),
+  );
+}
+
+function currentSyncPayload(withPhotos = false) {
   return {
     type: "state",
     resetAt: currentResetAt(),
-    profiles: JSON.parse(JSON.stringify(profiles)),
+    profiles: packedProfiles(withPhotos),
     game: JSON.parse(JSON.stringify(gameState)),
+    gameUpdatedAt,
+  };
+}
+
+function ownProfilePayload() {
+  if (!currentAccount || !profiles[currentAccount.id]) {
+    return null;
+  }
+
+  return {
+    type: "state",
+    resetAt: currentResetAt(),
+    profiles: {
+      [currentAccount.id]: slimProfile(profiles[currentAccount.id]),
+    },
     gameUpdatedAt,
   };
 }
@@ -1829,8 +1861,15 @@ function sendPeer(conn, data) {
 }
 
 function sendWs(data) {
-  if (syncWs?.readyState === WebSocket.OPEN) {
+  if (syncWs?.readyState !== WebSocket.OPEN) {
+    return false;
+  }
+
+  try {
     syncWs.send(JSON.stringify({ room: peerRoomId(), ...data }));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -1851,7 +1890,12 @@ function broadcastPeerState() {
 
 function handlePeerPayload(data, fromConn) {
   if (data?.type === "request") {
-    sendPeer(fromConn, currentSyncPayload());
+    const reply = currentSyncPayload(false);
+    if (typeof fromConn?.send === "function") {
+      fromConn.send(reply);
+    } else {
+      sendPeer(fromConn, reply);
+    }
     return;
   }
 
@@ -2071,7 +2115,11 @@ function startWsSync() {
 
   syncWs.onopen = () => {
     sendWs({ type: "request" });
-    sendWs(currentSyncPayload());
+    sendWs(currentSyncPayload(false));
+    const mine = ownProfilePayload();
+    if (mine) {
+      sendWs(mine);
+    }
   };
   syncWs.onmessage = (event) => {
     handleRelayMessage(event.data);
@@ -2163,6 +2211,12 @@ async function pullRemoteState(options = {}) {
 
   try {
     const remote = await fetchRemoteState();
+    const incoming = normalizeRemoteState(remote);
+    const hasProfiles = Boolean(incoming.profiles && Object.keys(incoming.profiles).length);
+    if (!hasProfiles && !incoming.hasGame && incoming.resetAt <= currentResetAt()) {
+      return false;
+    }
+
     const result = applyRemoteState(remote, options);
     if (logoutUserIfReset()) {
       return true;
@@ -2274,14 +2328,15 @@ setInterval(() => {
   syncGameFromStorage();
 }, 500);
 setInterval(() => {
-  pullRemoteState();
-}, 1000);
-setInterval(() => {
   if (!currentAccount) {
     return;
   }
 
   sendWs({ type: "request" });
+  const mine = ownProfilePayload();
+  if (mine) {
+    sendWs(mine);
+  }
   broadcastPeerState();
 }, 1500);
 lastProfileSignature = profileSignature(profiles);
