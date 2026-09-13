@@ -356,6 +356,19 @@ function slimProfile(profile) {
   };
 }
 
+function isEmptyProfile(profile) {
+  const item = { ...emptyUserProfile(), ...profile };
+  return !item.submitted && !item.name && !item.nickname && !item.photo;
+}
+
+function filledProfiles(state = profiles) {
+  return Object.fromEntries(
+    userIds()
+      .map((id) => [id, state?.[id]])
+      .filter(([, profile]) => profile && !isEmptyProfile(profile)),
+  );
+}
+
 function saveProfile(id) {
   const profile = profiles[id];
   if (!profile) {
@@ -382,11 +395,7 @@ function saveProfiles(options = {}) {
   }
 
   if (!options.replaceAll) {
-    const merged = loadProfiles();
-    if (currentAccount && profiles[currentAccount.id]) {
-      merged[currentAccount.id] = profiles[currentAccount.id];
-    }
-    replaceProfiles(merged);
+    replaceProfiles(mergeProfileMaps(loadProfiles(), profiles));
   }
 
   persistProfilesLocal();
@@ -394,7 +403,8 @@ function saveProfiles(options = {}) {
 }
 
 function reloadProfilesFromStorage() {
-  replaceProfiles(loadProfiles());
+  replaceProfiles(mergeProfileMaps(loadProfiles(), profiles));
+  persistProfilesLocal();
   lastProfileSignature = profileSignature(profiles);
 }
 
@@ -1503,11 +1513,14 @@ refreshUsers.addEventListener("click", async () => {
   if (syncIsHost) {
     broadcastPeerState();
   }
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  publishMqttHello();
+  await new Promise((resolve) => setTimeout(resolve, 1200));
   reloadProfilesFromStorage();
-  gameState = loadGame();
+  gameState = mergeGameState(gameState, loadGame());
   lastGameSignature = gameSignature(gameState);
   lastProfileSignature = profileSignature(profiles);
+  persistProfilesLocal();
+  persistGameLocal();
   if (adminView === "settings") {
     renderAdmin();
   } else {
@@ -1806,11 +1819,17 @@ function persistGameLocal() {
 function mergeProfileMaps(first, second) {
   return Object.fromEntries(
     userIds().map((id) => {
-      if (!second || !Object.prototype.hasOwnProperty.call(second, id)) {
-        return [id, { ...emptyUserProfile(), ...first?.[id] }];
+      const local = first?.[id];
+      const remote = second?.[id];
+      if (!second || !Object.prototype.hasOwnProperty.call(second, id) || isEmptyProfile(remote)) {
+        return [id, { ...emptyUserProfile(), ...local }];
       }
 
-      return [id, pickRicherProfile(first?.[id], second[id])];
+      if (isEmptyProfile(local)) {
+        return [id, { ...emptyUserProfile(), ...remote }];
+      }
+
+      return [id, pickRicherProfile(local, remote)];
     }),
   );
 }
@@ -1970,10 +1989,12 @@ async function putRemoteState(state) {
 
 function packedProfiles(withPhotos) {
   return Object.fromEntries(
-    userIds().map((id) => {
-      const item = profiles[id] || emptyUserProfile();
-      return [id, withPhotos ? { ...item } : slimProfile(item)];
-    }),
+    userIds()
+      .map((id) => {
+        const item = profiles[id] || emptyUserProfile();
+        return [id, withPhotos ? { ...item } : slimProfile(item)];
+      })
+      .filter(([, item]) => !isEmptyProfile(item)),
   );
 }
 
@@ -2286,25 +2307,48 @@ function startWsSync() {
   };
 }
 
-function mqttTopic(kind, id) {
-  const prefix = typeof SYNC_MQTT_PREFIX === "string" ? SYNC_MQTT_PREFIX : "kitegamemode/kr/v21";
-  return id ? `${prefix}/${kind}/${id}` : `${prefix}/${kind}`;
+function mqttTopic(kind, id, prefix) {
+  const root =
+    prefix ||
+    (typeof SYNC_MQTT_PREFIX === "string" && SYNC_MQTT_PREFIX ? SYNC_MQTT_PREFIX : "kitegamemode/kr/live");
+  return id ? `${root}/${kind}/${id}` : `${root}/${kind}`;
+}
+
+function mqttListenRoot() {
+  const live = typeof SYNC_MQTT_PREFIX === "string" && SYNC_MQTT_PREFIX ? SYNC_MQTT_PREFIX : "kitegamemode/kr/live";
+  const parts = live.split("/");
+  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : live;
 }
 
 function mqttReady() {
   return Boolean(mqttClient?.connected);
 }
 
-function publishMqttJson(topic, data) {
+function publishMqttJson(topic, data, options = {}) {
   if (!mqttReady()) {
     return;
   }
 
   try {
-    mqttClient.publish(topic, JSON.stringify(data), { retain: true, qos: 0 });
+    mqttClient.publish(topic, JSON.stringify(data), {
+      retain: options.retain !== false,
+      qos: 0,
+    });
   } catch {
     // ignore
   }
+}
+
+function publishMqttProfile(id) {
+  const profile = profiles[id];
+  if (!profile || isEmptyProfile(profile)) {
+    return;
+  }
+
+  publishMqttJson(mqttTopic("user", id), {
+    resetAt: currentResetAt(),
+    profile: slimProfile(profile),
+  });
 }
 
 function publishMqttOwn() {
@@ -2312,11 +2356,38 @@ function publishMqttOwn() {
     return;
   }
 
-  const profile = slimProfile(profiles[currentAccount.id] || emptyUserProfile());
-  publishMqttJson(mqttTopic("user", currentAccount.id), {
+  publishMqttProfile(currentAccount.id);
+}
+
+function publishMqttRoster() {
+  const roster = filledProfiles();
+  if (!Object.keys(roster).length) {
+    return;
+  }
+
+  publishMqttJson(mqttTopic("roster"), {
     resetAt: currentResetAt(),
-    profile,
+    profiles: packedProfiles(false),
+    gameUpdatedAt,
   });
+}
+
+function publishMqttKnownUsers() {
+  userIds().forEach((id) => {
+    publishMqttProfile(id);
+  });
+}
+
+function publishMqttHello() {
+  publishMqttJson(
+    mqttTopic("hello"),
+    {
+      type: "hello",
+      from: currentAccount?.id || "",
+      at: Date.now(),
+    },
+    { retain: false },
+  );
 }
 
 function publishMqttDrink(id) {
@@ -2334,10 +2405,16 @@ function publishMqttDrink(id) {
 function publishMqttGame() {
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
-  publishMqttJson(mqttTopic("game"), {
-    game,
-    gameUpdatedAt,
-  });
+  const idle =
+    (!game.game || game.phase === "idle") &&
+    !Object.keys(game.drinks).length &&
+    !(game.players || []).length;
+  if (!idle) {
+    publishMqttJson(mqttTopic("game"), {
+      game,
+      gameUpdatedAt,
+    });
+  }
   if (currentAccount) {
     publishMqttDrink(currentAccount.id);
   }
@@ -2355,6 +2432,11 @@ function publishMqttReset(resetAt) {
     });
   });
   publishMqttJson(mqttTopic("reset"), { resetAt });
+  publishMqttJson(mqttTopic("roster"), {
+    resetAt,
+    profiles: {},
+    gameUpdatedAt: resetAt,
+  });
   publishMqttJson(mqttTopic("game"), {
     game: emptyGame(),
     gameUpdatedAt: resetAt,
@@ -2363,6 +2445,32 @@ function publishMqttReset(resetAt) {
 
 function handleMqttMessage(topic, data) {
   if (!data || typeof data !== "object") {
+    return;
+  }
+
+  if (topic.endsWith("/hello")) {
+    if (data.from && currentAccount && data.from === currentAccount.id) {
+      return;
+    }
+
+    publishMqttRoster();
+    publishMqttKnownUsers();
+    publishMqttGame();
+    return;
+  }
+
+  if (topic.endsWith("/roster")) {
+    const result = applyRemoteState({
+      resetAt: Number(data.resetAt || 0),
+      profiles: data.profiles || {},
+    });
+    if (logoutUserIfReset()) {
+      return;
+    }
+
+    if (shouldRefreshAfterRemote(result)) {
+      refreshVisible();
+    }
     return;
   }
 
@@ -2467,11 +2575,30 @@ function startMqttSync(url) {
   });
 
   mqttClient.on("connect", () => {
-    mqttClient.subscribe(mqttTopic("user") + "/+", { qos: 0 });
-    mqttClient.subscribe(mqttTopic("drink") + "/+", { qos: 0 });
-    mqttClient.subscribe(mqttTopic("game"), { qos: 0 });
-    mqttClient.subscribe(mqttTopic("reset"), { qos: 0 });
+    const root = mqttListenRoot();
+    const topics = [
+      `${root}/+/user/+`,
+      `${root}/+/drink/+`,
+      `${root}/+/game`,
+      `${root}/+/reset`,
+      `${root}/+/roster`,
+      `${root}/+/hello`,
+    ];
+    topics.forEach((topic) => {
+      mqttClient.subscribe(topic, { qos: 0 });
+    });
+    if (Array.isArray(SYNC_MQTT_LEGACY_PREFIXES)) {
+      SYNC_MQTT_LEGACY_PREFIXES.forEach((prefix) => {
+        mqttClient.subscribe(`${prefix}/user/+`, { qos: 0 });
+        mqttClient.subscribe(`${prefix}/drink/+`, { qos: 0 });
+        mqttClient.subscribe(`${prefix}/game`, { qos: 0 });
+        mqttClient.subscribe(`${prefix}/reset`, { qos: 0 });
+      });
+    }
+    publishMqttHello();
     publishMqttOwn();
+    publishMqttRoster();
+    publishMqttKnownUsers();
     publishMqttGame();
   });
 
@@ -2493,6 +2620,8 @@ function startMqttSync(url) {
 function scheduleRemotePush(immediate = false) {
   broadcastPeerState();
   publishMqttOwn();
+  publishMqttRoster();
+  publishMqttKnownUsers();
   publishMqttGame();
   if (!syncEnabled()) {
     return;
@@ -2623,17 +2752,15 @@ function syncProfilesFromStorage() {
   }
 
   if (currentAccount && !wasSubmitted && !next[currentAccount.id]?.submitted) {
-    userIds().forEach((id) => {
-      if (id !== currentAccount.id) {
-        profiles[id] = next[id];
-      }
-    });
+    const merged = mergeProfileMaps(next, profiles);
+    merged[currentAccount.id] = profiles[currentAccount.id];
+    replaceProfiles(merged);
     lastProfileResetAt = resetAt;
     lastProfileSignature = profileSignature(profiles);
     return;
   }
 
-  replaceProfiles(next);
+  replaceProfiles(mergeProfileMaps(next, profiles));
   lastProfileResetAt = resetAt;
   lastProfileSignature = signature;
 
@@ -2714,6 +2841,8 @@ setInterval(() => {
     sendWs(mine);
   }
   publishMqttOwn();
+  publishMqttRoster();
+  publishMqttKnownUsers();
   broadcastPeerState();
 }, 1500);
 lastProfileSignature = profileSignature(profiles);

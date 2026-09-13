@@ -20,7 +20,12 @@ const SYNC_WS =
   "wss://demo.piesocket.com/v3/kitegamemodekrv1?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self=1";
 const SYNC_MQTT = "wss://broker.hivemq.com:8884/mqtt";
 const SYNC_MQTT_FALLBACK = "wss://broker.emqx.io:8084/mqtt";
-const SYNC_MQTT_PREFIX = "kitegamemode/kr/v23";
+const SYNC_MQTT_PREFIX = "kitegamemode/kr/live";
+const SYNC_MQTT_LEGACY_PREFIXES = [
+  "kitegamemode/kr/v21",
+  "kitegamemode/kr/v22",
+  "kitegamemode/kr/v23",
+];
 
 const GAME_CHOICES = [
   { id: "drink", label: "음료를 고르자!" },
