@@ -1008,7 +1008,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=101`;
+  const src = `assets/gift-${frame}.png?v=102`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1186,15 +1186,16 @@ function popNestedGift(layer) {
 
   playJokeTada();
   jokePage.classList.add("is-nudge");
+  fly?.classList.remove("is-shaking");
   afterJoke(3000, () => {
     jokePage.classList.remove("is-nudge");
+    fly?.classList.add("is-shaking");
   });
 
   void gift.offsetWidth;
   gift.classList.add("is-nesting");
   afterJoke(1100, () => {
     gift.classList.remove("is-nesting");
-    fly?.classList.add("is-shaking");
     giftUnwrapBusy = false;
   });
 }

@@ -1171,20 +1171,20 @@ body.is-admin .app {
   top: calc(50% - 150px);
   z-index: 36;
   margin: 0;
-  width: min(320px, calc(100% - 32px));
+  width: min(340px, calc(100% - 32px));
   color: #171412;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.05em;
   line-height: 1.35;
   text-align: center;
   opacity: 0;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -220%) scale(1.35);
   pointer-events: none;
 }
 
 .joke-page.is-nudge .joke-nudge {
-  animation: joke-nudge-in 0.4s cubic-bezier(0.22, 0.86, 0.2, 1) both;
+  animation: joke-nudge-slam 0.48s cubic-bezier(0.18, 0.9, 0.22, 1.18) both;
 }
 
 .joke-page.is-punchline .joke-nudge {
@@ -1192,10 +1192,19 @@ body.is-admin .app {
   animation: none;
 }
 
-@keyframes joke-nudge-in {
+@keyframes joke-nudge-slam {
   0% {
     opacity: 0;
-    transform: translate(-50%, -80%) scale(0.92);
+    transform: translate(-50%, -240%) scale(1.42);
+  }
+
+  62% {
+    opacity: 1;
+    transform: translate(-50%, -92%) scale(1.08);
+  }
+
+  78% {
+    transform: translate(-50%, -108%) scale(0.96);
   }
 
   100% {
