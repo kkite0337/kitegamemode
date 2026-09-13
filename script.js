@@ -226,6 +226,17 @@ function readLegacyProfiles() {
 function pickRicherProfile(first, second) {
   const left = { ...emptyUserProfile(), ...first };
   const right = { ...emptyUserProfile(), ...second };
+  const leftEmpty = isEmptyProfile(left);
+  const rightEmpty = isEmptyProfile(right);
+  if (leftEmpty !== rightEmpty) {
+    const filled = leftEmpty ? right : left;
+    const blank = leftEmpty ? left : right;
+    if ((filled.updatedAt || 0) > (blank.resetAt || 0) || (filled.resetAt || 0) >= (blank.resetAt || 0)) {
+      return filled;
+    }
+    return blank;
+  }
+
   if ((left.resetAt || 0) !== (right.resetAt || 0)) {
     return (left.resetAt || 0) > (right.resetAt || 0) ? left : right;
   }
@@ -577,7 +588,9 @@ function completeUserSetup() {
   }
 
   profile.submitted = true;
+  profile.updatedAt = Date.now();
   saveProfiles({ immediate: true });
+  publishMqttHello();
   refreshVisible();
 }
 
@@ -1523,13 +1536,15 @@ function showRefreshStatus() {
 
   const submittedCount = userIds().filter((id) => profiles[id]?.submitted).length;
   refreshStatus.hidden = false;
-  refreshStatus.textContent = `불러왔습니다. 제출 완료 ${submittedCount}명 / 전체 ${userIds().length}명`;
+  refreshStatus.textContent = mqttReady()
+    ? `불러왔습니다. 제출 완료 ${submittedCount}명 / 전체 ${userIds().length}명`
+    : `연결이 불안정합니다. 제출 완료 ${submittedCount}명 / 전체 ${userIds().length}명. 잠시 후 다시 눌러주세요.`;
 }
 
 refreshUsers.addEventListener("click", async () => {
   if (refreshStatus) {
     refreshStatus.hidden = false;
-    refreshStatus.textContent = "불러오는 중...";
+    refreshStatus.textContent = mqttReady() ? "불러오는 중..." : "연결 중... 다시 요청합니다.";
   }
 
   sendWs({ type: "request" });
@@ -1540,7 +1555,15 @@ refreshUsers.addEventListener("click", async () => {
     broadcastPeerState();
   }
   publishMqttHello();
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+  publishMqttOwn();
+  try {
+    await pullRemoteState({ silent: true });
+  } catch {
+    // gist가 없어도 MQTT 응답은 기다립니다.
+  }
+  await new Promise((resolve) => setTimeout(resolve, mqttReady() ? 1600 : 2400));
+  publishMqttHello();
+  await new Promise((resolve) => setTimeout(resolve, 800));
   reloadProfilesFromStorage();
   gameState = mergeGameState(gameState, loadGame());
   lastGameSignature = gameSignature(gameState);
@@ -1843,6 +1866,13 @@ function applyRemoteState(remote, options = {}) {
   const effectiveReset = Math.max(localReset, remoteReset);
   userIds().forEach((id) => {
     const item = merged[id];
+    if (!item) {
+      return;
+    }
+    if ((item.updatedAt || 0) > effectiveReset && (item.submitted || item.name || item.nickname)) {
+      item.resetAt = Math.max(item.resetAt || 0, effectiveReset);
+      return;
+    }
     if ((item.resetAt || 0) < effectiveReset && (item.updatedAt || 0) <= effectiveReset) {
       merged[id] = emptyUserProfile(effectiveReset);
     }
@@ -2334,18 +2364,43 @@ function mqttReady() {
   return Boolean(mqttClient?.connected);
 }
 
-function publishMqttJson(topic, data, options = {}) {
+const mqttOutbox = [];
+
+function flushMqttOutbox() {
   if (!mqttReady()) {
     return;
   }
 
-  try {
-    mqttClient.publish(topic, JSON.stringify(data), {
+  while (mqttOutbox.length) {
+    const item = mqttOutbox.shift();
+    try {
+      mqttClient.publish(item.topic, item.body, item.options);
+    } catch {
+      mqttOutbox.unshift(item);
+      return;
+    }
+  }
+}
+
+function publishMqttJson(topic, data, options = {}) {
+  const payload = {
+    topic,
+    body: JSON.stringify(data),
+    options: {
       retain: options.retain !== false,
       qos: 0,
-    });
+    },
+  };
+
+  if (!mqttReady()) {
+    mqttOutbox.push(payload);
+    return;
+  }
+
+  try {
+    mqttClient.publish(payload.topic, payload.body, payload.options);
   } catch {
-    // ignore
+    mqttOutbox.push(payload);
   }
 }
 
@@ -2600,6 +2655,7 @@ function startMqttSync(url) {
       });
     }
     const shareKnown = () => {
+      flushMqttOutbox();
       publishMqttHello();
       publishMqttOwn();
       publishMqttRoster();
