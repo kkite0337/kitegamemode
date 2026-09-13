@@ -147,8 +147,8 @@ function sanitizeSpin(spin, slices = []) {
 
   next.targetIndex = Math.floor(index);
   next.winner = items[next.targetIndex] || (MENU_OPTIONS.includes(next.winner) ? next.winner : "");
-  next.turns = Math.min(12, Math.max(5, Number(next.turns) || 7));
-  next.duration = Math.min(12000, Math.max(4500, Number(next.duration) || 6800));
+  next.turns = Math.min(20, Math.max(8, Number(next.turns) || 14));
+  next.duration = Math.min(12000, Math.max(4000, Number(next.duration) || 5200));
   next.startedAt = Number(next.startedAt) || 0;
   return next.startedAt && next.winner ? next : emptySpin();
 }
@@ -1456,7 +1456,7 @@ function easeOutQuint(value) {
 
 function cancelMenuSpin() {
   if (menuSpinFrame) {
-    cancelAnimationFrame(menuSpinFrame);
+    clearTimeout(menuSpinFrame);
     menuSpinFrame = 0;
   }
 }
@@ -1483,43 +1483,90 @@ function startMenuSpinAnimation(container) {
   const spin = currentSpin();
   const slices = currentRoulette();
   const wheel = container.querySelector(".menu-roulette__spin");
-  if (!spin.startedAt || !wheel || !slices.length) {
+  if (!spin.startedAt || !wheel) {
     return;
   }
 
-  const total = spinRotation(spin, slices);
+  const items = slices.length ? slices : sanitizeRoulette([spin.winner]);
+  if (!items.length) {
+    showMenuWin(container, spin.winner);
+    return;
+  }
+
+  const total = spinRotation(
+    {
+      ...spin,
+      targetIndex: items[spin.targetIndex] ? spin.targetIndex : Math.max(0, items.indexOf(spin.winner)),
+    },
+    items,
+  );
   const key = spinKey(spin);
-  container.dataset.menuSpin = key;
-
-  const tick = () => {
-    const latest = currentSpin();
-    if (spinKey(latest) !== key) {
-      return;
-    }
-
-    const progress = Math.min(1, (Date.now() - latest.startedAt) / latest.duration);
-    wheel.style.transform = `rotate(${total * easeOutQuint(progress)}deg)`;
-    if (progress < 1) {
-      menuSpinFrame = requestAnimationFrame(tick);
-      return;
-    }
-
-    showMenuWin(container, latest.winner || slices[latest.targetIndex]);
-  };
+  if (container.dataset.menuSpin === key && wheel.dataset.spinning === "1") {
+    return;
+  }
 
   cancelMenuSpin();
-  tick();
+  container.dataset.menuSpin = key;
+  wheel.dataset.spinning = "1";
+
+  const finish = () => {
+    if (container.dataset.menuSpin !== key) {
+      return;
+    }
+
+    wheel.style.transition = "none";
+    wheel.style.transform = `rotate(${total}deg)`;
+    showMenuWin(container, spin.winner || items[spin.targetIndex]);
+  };
+
+  const elapsed = Math.max(0, Date.now() - spin.startedAt);
+  if (elapsed >= spin.duration) {
+    finish();
+    return;
+  }
+
+  const progress = elapsed / spin.duration;
+  const startRot = total * easeOutQuint(progress);
+  const remaining = spin.duration - elapsed;
+  wheel.style.transition = "none";
+  wheel.style.transform = `rotate(${startRot}deg)`;
+  void wheel.offsetWidth;
+  wheel.style.transition = `transform ${remaining}ms cubic-bezier(0.05, 0.78, 0.02, 1)`;
+  wheel.style.transform = `rotate(${total}deg)`;
+  wheel.addEventListener(
+    "transitionend",
+    (event) => {
+      if (event.propertyName && event.propertyName !== "transform") {
+        return;
+      }
+      finish();
+    },
+    { once: true },
+  );
+  menuSpinFrame = window.setTimeout(finish, remaining + 120);
+}
+
+function prepareMenuSpinStage(container) {
+  if (!container.querySelector(".menu-roulette__spin")) {
+    container.innerHTML = menuSpinStageMarkup();
+    return;
+  }
+
+  container.querySelector(".menu-tally")?.remove();
+  container.querySelector(".menu-reveal__intro")?.remove();
+  container.querySelector("[data-action='spin-menu-result']")?.remove();
+  container.querySelector(".menu-reveal")?.classList.add("menu-reveal--spin");
 }
 
 function renderMenuSpin(container) {
   const spin = currentSpin();
   const key = spinKey(spin);
-  if (container.dataset.menuSpin === key && container.querySelector(".menu-roulette__spin")) {
+  const wheel = container.querySelector(".menu-roulette__spin");
+  if (container.dataset.menuSpin === key && wheel?.dataset.spinning === "1") {
     return;
   }
 
-  cancelMenuSpin();
-  container.innerHTML = menuSpinStageMarkup();
+  prepareMenuSpinStage(container);
   startMenuSpinAnimation(container);
 }
 
@@ -1538,8 +1585,8 @@ function beginMenuSpin() {
   gameState.spin = {
     targetIndex,
     winner,
-    turns: 6 + Math.floor(Math.random() * 3),
-    duration: 6800,
+    turns: 14 + Math.floor(Math.random() * 4),
+    duration: 5200,
     startedAt: Date.now(),
   };
   gameState.phase = "menu-spin";
@@ -1675,6 +1722,7 @@ function renderMenuReveal(container) {
     <div class="menu-reveal">
       <p class="menu-reveal__intro"></p>
       ${menuRouletteMarkup(currentRoulette(), true)}
+      ${container === adminPlay ? menuSpinButtonMarkup() : ""}
     </div>
   `;
   runMenuReveal(container, token);

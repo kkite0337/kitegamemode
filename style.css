@@ -655,6 +655,11 @@ body.is-admin .app {
   will-change: transform;
 }
 
+.menu-reveal--spin .menu-tally,
+.menu-reveal--spin .menu-reveal__spin-btn {
+  display: none;
+}
+
 .menu-roulette__flag {
   position: absolute;
   left: 50%;
