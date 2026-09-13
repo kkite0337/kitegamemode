@@ -52,7 +52,8 @@ body.is-admin .app {
 
 .login-page,
 .user-page,
-.admin-page {
+.admin-page,
+.joke-page {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1038,4 +1039,51 @@ body.is-admin .app {
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   flex-direction: unset;
+}
+
+.joke-page {
+  width: 100%;
+}
+
+.joke-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.joke-kicker {
+  margin: 0 0 16px;
+  color: #8a8174;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.joke-title {
+  margin: 0 0 18px;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.joke-lead {
+  margin: 0 0 28px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.joke-stamp {
+  margin: 0;
+  padding: 8px 18px;
+  border: 3px solid #dc2626;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 18px;
+  font-weight: 800;
+  transform: rotate(-8deg);
 }

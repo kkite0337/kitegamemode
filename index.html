@@ -11,7 +11,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=60">
+  <link rel="stylesheet" href="style.css?v=61">
 </head>
 <body>
   <main class="app">
@@ -44,6 +44,19 @@
       <div class="play-screen" id="userPlay" hidden></div>
     </section>
 
+    <section class="page joke-page" id="jokePage" hidden>
+      <header class="page-top">
+        <p class="page-role">USER100</p>
+        <button class="btn-text" type="button" id="jokeLogout">로그아웃</button>
+      </header>
+      <div class="joke-stage">
+        <p class="joke-kicker">비밀 계정 접속 성공</p>
+        <p class="joke-title">들켰다.</p>
+        <p class="joke-lead">이 아이디 찾은 사람이<br>오늘 분위기 책임자다.</p>
+        <p class="joke-stamp">최종 판결</p>
+      </div>
+    </section>
+
     <section class="page admin-page" id="adminPage" hidden>
       <header class="page-top">
         <p class="page-role">관리자</p>
@@ -66,7 +79,7 @@
   </main>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="accounts.js?v=60"></script>
-  <script src="script.js?v=60"></script>
+  <script src="accounts.js?v=61"></script>
+  <script src="script.js?v=61"></script>
 </body>
 </html>

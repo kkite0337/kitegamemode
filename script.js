@@ -6,8 +6,12 @@ const GAME_KEY = "gift-draw-game";
 const GAME_UPDATED_KEY = "gift-draw-game-updated";
 const RESET_CHANNEL = "gift-draw-reset-channel";
 
+function playAccounts() {
+  return ACCOUNTS.filter((account) => account.role !== "joke");
+}
+
 function participantIds() {
-  return ACCOUNTS.map((account) => account.id);
+  return playAccounts().map((account) => account.id);
 }
 
 function userIds() {
@@ -29,7 +33,7 @@ function emptyDrink() {
 }
 
 function emptyDrinks() {
-  return Object.fromEntries(ACCOUNTS.map((account) => [account.id, emptyDrink()]));
+  return Object.fromEntries(participantIds().map((id) => [id, emptyDrink()]));
 }
 
 function isEmptyDrink(drink) {
@@ -343,7 +347,7 @@ function emptyMenu() {
 }
 
 function emptyMenus() {
-  return Object.fromEntries(ACCOUNTS.map((account) => [account.id, emptyMenu()]));
+  return Object.fromEntries(participantIds().map((id) => [id, emptyMenu()]));
 }
 
 function normalizeMenuPicks(picks) {
@@ -528,12 +532,12 @@ function mergeGameState(local, remote, preferRemote = false) {
 
 function emptyOpened() {
   return Object.fromEntries(
-    ACCOUNTS.map((account) => [account.id, { drink: false, price: false }]),
+    participantIds().map((id) => [id, { drink: false, price: false }]),
   );
 }
 
 function emptyPersonalSteps() {
-  return Object.fromEntries(ACCOUNTS.map((account) => [account.id, "talk"]));
+  return Object.fromEntries(participantIds().map((id) => [id, "talk"]));
 }
 
 function emptyGame() {
@@ -687,6 +691,7 @@ let gameState = loadGame();
 const loginPage = document.getElementById("loginPage");
 const userPage = document.getElementById("userPage");
 const adminPage = document.getElementById("adminPage");
+const jokePage = document.getElementById("jokePage");
 const loginForm = document.getElementById("loginForm");
 const loginId = document.getElementById("loginId");
 const loginPassword = document.getElementById("loginPassword");
@@ -873,6 +878,7 @@ function showPage(page) {
   loginPage.hidden = page !== "login";
   userPage.hidden = page !== "user";
   adminPage.hidden = page !== "admin";
+  jokePage.hidden = page !== "joke";
   document.body.classList.toggle("is-admin", page === "admin");
 }
 
@@ -912,7 +918,9 @@ function enterAccount(account) {
   currentAccount = account;
   sessionStorage.setItem(SESSION_KEY, account.id);
   sessionStorage.setItem(SESSION_RESET_KEY, String(currentResetAt()));
-  publishMqttOwn();
+  if (account.role !== "joke") {
+    publishMqttOwn();
+  }
   loginError.hidden = true;
   userLabel.textContent = account.id;
   refreshVisible();
@@ -1071,6 +1079,11 @@ function refreshVisible() {
     return;
   }
 
+  if (currentAccount.role === "joke") {
+    showPage("joke");
+    return;
+  }
+
   if (!currentProfile()?.submitted) {
     userLabel.textContent = currentAccount.id;
     registerForm.hidden = false;
@@ -1139,7 +1152,7 @@ function displayValue(value) {
 }
 
 function renderAdmin() {
-  const users = ACCOUNTS;
+  const users = playAccounts();
   adminList.style.gridTemplateColumns = `repeat(${users.length}, minmax(0, 1fr))`;
 
   adminList.innerHTML = users
@@ -2149,7 +2162,7 @@ function renderUserPlay() {
 
 function playerPickMarkup() {
   const selected = new Set(gamePlayers());
-  const cards = ACCOUNTS.map((account) => {
+  const cards = playAccounts().map((account) => {
     const profile = profiles[account.id] || emptyUserProfile();
     const checked = selected.has(account.id) ? " checked" : "";
     return `
@@ -2557,6 +2570,7 @@ loginForm.addEventListener("submit", (event) => {
 });
 
 document.getElementById("userLogout").addEventListener("click", logout);
+document.getElementById("jokeLogout").addEventListener("click", logout);
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
 adminToMain.addEventListener("click", () => showAdminView("main"));
