@@ -14,5 +14,3 @@ const SLOT_SETS = [
   { id: "hair", label: "헤어스타일 고르기", files: partFiles("hair", "KakaoTalk_20260913_143436998", 5) },
   { id: "cloth", label: "옷스타일 고르기", files: partFiles("cloth", "KakaoTalk_20260913_143446901", 4) },
 ];
-
-const RESULT_LAYERS = ["F", "cloth", "E", "N", "M", "hair"];

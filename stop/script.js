@@ -237,11 +237,84 @@ function loadImage(src) {
   });
 }
 
-function drawContained(ctx, image, size) {
+function inkBounds(image) {
+  const probe = document.createElement("canvas");
+  probe.width = image.width;
+  probe.height = image.height;
+  const ctx = probe.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, probe.width, probe.height).data;
+  let left = probe.width;
+  let top = probe.height;
+  let right = 0;
+  let bottom = 0;
+
+  for (let y = 0; y < probe.height; y += 1) {
+    for (let x = 0; x < probe.width; x += 1) {
+      const index = (y * probe.width + x) * 4;
+      const alpha = pixels[index + 3];
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      if (alpha > 20 && (red < 240 || green < 240 || blue < 240)) {
+        if (x < left) {
+          left = x;
+        }
+        if (y < top) {
+          top = y;
+        }
+        if (x > right) {
+          right = x;
+        }
+        if (y > bottom) {
+          bottom = y;
+        }
+      }
+    }
+  }
+
+  if (right < left) {
+    return { x: 0, y: 0, w: image.width, h: image.height };
+  }
+
+  return { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+}
+
+function drawPart(ctx, image, cx, cy, maxW, maxH, flip = false) {
+  const box = inkBounds(image);
+  const scale = Math.min(maxW / box.w, maxH / box.h);
+  const width = box.w * scale;
+  const height = box.h * scale;
+  const x = cx - width / 2;
+  const y = cy - height / 2;
+  ctx.save();
+  if (flip) {
+    ctx.translate(cx, cy);
+    ctx.scale(-1, 1);
+    ctx.translate(-cx, -cy);
+  }
+  ctx.drawImage(image, box.x, box.y, box.w, box.h, x, y, width, height);
+  ctx.restore();
+}
+
+function faceLayout(image, size) {
+  const box = inkBounds(image);
   const scale = Math.min(size / image.width, size / image.height);
-  const width = image.width * scale;
-  const height = image.height * scale;
-  ctx.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+  const drawW = image.width * scale;
+  const drawH = image.height * scale;
+  const left = (size - drawW) / 2 + box.x * scale;
+  const top = (size - drawH) / 2 + box.y * scale;
+  const width = box.w * scale;
+  const height = box.h * scale;
+  const headH = height * 0.56;
+  return {
+    left,
+    top,
+    width,
+    height,
+    headH,
+    cx: left + width / 2,
+  };
 }
 
 async function fillResultCanvas(canvas) {
@@ -251,61 +324,48 @@ async function fillResultCanvas(canvas) {
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#fffdf8";
   ctx.fillRect(0, 0, size, size);
-  for (const id of RESULT_LAYERS) {
+
+  const faceImage = slot.picks.F ? await loadImage(slot.picks.F).catch(() => null) : null;
+  const layout = faceImage ? faceLayout(faceImage, size) : { cx: size / 2, top: size * 0.18, width: size * 0.55, height: size * 0.7, headH: size * 0.38 };
+  if (faceImage) {
+    const scale = Math.min(size / faceImage.width, size / faceImage.height);
+    ctx.drawImage(
+      faceImage,
+      (size - faceImage.width * scale) / 2,
+      (size - faceImage.height * scale) / 2,
+      faceImage.width * scale,
+      faceImage.height * scale,
+    );
+  }
+
+  const cx = layout.cx;
+  const eyeY = layout.top + layout.headH * 0.4;
+  const noseY = layout.top + layout.headH * 0.58;
+  const mouthY = layout.top + layout.headH * 0.78;
+  const hairY = layout.top + layout.headH * 0.16;
+  const clothY = layout.top + layout.height * 0.78;
+  const eyeX = layout.width * 0.16;
+
+  const layers = [
+    ["cloth", cx, clothY, layout.width * 0.5, layout.height * 0.34, false],
+    ["hair", cx, hairY, layout.width * 0.62, layout.headH * 0.5, false],
+    ["E", cx - eyeX, eyeY, layout.width * 0.2, layout.headH * 0.24, false],
+    ["E", cx + eyeX, eyeY, layout.width * 0.2, layout.headH * 0.24, true],
+    ["N", cx, noseY, layout.width * 0.14, layout.headH * 0.18, false],
+    ["M", cx, mouthY, layout.width * 0.24, layout.headH * 0.14, false],
+  ];
+
+  for (const [id, x, y, maxW, maxH, flip] of layers) {
     if (!slot.picks[id]) {
       continue;
     }
 
     try {
-      drawContained(ctx, await loadImage(slot.picks[id]), size);
+      drawPart(ctx, await loadImage(slot.picks[id]), x, y, maxW, maxH, flip);
     } catch {
       // skip a missing layer
     }
   }
-}
-
-async function resultBlob() {
-  const canvas = document.getElementById("resultCanvas");
-  if (!canvas) {
-    return null;
-  }
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), "image/png");
-  });
-}
-
-async function downloadResult() {
-  const blob = await resultBlob();
-  if (!blob) {
-    return;
-  }
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "멈춰.png";
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-async function shareResult() {
-  const blob = await resultBlob();
-  if (!blob) {
-    return;
-  }
-
-  const file = new File([blob], "멈춰.png", { type: "image/png" });
-  if (navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: "멈춰!", text: "멈춰!" });
-      return;
-    } catch {
-      // fall through to download
-    }
-  }
-
-  await downloadResult();
 }
 
 function renderResult() {
@@ -315,8 +375,8 @@ function renderResult() {
       <p class="stop-lead">완성!</p>
       <canvas class="result-canvas" id="resultCanvas" width="720" height="720"></canvas>
       <div class="stop-actions">
-        <button class="stop-btn" type="button" data-slot="download">다운로드</button>
         <button class="stop-btn" type="button" data-slot="share">공유</button>
+        <button class="stop-btn" type="button" data-slot="save">사진 저장</button>
         <button class="stop-btn is-ghost" type="button" data-slot="retry">다시하기</button>
         ${embedded ? `<button class="stop-btn is-ghost" type="button" data-stop="exit">메인으로</button>` : ""}
       </div>
@@ -485,13 +545,7 @@ document.addEventListener("click", (event) => {
       return;
     }
 
-    if (action === "download") {
-      downloadResult();
-      return;
-    }
-
-    if (action === "share") {
-      shareResult();
+    if (action === "share" || action === "save") {
       return;
     }
 
