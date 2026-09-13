@@ -1886,6 +1886,7 @@ body.is-admin .app {
   width: 230px;
   height: 230px;
   margin-top: -86px;
+  filter: drop-shadow(0 10px 14px rgba(70, 52, 28, 0.16));
 }
 
 .joke-drum__stick {
