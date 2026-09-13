@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kitegamemode.kr</title>
+  <link rel="canonical" href="https://kitegamemode.kr/">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="page login-page" id="loginPage">
+      <form id="loginForm" class="login-form">
+        <div class="login-field">
+          <label for="loginId">아이디</label>
+          <input id="loginId" type="text" autocomplete="username" placeholder="아이디" required>
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">비밀번호</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="비밀번호" required>
+        </div>
+        <p class="login-error" id="loginError" hidden>잘못입력하셨습니다</p>
+        <button class="btn-primary" type="submit">로그인</button>
+      </form>
+    </section>
+
+    <section class="page user-page" id="userPage" hidden>
+      <header class="page-top">
+        <p class="page-role" id="userLabel"></p>
+        <button class="btn-text" type="button" id="userLogout">로그아웃</button>
+      </header>
+      <form id="registerForm" class="register-form">
+        <div id="registerStage"></div>
+      </form>
+      <div class="wait-screen" id="userMain" hidden>
+        <p>관리자의 선택을 기다리는중..</p>
+      </div>
+      <div class="play-screen" id="userPlay" hidden></div>
+    </section>
+
+    <section class="page admin-page" id="adminPage" hidden>
+      <header class="page-top">
+        <p class="page-role">관리자</p>
+        <button class="btn-text" type="button" id="adminLogout">로그아웃</button>
+      </header>
+      <nav class="admin-nav">
+        <button type="button" id="adminToSettings">참가자 설정</button>
+        <button type="button" id="adminToMain">메인</button>
+      </nav>
+      <div id="adminSettings">
+        <div class="admin-list" id="adminList"></div>
+      </div>
+      <div class="admin-main" id="adminMain" hidden>
+        <div id="adminPlay"></div>
+      </div>
+    </section>
+  </main>
+  <script src="accounts.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
