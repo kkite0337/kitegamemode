@@ -1135,6 +1135,10 @@ function clearPriceTalk(container) {
 }
 
 function otherGamePlayMarkup() {
+  if (gameState.game === "game2") {
+    return `<div class="wait-screen"><p>메뉴고르기</p></div>`;
+  }
+
   return `<div class="wait-screen"><p>게임 진행</p></div>`;
 }
 
@@ -1405,7 +1409,7 @@ function confirmPlayerPick() {
   gameState.game = gameId;
   gameState.pendingGame = "";
   gameState.players = players;
-  gameState.phase = gameId === "drink" ? "entry" : "play";
+  gameState.phase = gameId === "drink" || gameId === "game2" ? "entry" : "play";
   if (gameId === "stop") {
     stopSession = Date.now();
   }
