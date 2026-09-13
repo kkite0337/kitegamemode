@@ -1248,7 +1248,7 @@ body.is-admin .app {
   width: 180px;
   height: 180px;
   object-fit: contain;
-  object-position: center 78%;
+  object-position: center bottom;
   pointer-events: none;
   filter: drop-shadow(0 10px 14px rgba(70, 52, 28, 0.16));
 }
