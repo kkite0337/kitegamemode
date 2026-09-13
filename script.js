@@ -236,8 +236,7 @@ function pickRicherProfile(first, second) {
     return left.submitted ? left : right;
   }
 
-  const score = (item) =>
-    Number(Boolean(item.name)) + Number(Boolean(item.nickname)) + Number(Boolean(item.photo));
+  const score = (item) => Number(Boolean(item.name)) + Number(Boolean(item.nickname));
   return score(left) >= score(right) ? left : right;
 }
 
@@ -358,7 +357,7 @@ function slimProfile(profile) {
 
 function isEmptyProfile(profile) {
   const item = { ...emptyUserProfile(), ...profile };
-  return !item.submitted && !item.name && !item.nickname && !item.photo;
+  return !item.submitted && !item.name && !item.nickname;
 }
 
 function filledProfiles(state = profiles) {
@@ -660,55 +659,12 @@ function refreshVisible() {
   showPage("user");
 }
 
-function photoMarkup(photo, alt) {
-  if (photo) {
-    return `<img src="${photo}" alt="${escapeAttr(alt)}">`;
-  }
-
-  return `
-    <span class="photo-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2.1l1-1.5h4.8l1 1.5h2.1A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9Z" stroke="currentColor" stroke-width="1.6"/>
-        <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.6"/>
-      </svg>
-      <span class="photo-placeholder__text">사진 등록</span>
-    </span>
-  `;
-}
-
 function renderRegister() {
   const profile = currentProfile();
-  const hasPhoto = Boolean(profile.photo);
   const locked = Boolean(profile.submitted);
 
   registerStage.innerHTML = `
     <div class="register-stage">
-      <div class="photo-field">
-        <button
-          class="photo-button${hasPhoto ? " has-photo" : ""}${locked ? " is-locked" : ""}"
-          type="button"
-          data-action="pick-photo"
-          aria-label="사진 등록"
-          ${locked ? "disabled" : ""}
-        >
-          ${photoMarkup(profile.photo, "등록한 사진")}
-        </button>
-        <input
-          class="visually-hidden"
-          id="photoInput"
-          type="file"
-          accept="image/*"
-          ${locked ? "disabled" : ""}
-        >
-        <button
-          class="photo-remove"
-          type="button"
-          data-action="remove-photo"
-          ${hasPhoto && !locked ? "" : "hidden"}
-        >
-          사진 삭제
-        </button>
-      </div>
       <div class="profile-field">
         <label for="nameInput">이름</label>
         <input
@@ -757,14 +713,10 @@ function renderAdmin() {
   adminList.innerHTML = users
     .map((account) => {
       const profile = profiles[account.id] || emptyUserProfile();
-      const hasPhoto = Boolean(profile.photo);
 
       return `
         <article class="admin-card">
           <p class="admin-card__id">${escapeHtml(account.id)}</p>
-          <div class="admin-photo${hasPhoto ? " has-photo" : ""}">
-            ${photoMarkup(profile.photo, `${account.id} 사진`)}
-          </div>
           <div class="admin-card__text">
             <span class="admin-card__label">이름</span>
             ${displayValue(profile.name)}
@@ -1169,9 +1121,6 @@ function playerPickMarkup() {
     return `
       <label class="player-pick__item">
         <input class="player-pick__check" type="checkbox" data-player-id="${escapeAttr(account.id)}"${checked}>
-        <span class="player-pick__photo${profile.photo ? " has-photo" : ""}">
-          ${photoMarkup(profile.photo, `${account.id} 사진`)}
-        </span>
         <span class="player-pick__meta">
           <span class="player-pick__name">${escapeHtml(profile.name || "아직 없음")}</span>
           <span class="player-pick__nick">${escapeHtml(profile.nickname || "아직 없음")}</span>
@@ -1566,73 +1515,6 @@ registerForm.addEventListener("click", (event) => {
   if (button.dataset.action === "submit-profile") {
     event.preventDefault();
     completeUserSetup();
-    return;
-  }
-
-  if (currentProfile()?.submitted) {
-    return;
-  }
-
-  if (button.dataset.action === "pick-photo") {
-    document.getElementById("photoInput").click();
-    return;
-  }
-
-  if (button.dataset.action === "remove-photo") {
-    currentProfile().photo = "";
-    saveProfiles();
-    renderRegister();
-  }
-});
-
-function resizePhoto(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => {
-      const image = new Image();
-      image.onerror = () => resolve(String(reader.result));
-      image.onload = () => {
-        const max = 480;
-        const scale = Math.min(1, max / Math.max(image.width, image.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.72));
-      };
-      image.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-registerForm.addEventListener("change", async (event) => {
-  const input = event.target;
-  if (!(input instanceof HTMLInputElement) || input.type !== "file") {
-    return;
-  }
-
-  if (currentProfile()?.submitted) {
-    return;
-  }
-
-  const file = input.files?.[0];
-  if (!file) {
-    return;
-  }
-
-  try {
-    const photo = await resizePhoto(file);
-    if (currentProfile()?.submitted) {
-      return;
-    }
-
-    currentProfile().photo = photo;
-    saveProfiles({ immediate: true });
-    renderRegister();
-  } catch {
-    input.value = "";
   }
 });
 
@@ -2069,7 +1951,7 @@ function ownProfilePayload() {
     type: "state",
     resetAt: currentResetAt(),
     profiles: {
-      [currentAccount.id]: slimProfile(profiles[currentAccount.id]),
+      [currentAccount.id]: { ...profiles[currentAccount.id] },
     },
     gameUpdatedAt,
   };
@@ -2115,7 +1997,7 @@ function broadcastPeerState() {
 
 function handlePeerPayload(data, fromConn) {
   if (data?.type === "request") {
-    const reply = currentSyncPayload(false);
+    const reply = currentSyncPayload(true);
     if (typeof fromConn?.send === "function") {
       fromConn.send(reply);
     } else {
@@ -2340,7 +2222,7 @@ function startWsSync() {
 
   syncWs.onopen = () => {
     sendWs({ type: "request" });
-    sendWs(currentSyncPayload(false));
+    sendWs(currentSyncPayload(true));
     const mine = ownProfilePayload();
     if (mine) {
       sendWs(mine);
@@ -2397,7 +2279,7 @@ function publishMqttProfile(id) {
 
   publishMqttJson(mqttTopic("user", id), {
     resetAt: currentResetAt(),
-    profile: slimProfile(profile),
+    profile: { ...profile },
   });
 }
 
@@ -2417,7 +2299,7 @@ function publishMqttRoster() {
 
   publishMqttJson(mqttTopic("roster"), {
     resetAt: currentResetAt(),
-    profiles: packedProfiles(false),
+    profiles: packedProfiles(true),
     gameUpdatedAt,
   });
 }
