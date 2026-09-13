@@ -880,6 +880,7 @@ let jokeReadyTimer = 0;
 const jokeActionTimers = [];
 let giftUnwrapBusy = false;
 let jokeAudioCtx = null;
+let jokeApplause = null;
 
 function afterJoke(ms, fn) {
   const id = window.setTimeout(() => {
@@ -922,6 +923,22 @@ function resumeJokeAudio() {
   }
 
   return jokeAudioCtx;
+}
+
+function stopJokeApplause() {
+  if (!jokeApplause) {
+    return;
+  }
+
+  jokeApplause.pause();
+  jokeApplause.removeAttribute("src");
+  jokeApplause.load();
+  jokeApplause = null;
+}
+
+function preloadJokeApplause() {
+  const audio = new Audio("assets/applause.mp3");
+  audio.preload = "auto";
 }
 
 function rebuildGiftBox(layer = 0) {
@@ -972,6 +989,8 @@ function resetJokeScene() {
     drum.hidden = true;
     jokePage.appendChild(drum);
   }
+
+  stopJokeApplause();
 }
 
 function playSantaSock() {
@@ -981,6 +1000,7 @@ function playSantaSock() {
   }
 
   resetJokeScene();
+  preloadJokeApplause();
   void sock.offsetWidth;
   sock.classList.add("is-playing");
   jokeReadyTimer = window.setTimeout(() => {
@@ -1241,33 +1261,38 @@ function jokePartyMarkup() {
 }
 
 function playApplause() {
-  const context = resumeJokeAudio();
-  if (!context) {
-    return;
-  }
-  const duration = 2.3;
-  const length = Math.floor(context.sampleRate * duration);
-  const buffer = context.createBuffer(1, length, context.sampleRate);
-  const data = buffer.getChannelData(0);
+  stopJokeApplause();
+  resumeJokeAudio();
 
-  for (let index = 0; index < length; index += 1) {
-    const fade = Math.pow(1 - index / length, 0.42);
-    const clap = Math.random() > 0.7 ? 1 : 0.12;
-    data[index] = (Math.random() * 2 - 1) * fade * clap * 0.34;
-  }
+  const audio = new Audio("assets/applause.mp3");
+  audio.volume = 0.72;
+  jokeApplause = audio;
+  audio.play().catch(() => {});
 
-  const source = context.createBufferSource();
-  const filter = context.createBiquadFilter();
-  const gain = context.createGain();
-  source.buffer = buffer;
-  filter.type = "bandpass";
-  filter.frequency.value = 1700;
-  filter.Q.value = 0.75;
-  gain.gain.value = 0.5;
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(context.destination);
-  source.start();
+  afterJoke(5600, () => {
+    if (jokeApplause !== audio) {
+      return;
+    }
+
+    const fadeStart = performance.now();
+    const from = audio.volume;
+    const fade = () => {
+      if (jokeApplause !== audio) {
+        return;
+      }
+
+      const t = Math.min(1, (performance.now() - fadeStart) / 900);
+      audio.volume = from * (1 - t);
+      if (t < 1) {
+        window.requestAnimationFrame(fade);
+        return;
+      }
+
+      stopJokeApplause();
+    };
+
+    fade();
+  });
 }
 
 function playJokeParty() {
