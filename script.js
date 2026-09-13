@@ -933,6 +933,7 @@ function resetJokeScene() {
   if (party) {
     party.innerHTML = "";
     party.hidden = true;
+    jokePage.appendChild(party);
   }
 }
 
@@ -1071,18 +1072,36 @@ function unwrapSantaGift() {
   });
 }
 
-function jokeFireworkMarkup() {
-  const colors = ["#e11d48", "#f59e0b", "#2563eb", "#16a34a", "#ec4899", "#f8e7b0"];
-  return [0, 1, 2]
-    .map((burst) => {
-      const bits = Array.from({ length: 16 }, (_, index) => {
-        const angle = (index / 16) * 360;
-        const color = colors[(index + burst) % colors.length];
-        return `<span class="joke-firework__bit" style="--angle:${angle}deg;--color:${color};animation-delay:${burst * 0.2}s"></span>`;
+function jokePartyMarkup() {
+  const colors = ["#e11d48", "#f59e0b", "#2563eb", "#22c55e", "#ec4899", "#facc15", "#38bdf8", "#ffffff"];
+  const confetti = Array.from({ length: 90 }, (_, index) => {
+    const left = (index * 11) % 100;
+    const delay = (index % 14) * 0.07;
+    const duration = 2.4 + (index % 6) * 0.22;
+    const width = 10 + (index % 8);
+    const height = 14 + (index % 9);
+    const drift = (index % 2 === 0 ? -1 : 1) * (24 + (index % 8) * 12);
+    return `<span class="joke-confetti__bit" style="left:${left}%;width:${width}px;height:${height}px;background:${colors[index % colors.length]};animation-delay:${delay}s;animation-duration:${duration}s;--drift:${drift}px"></span>`;
+  }).join("");
+
+  const bursts = [
+    [22, 28],
+    [78, 26],
+    [30, 68],
+    [72, 70],
+    [50, 42],
+  ]
+    .map(([x, y], burst) => {
+      const bits = Array.from({ length: 22 }, (_, index) => {
+        const angle = (index / 22) * 360;
+        const dist = 90 + (burst % 3) * 28 + (index % 5) * 10;
+        return `<i class="joke-burst__bit" style="--angle:${angle}deg;--dist:${dist}px;--color:${colors[(index + burst) % colors.length]};animation-delay:${burst * 0.16}s"></i>`;
       }).join("");
-      return `<div class="joke-firework">${bits}</div>`;
+      return `<div class="joke-burst" style="left:${x}%;top:${y}%">${bits}</div>`;
     })
     .join("");
+
+  return `<div class="joke-confetti">${confetti}</div><div class="joke-bursts">${bursts}</div>`;
 }
 
 function playJokeFinale() {
@@ -1095,8 +1114,9 @@ function playJokeFinale() {
   }
 
   if (party) {
+    document.body.appendChild(party);
     party.hidden = false;
-    party.innerHTML = `${menuConfettiMarkup()}${jokeFireworkMarkup()}`;
+    party.innerHTML = jokePartyMarkup();
   }
 
   playFanfare();

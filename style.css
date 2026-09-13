@@ -1225,11 +1225,11 @@ body.is-admin .app {
   position: fixed;
   left: 50%;
   top: 50%;
-  z-index: 33;
+  z-index: 60;
   margin: 0;
   width: min(340px, calc(100% - 32px));
   color: #111;
-  font-size: 42px;
+  font-size: 44px;
   font-weight: 800;
   letter-spacing: -0.04em;
   text-align: center;
@@ -1257,44 +1257,62 @@ body.is-admin .app {
 .joke-party {
   position: fixed;
   inset: 0;
-  z-index: 32;
+  z-index: 50;
+  overflow: hidden;
   pointer-events: none;
 }
 
-.joke-party .menu-confetti {
-  z-index: 32;
+.joke-confetti,
+.joke-bursts {
+  position: absolute;
+  inset: 0;
 }
 
-.joke-firework {
+.joke-confetti__bit {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  top: -28px;
+  border-radius: 3px;
+  animation-name: joke-confetti-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.joke-burst {
+  position: absolute;
   width: 0;
   height: 0;
 }
 
-.joke-firework__bit {
+.joke-burst__bit {
   position: absolute;
-  width: 9px;
-  height: 9px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--color);
-  box-shadow: 0 0 10px var(--color);
-  animation: joke-firework-burst 0.95s ease-out forwards;
+  box-shadow: 0 0 14px var(--color);
+  animation: joke-burst 1.15s ease-out forwards;
 }
 
-@keyframes joke-firework-burst {
+@keyframes joke-confetti-fall {
   0% {
-    transform: rotate(var(--angle)) translateY(0) scale(0.4);
-    opacity: 1;
-  }
-
-  70% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
     opacity: 1;
   }
 
   100% {
-    transform: rotate(var(--angle)) translateY(-150px) scale(0.2);
+    transform: translate3d(var(--drift), 110vh, 0) rotate(640deg);
+    opacity: 1;
+  }
+}
+
+@keyframes joke-burst {
+  0% {
+    transform: rotate(var(--angle)) translateY(0) scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(var(--angle)) translateY(calc(var(--dist) * -1)) scale(0.15);
     opacity: 0;
   }
 }
