@@ -878,7 +878,7 @@ const GIFT_LAYER_COUNT = 4;
 const JOKE_PUNCHLINE = "김우진 동그라미";
 const JOKE_GIFT_FRAMES = [4, 3, 2, 1];
 const JOKE_SUSPENSE = {
-  1: "과연?!",
+  1: "과연?!?",
   2: "마지막입니다 마지막",
   3: "아 진짜 찐막 다 옴 진짜",
 };
@@ -1008,7 +1008,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=102`;
+  const src = `assets/gift-${frame}.png?v=103`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1047,7 +1047,7 @@ function resetJokeScene() {
   }
 
   if (drum) {
-    drum.classList.remove("is-playing", "is-suspense", "is-fading");
+    drum.classList.remove("is-playing", "is-suspense", "is-marquee", "is-fading");
     drum.hidden = true;
     jokePage.appendChild(drum);
   }
@@ -1300,7 +1300,7 @@ function hideJokeDrum() {
     return;
   }
 
-  drum.classList.remove("is-playing", "is-suspense", "is-fading");
+  drum.classList.remove("is-playing", "is-suspense", "is-marquee", "is-fading");
   drum.hidden = true;
   stopJokeDrumroll();
 }
@@ -1319,7 +1319,7 @@ function showJokeDrum() {
 
   document.body.appendChild(drum);
   drum.hidden = false;
-  drum.classList.remove("is-playing", "is-suspense", "is-fading");
+  drum.classList.remove("is-playing", "is-suspense", "is-marquee", "is-fading");
   void drum.offsetWidth;
   drum.classList.add("is-playing");
 }
@@ -1336,12 +1336,19 @@ function playGiftSuspense(nextLayer) {
   const line = JOKE_SUSPENSE[nextLayer] || "";
   const suspense = document.getElementById("jokeSuspense");
   if (suspense) {
-    suspense.textContent = line;
+    if (line.startsWith("과연")) {
+      const unit = "과연?!?";
+      const strip = Array.from({ length: 8 }, () => unit).join("　　");
+      suspense.innerHTML = `<span class="joke-suspense__track">${strip}　　${strip}</span>`;
+    } else {
+      suspense.textContent = line;
+    }
   }
 
   showJokeDrum();
   if (line) {
     drum?.classList.add("is-suspense");
+    drum?.classList.toggle("is-marquee", line.startsWith("과연"));
   }
 
   playDrumroll().then((finished) => {

@@ -1992,6 +1992,33 @@ body.is-admin .app {
   animation: joke-suspense-pop 0.55s cubic-bezier(0.22, 0.86, 0.2, 1) both, joke-suspense-pulse 0.7s 0.55s ease-in-out 2;
 }
 
+.joke-drum.is-suspense.is-marquee .joke-suspense {
+  left: 0;
+  top: 46%;
+  width: 100%;
+  overflow: hidden;
+  opacity: 1;
+  transform: none;
+  text-align: left;
+  animation: none;
+}
+
+.joke-suspense__track {
+  display: inline-block;
+  white-space: nowrap;
+  animation: joke-marquee 7s linear infinite;
+}
+
+@keyframes joke-marquee {
+  from {
+    transform: translateX(-50%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
 .joke-drum.is-fading {
   animation: joke-drum-fade 0.6s ease forwards;
 }
