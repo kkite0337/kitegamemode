@@ -1418,11 +1418,6 @@ function menuMealMarkup(forAdmin = false) {
 function menuRevealFinalMarkup(forAdmin = false) {
   return `
     <div class="menu-reveal">
-      <div class="menu-tally">
-        ${menuTallies()
-          .map((item) => `<p class="menu-tally__item is-in">${menuTallyLine(item)}</p>`)
-          .join("")}
-      </div>
       ${menuRouletteMarkup(currentRoulette(), true)}
       ${forAdmin ? menuSpinButtonMarkup() : ""}
     </div>
@@ -1663,14 +1658,13 @@ async function runMenuReveal(container, token) {
 
   intro.remove();
   const stage = container.querySelector(".menu-reveal");
+  if (!stage) {
+    return;
+  }
+
   const list = document.createElement("div");
   list.className = "menu-tally";
-  const existingWheel = stage?.querySelector(".menu-roulette");
-  if (existingWheel) {
-    existingWheel.before(list);
-  } else {
-    stage?.append(list);
-  }
+  stage.append(list);
 
   for (const item of menuTallies()) {
     if (token !== menuTalkToken) {
@@ -1691,17 +1685,31 @@ async function runMenuReveal(container, token) {
     return;
   }
 
-  await delay(360);
+  await delay(900);
   if (token !== menuTalkToken) {
     return;
   }
 
+  list.classList.add("is-out");
+  await delay(420);
+  if (token !== menuTalkToken) {
+    return;
+  }
+
+  list.remove();
+  stage.insertAdjacentHTML("beforeend", menuRouletteMarkup(currentRoulette()));
+  const wheel = stage.querySelector(".menu-roulette");
+  if (wheel) {
+    void wheel.offsetWidth;
+    wheel.classList.add("is-in");
+  }
+
+  if (container === adminPlay && !stage.querySelector("[data-action='spin-menu-result']")) {
+    stage.insertAdjacentHTML("beforeend", menuSpinButtonMarkup());
+  }
+
   if (token === menuTalkToken) {
     container.dataset.menuReveal = "done";
-    const doneStage = container.querySelector(".menu-reveal");
-    if (container === adminPlay && doneStage && !doneStage.querySelector("[data-action='spin-menu-result']")) {
-      doneStage.insertAdjacentHTML("beforeend", menuSpinButtonMarkup());
-    }
   }
 }
 
@@ -1721,8 +1729,6 @@ function renderMenuReveal(container) {
   container.innerHTML = `
     <div class="menu-reveal">
       <p class="menu-reveal__intro"></p>
-      ${menuRouletteMarkup(currentRoulette(), true)}
-      ${container === adminPlay ? menuSpinButtonMarkup() : ""}
     </div>
   `;
   runMenuReveal(container, token);
