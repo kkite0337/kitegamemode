@@ -280,6 +280,149 @@ function inkBounds(image) {
   return { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
 }
 
+function isInkPixel(data, index) {
+  return data[index + 3] > 20 && (data[index] < 240 || data[index + 1] < 240 || data[index + 2] < 240);
+}
+
+function faceRows(image) {
+  const probe = document.createElement("canvas");
+  probe.width = image.width;
+  probe.height = image.height;
+  const ctx = probe.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, probe.width, probe.height).data;
+  const rows = [];
+  for (let y = 0; y < probe.height; y += 1) {
+    let left = -1;
+    let right = -1;
+    let count = 0;
+    for (let x = 0; x < probe.width; x += 1) {
+      if (!isInkPixel(pixels, (y * probe.width + x) * 4)) {
+        continue;
+      }
+      if (left < 0) {
+        left = x;
+      }
+      right = x;
+      count += 1;
+    }
+    if (count) {
+      rows.push({ y, left, right, count, w: right - left + 1 });
+    }
+  }
+  return rows;
+}
+
+function pickHeadRows(rows) {
+  if (!rows.length) {
+    return rows;
+  }
+
+  const peak = rows.reduce((best, row) => (row.w > best.w ? row : best), rows[0]);
+  let top = rows.indexOf(peak);
+  while (top > 0) {
+    const prev = rows[top - 1];
+    if (peak.y - prev.y > 6 || prev.w < peak.w * 0.2) {
+      break;
+    }
+    if (prev.count <= 7 && rows[top].count >= 12 && peak.y - prev.y > peak.w * 0.08) {
+      break;
+    }
+    top -= 1;
+  }
+
+  let bottom = rows.indexOf(peak);
+  let slim = peak.w;
+  while (bottom < rows.length - 1) {
+    const next = rows[bottom + 1];
+    if (next.y - rows[bottom].y > 6) {
+      break;
+    }
+    if (next.y - peak.y > peak.w * 0.12 && next.w > slim * 1.18) {
+      break;
+    }
+    if (next.w < peak.w * 0.14) {
+      break;
+    }
+    slim = Math.min(slim, next.w);
+    bottom += 1;
+  }
+
+  return rows.slice(top, bottom + 1);
+}
+
+function faceMap(image, size) {
+  const rows = pickHeadRows(faceRows(image));
+  const scale = Math.min(size / image.width, size / image.height);
+  const ox = (size - image.width * scale) / 2;
+  const oy = (size - image.height * scale) / 2;
+  const mapped = rows.map((row) => ({
+    y: oy + row.y * scale,
+    left: ox + row.left * scale,
+    right: ox + row.right * scale,
+    w: row.w * scale,
+  }));
+  const lefts = mapped.map((row) => row.left).sort((a, b) => a - b);
+  const rights = mapped.map((row) => row.right).sort((a, b) => a - b);
+  const innerLeft = lefts[Math.floor(lefts.length * 0.64)] ?? mapped[0].left;
+  const innerRight = rights[Math.floor(rights.length * 0.36)] ?? mapped[0].right;
+  return {
+    ox,
+    oy,
+    scale,
+    rows: mapped,
+    top: mapped[0]?.y ?? size * 0.2,
+    bottom: mapped[mapped.length - 1]?.y ?? size * 0.7,
+    innerLeft,
+    innerRight,
+    cx: ((mapped[0]?.left ?? 0) + (mapped[0]?.right ?? size)) / 2,
+  };
+}
+
+function nearestRow(profile, y) {
+  return profile.rows.reduce((best, row) => (Math.abs(row.y - y) < Math.abs(best.y - y) ? row : best), profile.rows[0]);
+}
+
+function cavityAt(profile, y) {
+  if (!profile.rows.length) {
+    return { left: profile.innerLeft, right: profile.innerRight };
+  }
+
+  const row = nearestRow(profile, y);
+  const pad = row.w * 0.16;
+  let left = row.left + pad;
+  let right = row.right - pad;
+  if (right - left > 12) {
+    left = Math.max(left, profile.innerLeft);
+    right = Math.min(right, profile.innerRight);
+  }
+  if (right - left < row.w * 0.3) {
+    left = row.left + row.w * 0.18;
+    right = row.right - row.w * 0.18;
+  }
+  if (right <= left) {
+    const mid = (row.left + row.right) / 2;
+    return { left: mid - 8, right: mid + 8 };
+  }
+  return { left, right };
+}
+
+function fitInside(profile, cx, cy, maxW, maxH) {
+  const headTop = profile.top + (profile.bottom - profile.top) * 0.08;
+  const headBottom = profile.bottom - (profile.bottom - profile.top) * 0.06;
+  const y = Math.min(Math.max(cy, headTop + maxH * 0.35), headBottom - maxH * 0.35);
+  const top = cavityAt(profile, y - maxH * 0.3);
+  const mid = cavityAt(profile, y);
+  const low = cavityAt(profile, y + maxH * 0.3);
+  const left = Math.max(top.left, mid.left, low.left);
+  const right = Math.min(top.right, mid.right, low.right);
+  const avail = Math.max(10, right - left);
+  const width = Math.min(maxW, avail * 0.9);
+  const height = Math.min(maxH, (profile.bottom - profile.top) * 0.2);
+  const x = Math.min(Math.max(cx, left + width / 2), right - width / 2);
+  return { cx: x, cy: y, w: width, h: height };
+}
+
 function drawPart(ctx, image, cx, cy, maxW, maxH, flip = false) {
   const box = inkBounds(image);
   const scale = Math.min(maxW / box.w, maxH / box.h);
@@ -297,26 +440,6 @@ function drawPart(ctx, image, cx, cy, maxW, maxH, flip = false) {
   ctx.restore();
 }
 
-function faceLayout(image, size) {
-  const box = inkBounds(image);
-  const scale = Math.min(size / image.width, size / image.height);
-  const drawW = image.width * scale;
-  const drawH = image.height * scale;
-  const left = (size - drawW) / 2 + box.x * scale;
-  const top = (size - drawH) / 2 + box.y * scale;
-  const width = box.w * scale;
-  const height = box.h * scale;
-  const headH = height * 0.56;
-  return {
-    left,
-    top,
-    width,
-    height,
-    headH,
-    cx: left + width / 2,
-  };
-}
-
 async function fillResultCanvas(canvas) {
   const size = 720;
   canvas.width = size;
@@ -326,9 +449,9 @@ async function fillResultCanvas(canvas) {
   ctx.fillRect(0, 0, size, size);
 
   const faceImage = slot.picks.F ? await loadImage(slot.picks.F).catch(() => null) : null;
-  const layout = faceImage ? faceLayout(faceImage, size) : { cx: size / 2, top: size * 0.18, width: size * 0.55, height: size * 0.7, headH: size * 0.38 };
+  const bodyBox = faceImage ? inkBounds(faceImage) : null;
+  const scale = faceImage ? Math.min(size / faceImage.width, size / faceImage.height) : 1;
   if (faceImage) {
-    const scale = Math.min(size / faceImage.width, size / faceImage.height);
     ctx.drawImage(
       faceImage,
       (size - faceImage.width * scale) / 2,
@@ -338,21 +461,41 @@ async function fillResultCanvas(canvas) {
     );
   }
 
-  const cx = layout.cx;
-  const eyeY = layout.top + layout.headH * 0.4;
-  const noseY = layout.top + layout.headH * 0.58;
-  const mouthY = layout.top + layout.headH * 0.78;
-  const hairY = layout.top + layout.headH * 0.16;
-  const clothY = layout.top + layout.height * 0.78;
-  const eyeX = layout.width * 0.16;
+  const profile = faceImage
+    ? faceMap(faceImage, size)
+    : { rows: [], top: size * 0.22, bottom: size * 0.62, innerLeft: size * 0.32, innerRight: size * 0.68, cx: size / 2 };
+  const headH = Math.max(40, profile.bottom - profile.top);
+  const headW = Math.max(40, profile.innerRight - profile.innerLeft);
+  const cx = (profile.innerLeft + profile.innerRight) / 2;
+  const eyeY = profile.top + headH * 0.38;
+  const eyeBand = cavityAt(profile, eyeY);
+  const eyeSpan = Math.max(20, eyeBand.right - eyeBand.left);
+  const eye = fitInside(profile, 0, eyeY, eyeSpan * 0.26, headH * 0.18);
+  const eyeGap = Math.min(eye.w * 0.45, eyeSpan * 0.1);
+  const leftEye = fitInside(profile, cx - eye.w / 2 - eyeGap / 2, eyeY, eye.w, eye.h);
+  const rightEye = fitInside(profile, cx + eye.w / 2 + eyeGap / 2, eyeY, eye.w, eye.h);
+  const nose = fitInside(profile, cx, profile.top + headH * 0.56, headW * 0.18, headH * 0.16);
+  const mouth = fitInside(profile, cx, profile.top + headH * 0.74, headW * 0.28, headH * 0.14);
+  const crown = cavityAt(profile, profile.top + headH * 0.1);
+  const hairW = Math.min(headW * 1.08, (crown.right - crown.left) * 1.12);
+  const hairH = headH * 0.4;
+  const hair = { cx, cy: profile.top + hairH * 0.22, w: hairW, h: hairH };
+  const body = bodyBox
+    ? {
+        cx: (size - faceImage.width * scale) / 2 + (bodyBox.x + bodyBox.w / 2) * scale,
+        cy: (size - faceImage.height * scale) / 2 + (bodyBox.y + bodyBox.h * 0.8) * scale,
+        w: bodyBox.w * scale * 0.42,
+        h: bodyBox.h * scale * 0.28,
+      }
+    : { cx, cy: profile.bottom + headH * 0.25, w: headW * 0.7, h: headH * 0.45 };
 
   const layers = [
-    ["cloth", cx, clothY, layout.width * 0.5, layout.height * 0.34, false],
-    ["hair", cx, hairY, layout.width * 0.62, layout.headH * 0.5, false],
-    ["E", cx - eyeX, eyeY, layout.width * 0.2, layout.headH * 0.24, false],
-    ["E", cx + eyeX, eyeY, layout.width * 0.2, layout.headH * 0.24, true],
-    ["N", cx, noseY, layout.width * 0.14, layout.headH * 0.18, false],
-    ["M", cx, mouthY, layout.width * 0.24, layout.headH * 0.14, false],
+    ["cloth", body.cx, body.cy, body.w, body.h, false],
+    ["hair", hair.cx, hair.cy, hair.w, hair.h, false],
+    ["E", leftEye.cx, leftEye.cy, leftEye.w, leftEye.h, false],
+    ["E", rightEye.cx, rightEye.cy, rightEye.w, rightEye.h, true],
+    ["N", nose.cx, nose.cy, nose.w, nose.h, false],
+    ["M", mouth.cx, mouth.cy, mouth.w, mouth.h, false],
   ];
 
   for (const [id, x, y, maxW, maxH, flip] of layers) {
