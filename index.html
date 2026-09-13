@@ -2,11 +2,16 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f4ef">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="kitegamemode">
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <main class="app">
@@ -50,13 +55,14 @@
       </nav>
       <div id="adminSettings">
         <div class="admin-list" id="adminList"></div>
+        <button class="btn-reset" type="button" id="resetUsers">사용자 초기화</button>
       </div>
       <div class="admin-main" id="adminMain" hidden>
         <div id="adminPlay"></div>
       </div>
     </section>
   </main>
-  <script src="accounts.js"></script>
-  <script src="script.js"></script>
+  <script src="accounts.js?v=2"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>

@@ -2,24 +2,46 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
 body {
   margin: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
   font-family: Pretendard, "Apple SD Gothic Neo", sans-serif;
   background: #f6f4ef;
   color: #222;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+  font-size: 16px;
 }
 
 .app {
-  width: min(400px, calc(100vw - 32px));
-  padding: 24px 0;
+  width: min(400px, 100%);
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px 16px;
+}
+
+body:has(.admin-page:not([hidden])) .app {
+  width: min(720px, 100%);
 }
 
 .page[hidden],
@@ -34,6 +56,7 @@ input {
   flex-direction: column;
   align-items: center;
   min-height: calc(100vh - 48px);
+  min-height: calc(100dvh - 48px);
 }
 
 .login-page {
@@ -442,6 +465,13 @@ input {
   border: 0;
 }
 
+#adminSettings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
 .admin-list {
   display: flex;
   flex-direction: column;
@@ -449,6 +479,67 @@ input {
   gap: 40px;
   width: 100%;
   padding-bottom: 24px;
+}
+
+#adminSettings .admin-list {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#adminSettings .admin-card {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+#adminSettings .admin-photo {
+  width: min(96px, 24vw);
+  height: min(96px, 24vw);
+}
+
+#adminSettings .admin-photo .photo-placeholder {
+  font-size: 11px;
+  gap: 4px;
+}
+
+#adminSettings .admin-photo .photo-placeholder svg {
+  width: 22px;
+  height: 22px;
+}
+
+#adminSettings .admin-card__id {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+#adminSettings .admin-card__text {
+  margin-top: 10px;
+}
+
+#adminSettings .admin-card__value {
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.btn-reset {
+  width: min(280px, 100%);
+  margin: 8px 0 32px;
+  padding: 13px 16px;
+  border: 1px solid #ddd4c4;
+  border-radius: 12px;
+  background: #fff;
+  color: #8a8174;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-reset:hover,
+.btn-reset:focus-visible {
+  border-color: #b42318;
+  color: #b42318;
+  outline: none;
 }
 
 .admin-card {
@@ -586,5 +677,32 @@ input {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 400px) {
+  .photo-button,
+  .admin-photo {
+    width: min(180px, 56vw);
+    height: min(180px, 56vw);
+  }
+
+  #adminSettings .admin-photo {
+    width: min(84px, 22vw);
+    height: min(84px, 22vw);
+  }
+
+  .digit-slot {
+    width: clamp(36px, 12vw, 48px);
+    height: clamp(48px, 16vw, 64px);
+    font-size: clamp(20px, 7vw, 28px);
+  }
+
+  .digit-board {
+    gap: 6px;
+  }
+
+  .gift-button {
+    font-size: 72px;
   }
 }

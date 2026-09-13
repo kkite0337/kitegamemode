@@ -1,6 +1,15 @@
 const SESSION_KEY = "gift-draw-session";
 const PROFILE_KEY = "gift-draw-profiles";
+const PROFILE_RESET_KEY = "gift-draw-profile-reset";
 const GAME_KEY = "gift-draw-game";
+
+function userIds() {
+  return ACCOUNTS.filter((account) => account.role === "user").map((account) => account.id);
+}
+
+function userProfileKey(id) {
+  return `${PROFILE_KEY}:${id}`;
+}
 
 function emptyProfiles() {
   return Object.fromEntries(
@@ -40,17 +49,42 @@ function emptyGame() {
   };
 }
 
-function loadProfiles() {
-  const saved = localStorage.getItem(PROFILE_KEY);
-  if (!saved) {
-    return emptyProfiles();
+function readStoredProfile(id) {
+  const raw = localStorage.getItem(userProfileKey(id));
+  if (!raw) {
+    return emptyProfiles()[id];
   }
 
   try {
-    return { ...emptyProfiles(), ...JSON.parse(saved) };
+    return { ...emptyProfiles()[id], ...JSON.parse(raw) };
   } catch {
-    return emptyProfiles();
+    return emptyProfiles()[id];
   }
+}
+
+function migrateLegacyProfiles() {
+  const saved = localStorage.getItem(PROFILE_KEY);
+  if (!saved) {
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    userIds().forEach((id) => {
+      if (!localStorage.getItem(userProfileKey(id)) && parsed[id]) {
+        localStorage.setItem(userProfileKey(id), JSON.stringify({ ...emptyProfiles()[id], ...parsed[id] }));
+      }
+    });
+  } catch {
+    // ignore broken legacy data
+  }
+
+  localStorage.removeItem(PROFILE_KEY);
+}
+
+function loadProfiles() {
+  migrateLegacyProfiles();
+  return Object.fromEntries(userIds().map((id) => [id, readStoredProfile(id)]));
 }
 
 function loadGame() {
@@ -96,14 +130,55 @@ const adminMain = document.getElementById("adminMain");
 const adminPlay = document.getElementById("adminPlay");
 const adminToSettings = document.getElementById("adminToSettings");
 const adminToMain = document.getElementById("adminToMain");
+const resetUsers = document.getElementById("resetUsers");
 
 let currentAccount = null;
 let adminView = "settings";
 let lastGameSignature = "";
+let lastProfileSignature = "";
+let lastProfileResetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
 let priceTalkToken = 0;
 
+function profileSignature(state) {
+  return JSON.stringify(state);
+}
+
+function replaceProfiles(next) {
+  Object.keys(profiles).forEach((id) => {
+    delete profiles[id];
+  });
+  Object.assign(profiles, next);
+}
+
+function saveProfile(id) {
+  localStorage.setItem(userProfileKey(id), JSON.stringify(profiles[id]));
+}
+
 function saveProfiles() {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
+  try {
+    if (currentAccount?.role === "user") {
+      saveProfile(currentAccount.id);
+    } else {
+      userIds().forEach(saveProfile);
+    }
+  } catch {
+    // 사진이 커도 제출 화면 전환은 막지 않습니다.
+  }
+
+  lastProfileSignature = profileSignature(profiles);
+}
+
+function resetUserProfiles() {
+  if (!window.confirm("사용자 정보를 초기화할까요?")) {
+    return;
+  }
+
+  replaceProfiles(emptyProfiles());
+  userIds().forEach(saveProfile);
+  lastProfileResetAt = Date.now();
+  localStorage.setItem(PROFILE_RESET_KEY, String(lastProfileResetAt));
+  lastProfileSignature = profileSignature(profiles);
+  refreshVisible();
 }
 
 function saveGame() {
@@ -186,7 +261,45 @@ function escapeHtml(value) {
 }
 
 function currentProfile() {
+  if (!currentAccount || currentAccount.role !== "user") {
+    return null;
+  }
+
+  if (!profiles[currentAccount.id]) {
+    profiles[currentAccount.id] = { name: "", nickname: "", photo: "", submitted: false };
+  }
+
   return profiles[currentAccount.id];
+}
+
+function completeUserSetup() {
+  const profile = currentProfile();
+  if (!profile) {
+    return;
+  }
+
+  const nameInput = document.getElementById("nameInput");
+  const nicknameInput = document.getElementById("nicknameInput");
+  if (nameInput) {
+    profile.name = nameInput.value.trim();
+  }
+  if (nicknameInput) {
+    profile.nickname = nicknameInput.value.trim();
+  }
+
+  profile.submitted = true;
+  saveProfiles();
+  registerForm.hidden = true;
+  userPlay.hidden = true;
+
+  if (gameState.game === "drink" && personalStep() !== "done") {
+    userMain.hidden = true;
+    userPlay.hidden = false;
+    renderUserPlay();
+    return;
+  }
+
+  userMain.hidden = false;
 }
 
 function currentDrink() {
@@ -199,7 +312,8 @@ function assignedDrink() {
 }
 
 function showUserView() {
-  if (!currentProfile().submitted) {
+  const profile = currentProfile();
+  if (!profile?.submitted) {
     registerForm.hidden = false;
     userMain.hidden = true;
     userPlay.hidden = true;
@@ -209,15 +323,15 @@ function showUserView() {
 
   registerForm.hidden = true;
 
-  if (gameState.game !== "drink" || personalStep() === "done") {
-    userMain.hidden = false;
-    userPlay.hidden = true;
+  if (gameState.game === "drink" && personalStep() !== "done") {
+    userMain.hidden = true;
+    userPlay.hidden = false;
+    renderUserPlay();
     return;
   }
 
-  userMain.hidden = true;
-  userPlay.hidden = false;
-  renderUserPlay();
+  userMain.hidden = false;
+  userPlay.hidden = true;
 }
 
 function showAdminView(view) {
@@ -324,7 +438,7 @@ function renderRegister() {
       ${
         locked
           ? `<p class="submit-done">제출 완료</p>`
-          : `<button class="btn-primary" type="submit">제출</button>`
+          : `<button class="btn-primary" type="button" data-action="submit-profile">제출</button>`
       }
     </div>
   `;
@@ -975,19 +1089,11 @@ document.getElementById("userLogout").addEventListener("click", logout);
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
 adminToMain.addEventListener("click", () => showAdminView("main"));
+resetUsers.addEventListener("click", resetUserProfiles);
 
 registerForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const profile = currentProfile();
-  if (profile.submitted) {
-    return;
-  }
-
-  profile.name = document.getElementById("nameInput").value.trim();
-  profile.nickname = document.getElementById("nicknameInput").value.trim();
-  profile.submitted = true;
-  saveProfiles();
-  showUserView();
+  completeUserSetup();
 });
 
 registerForm.addEventListener("input", (event) => {
@@ -1015,7 +1121,17 @@ registerForm.addEventListener("input", (event) => {
 
 registerForm.addEventListener("click", (event) => {
   const button = event.target.closest("button");
-  if (!button || currentProfile().submitted) {
+  if (!button) {
+    return;
+  }
+
+  if (button.dataset.action === "submit-profile") {
+    event.preventDefault();
+    completeUserSetup();
+    return;
+  }
+
+  if (currentProfile()?.submitted) {
     return;
   }
 
@@ -1031,13 +1147,35 @@ registerForm.addEventListener("click", (event) => {
   }
 });
 
-registerForm.addEventListener("change", (event) => {
+function resizePhoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => resolve(String(reader.result));
+      image.onload = () => {
+        const max = 480;
+        const scale = Math.min(1, max / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+registerForm.addEventListener("change", async (event) => {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.type !== "file") {
     return;
   }
 
-  if (currentProfile().submitted) {
+  if (currentProfile()?.submitted) {
     return;
   }
 
@@ -1046,17 +1184,18 @@ registerForm.addEventListener("change", (event) => {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (currentProfile().submitted) {
+  try {
+    const photo = await resizePhoto(file);
+    if (currentProfile()?.submitted) {
       return;
     }
 
-    currentProfile().photo = String(reader.result);
+    currentProfile().photo = photo;
     saveProfiles();
     renderRegister();
-  };
-  reader.readAsDataURL(file);
+  } catch {
+    input.value = "";
+  }
 });
 
 function handlePlayClick(event) {
@@ -1162,6 +1301,40 @@ adminPlay.addEventListener("click", handlePlayClick);
 userPlay.addEventListener("submit", handlePlaySubmit);
 adminPlay.addEventListener("submit", handlePlaySubmit);
 
+function syncProfilesFromStorage() {
+  const resetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
+  if (resetAt > lastProfileResetAt) {
+    replaceProfiles(loadProfiles());
+    lastProfileResetAt = resetAt;
+    lastProfileSignature = profileSignature(profiles);
+    refreshVisible();
+    return;
+  }
+
+  const next = loadProfiles();
+  if (currentAccount?.role === "user") {
+    const mine = currentAccount.id;
+    userIds().forEach((id) => {
+      if (id !== mine) {
+        profiles[id] = next[id];
+      }
+    });
+    lastProfileSignature = profileSignature(profiles);
+    return;
+  }
+
+  const signature = profileSignature(next);
+  if (signature === lastProfileSignature) {
+    return;
+  }
+
+  replaceProfiles(next);
+  lastProfileSignature = signature;
+  if (currentAccount?.role === "admin" && adminView === "settings") {
+    renderAdmin();
+  }
+}
+
 function syncGameFromStorage() {
   const next = loadGame();
   const signature = gameSignature(next);
@@ -1182,11 +1355,12 @@ function syncGameFromStorage() {
 }
 
 window.addEventListener("storage", (event) => {
-  if (event.key === PROFILE_KEY) {
-    Object.assign(profiles, loadProfiles());
-    if (currentAccount?.role === "admin" && adminView === "settings") {
-      renderAdmin();
-    }
+  if (
+    event.key === PROFILE_KEY ||
+    event.key === PROFILE_RESET_KEY ||
+    event.key?.startsWith(`${PROFILE_KEY}:`)
+  ) {
+    syncProfilesFromStorage();
   }
 
   if (event.key === GAME_KEY) {
@@ -1194,6 +1368,10 @@ window.addEventListener("storage", (event) => {
   }
 });
 
-setInterval(syncGameFromStorage, 1000);
+setInterval(() => {
+  syncProfilesFromStorage();
+  syncGameFromStorage();
+}, 1000);
+lastProfileSignature = profileSignature(profiles);
 lastGameSignature = gameSignature(gameState);
 restoreSession();
