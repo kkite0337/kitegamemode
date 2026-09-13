@@ -876,12 +876,16 @@ function findAccount(id, password) {
 
 const GIFT_LAYER_COUNT = 4;
 const JOKE_PUNCHLINE = "김우진 동그라미";
-const JOKE_NUDGE = "아 진짜 마지막^^";
+const JOKE_NUDGE = {
+  1: "아 진짜 마지막^^",
+  2: "아 진짜 마지막^^",
+  3: "진짜 찐막",
+};
 const JOKE_GIFT_FRAMES = [4, 3, 2, 1];
 const JOKE_SUSPENSE = {
   1: "과연?!?",
   2: "두구두구",
-  3: "아 진짜 찐막 다 옴 진짜",
+  3: "ㄷㄱㄷㄱ",
 };
 
 let jokeReadyTimer = 0;
@@ -1009,7 +1013,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=106`;
+  const src = `assets/gift-${frame}.png?v=107`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1188,7 +1192,7 @@ function popNestedGift(layer) {
   playJokeTada();
   const nudge = document.getElementById("jokeNudge");
   if (nudge) {
-    nudge.textContent = JOKE_NUDGE;
+    nudge.textContent = JOKE_NUDGE[layer] || JOKE_NUDGE[1];
   }
   jokePage.classList.add("is-nudge");
   fly?.classList.remove("is-shaking");
@@ -1345,8 +1349,8 @@ function playGiftSuspense(nextLayer) {
       const unit = "과연?!?";
       const strip = Array.from({ length: 8 }, () => unit).join("　　");
       suspense.innerHTML = `<span class="joke-suspense__track">${strip}　　${strip}</span>`;
-    } else if (line === "두구두구") {
-      const col = Array.from({ length: 10 }, () => "<i>두구두구</i>").join("");
+    } else if (line === "두구두구" || line === "ㄷㄱㄷㄱ") {
+      const col = Array.from({ length: 10 }, () => `<i>${line}</i>`).join("");
       suspense.innerHTML = `<span class="joke-suspense__fall">${col}${col}</span>`;
     } else {
       suspense.textContent = line;
@@ -1357,7 +1361,7 @@ function playGiftSuspense(nextLayer) {
   if (line) {
     drum?.classList.add("is-suspense");
     drum?.classList.toggle("is-marquee", line.startsWith("과연"));
-    drum?.classList.toggle("is-fall", line === "두구두구");
+    drum?.classList.toggle("is-fall", line === "두구두구" || line === "ㄷㄱㄷㄱ");
   }
 
   playDrumroll().then((finished) => {
