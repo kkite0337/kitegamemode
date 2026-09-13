@@ -664,7 +664,7 @@ function drinkFormMarkup(drink) {
       </div>
       <div class="profile-field">
         <label for="drinkPrice">가격</label>
-        <input id="drinkPrice" type="text" maxlength="12" placeholder="가격을 입력하세요" value="${escapeAttr(drink.price)}" required>
+        <input id="drinkPrice" type="text" inputmode="decimal" maxlength="20" placeholder="가격을 입력하세요" value="${escapeAttr(drink.price)}" required>
       </div>
       <button class="btn-primary" type="submit">제출</button>
     </form>
@@ -691,7 +691,7 @@ function giftMarkup(kind) {
   const result = drink
     ? kind === "drink"
       ? drink.name
-      : drink.price
+      : formatPrice(drink.price)
     : "아직 배정되지 않았습니다";
 
   return `
@@ -729,7 +729,7 @@ function userDrinksListMarkup() {
           </div>
           <div class="admin-card__text">
             <span class="admin-card__label">가격</span>
-            ${displayValue(drink.submitted ? drink.price : "")}
+            ${displayValue(drink.submitted ? formatPrice(drink.price) : "")}
           </div>
         </article>
       `;
@@ -1192,13 +1192,13 @@ function submitDrink() {
   }
 
   const name = document.getElementById("drinkName")?.value.trim() || "";
-  const price = document.getElementById("drinkPrice")?.value.trim() || "";
-  if (!name || !price) {
+  const amount = parsePrice(document.getElementById("drinkPrice")?.value);
+  if (!name || !amount) {
     return;
   }
 
   drink.name = name;
-  drink.price = price;
+  drink.price = String(amount);
   drink.submitted = true;
 
   if (currentAccount.role === "admin") {
@@ -1240,8 +1240,15 @@ function assignDrinks() {
 }
 
 function parsePrice(value) {
-  const digits = String(value ?? "").replace(/[^\d]/g, "");
+  const digits = String(value ?? "")
+    .replace(/[０-９]/g, (char) => String(char.charCodeAt(0) - 0xff10))
+    .replace(/[^\d]/g, "");
   return digits ? Number(digits) : 0;
+}
+
+function formatPrice(value) {
+  const amount = parsePrice(value);
+  return amount ? `${amount.toLocaleString("ko-KR")}원` : "";
 }
 
 function randomSplitByTen(total, count) {
