@@ -213,6 +213,7 @@ const PHASE_RANK = {
   play: 2,
   review: 3,
   choose: 4,
+  "menu-reveal": 5,
   "drink-reveal": 5,
   "price-reveal": 6,
 };
@@ -1517,11 +1518,11 @@ function renderUserPlay() {
   }
 
   if (gameState.game === "game2") {
-    if (gameState.phase !== "choose") {
+    if (gameState.phase !== "menu-reveal") {
       clearMenuReveal(userPlay);
     }
 
-    if (gameState.phase === "choose") {
+    if (gameState.phase === "menu-reveal") {
       renderMenuReveal(userPlay);
       return;
     }
@@ -1628,7 +1629,7 @@ function renderAdminPlay() {
   }
 
   if (gameState.game === "game2") {
-    if (gameState.phase !== "choose") {
+    if (gameState.phase !== "menu-reveal") {
       clearMenuReveal(adminPlay);
     }
 
@@ -1646,6 +1647,15 @@ function renderAdminPlay() {
     }
 
     if (gameState.phase === "choose") {
+      adminPlay.innerHTML = `
+        <div class="game-choices">
+          <button class="btn-primary" type="button" data-action="confirm-menu-result">결과 확인</button>
+        </div>
+      `;
+      return;
+    }
+
+    if (gameState.phase === "menu-reveal") {
       renderMenuReveal(adminPlay);
       return;
     }
@@ -2078,6 +2088,13 @@ function handlePlayClick(event) {
     }
 
     gameState.phase = "choose";
+    saveGame({ immediate: true });
+    refreshVisible();
+    return;
+  }
+
+  if (button.dataset.action === "confirm-menu-result") {
+    gameState.phase = "menu-reveal";
     saveGame({ immediate: true });
     refreshVisible();
     return;
@@ -3260,7 +3277,7 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (gameState.game === "game2" && gameState.phase === "choose" && isMenuRevealBusy()) {
+  if (gameState.game === "game2" && gameState.phase === "menu-reveal" && isMenuRevealBusy()) {
     return false;
   }
 
