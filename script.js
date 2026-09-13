@@ -986,7 +986,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=98`;
+  const src = `assets/gift-${frame}.png?v=99`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1251,7 +1251,16 @@ function playDrumroll() {
   const audio = new Audio("assets/drumroll.mp3");
   audio.volume = 0.78;
   jokeDrumroll = audio;
-  audio.play().catch(() => {});
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      resolve(jokeDrumroll === audio);
+    };
+
+    audio.addEventListener("ended", finish, { once: true });
+    audio.addEventListener("error", finish, { once: true });
+    audio.play().catch(finish);
+  });
 }
 
 function hideJokeDrum() {
@@ -1300,27 +1309,23 @@ function playGiftSuspense(nextLayer) {
   }
 
   showJokeDrum();
-  playDrumroll();
+  if (line) {
+    drum?.classList.add("is-suspense");
+  }
 
-  afterJoke(2600, () => {
-    drum?.classList.remove("is-playing");
-    if (line) {
-      drum?.classList.add("is-suspense");
+  playDrumroll().then((finished) => {
+    if (!finished) {
+      return;
     }
 
-    afterJoke(line ? 3600 : 900, () => {
-      drum?.classList.add("is-fading");
-      afterJoke(650, () => {
-        hideJokeDrum();
-        parkJokeDrum();
-        afterJoke(1100, () => {
-          if (nextLayer < GIFT_LAYER_COUNT) {
-            popNestedGift(nextLayer);
-          } else {
-            startPunchline();
-          }
-        });
-      });
+    hideJokeDrum();
+    parkJokeDrum();
+    afterJoke(1000, () => {
+      if (nextLayer < GIFT_LAYER_COUNT) {
+        popNestedGift(nextLayer);
+      } else {
+        startPunchline();
+      }
     });
   });
 }

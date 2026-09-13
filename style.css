@@ -1875,7 +1875,7 @@ body.is-admin .app {
 }
 
 .joke-drum.is-playing .joke-drum__img {
-  animation: joke-drum-hit 0.22s ease-in-out 14;
+  animation: joke-drum-hit 0.22s ease-in-out infinite;
 }
 
 .joke-drum__stick {
@@ -1913,11 +1913,11 @@ body.is-admin .app {
 }
 
 .joke-drum.is-playing .joke-drum__stick.is-left {
-  animation: joke-stick-left 0.36s ease-in-out 9;
+  animation: joke-stick-left 0.36s ease-in-out infinite;
 }
 
 .joke-drum.is-playing .joke-drum__stick.is-right {
-  animation: joke-stick-right 0.36s ease-in-out 9;
+  animation: joke-stick-right 0.36s ease-in-out infinite;
 }
 
 .joke-suspense {
