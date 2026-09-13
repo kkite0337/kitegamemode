@@ -618,6 +618,39 @@ body.is-admin .app {
   width: 100%;
 }
 
+.drink-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(360px, 100%);
+  margin: 0 auto 28px;
+}
+
+.drink-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.drink-status__name {
+  color: #222;
+}
+
+.drink-status__sep {
+  color: #8a8174;
+}
+
+.drink-status__state.is-done {
+  color: #b45309;
+}
+
+.drink-status__state.is-edit {
+  color: #8a8174;
+}
+
 .admin-main .admin-list + .btn-primary {
   width: min(280px, 100%);
   margin-top: 12px;

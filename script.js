@@ -864,20 +864,16 @@ function userDrinksListMarkup() {
 
   return users
     .map((account) => {
-      const drink = gameState.drinks[account.id];
-      const profile = profiles[account.id];
+      const drink = gameState.drinks[account.id] || emptyDrink();
+      const profile = profiles[account.id] || emptyUserProfile();
+      const name = profile.name || profile.nickname || account.id;
+      const status = drink.submitted ? "완료" : "수정 중";
 
       return `
-        <article class="admin-card">
-          <p class="admin-card__id">${escapeHtml(profile.name || account.id)}</p>
-          <div class="admin-card__text">
-            <span class="admin-card__label">음료명</span>
-            ${displayValue(drink.submitted ? drink.name : "")}
-          </div>
-          <div class="admin-card__text">
-            <span class="admin-card__label">가격</span>
-            ${displayValue(drink.submitted ? formatPrice(drink.price) : "")}
-          </div>
+        <article class="drink-status">
+          <span class="drink-status__name">${escapeHtml(name)}</span>
+          <span class="drink-status__sep">&gt;</span>
+          <span class="drink-status__state${drink.submitted ? " is-done" : " is-edit"}">${status}</span>
         </article>
       `;
     })
@@ -1321,7 +1317,7 @@ function renderAdminPlay() {
 
   if (gameState.phase === "entry" || gameState.phase === "review") {
     adminPlay.innerHTML = `
-      <div class="admin-list">${userDrinksListMarkup()}</div>
+      <div class="drink-status-list">${userDrinksListMarkup()}</div>
       <button class="btn-primary" type="button" data-action="go-result">결과 보러가기</button>
     `;
     return;
