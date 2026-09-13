@@ -1079,7 +1079,7 @@ function stopGameUrl() {
     id: currentAccount?.id || "",
     name: profile.name || "",
     nick: profile.nickname || "",
-    v: "3",
+    v: "4",
   });
   return `stop/index.html?${query.toString()}`;
 }
