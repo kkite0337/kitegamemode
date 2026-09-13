@@ -436,7 +436,7 @@ function photoMarkup(photo, alt) {
         <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2.1l1-1.5h4.8l1 1.5h2.1A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9Z" stroke="currentColor" stroke-width="1.6"/>
         <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.6"/>
       </svg>
-      사진 등록
+      <span class="photo-placeholder__text">사진 등록</span>
     </span>
   `;
 }

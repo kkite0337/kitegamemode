@@ -380,6 +380,8 @@ body.is-admin .app {
 
 .photo-button,
 .admin-photo {
+  display: grid;
+  place-items: center;
   width: 180px;
   height: 180px;
   padding: 0;
@@ -387,6 +389,8 @@ body.is-admin .app {
   border: 2px dashed #d7cfc0;
   border-radius: 50%;
   background: #fffdf8;
+  line-height: 0;
+  text-align: center;
 }
 
 .photo-button {
@@ -427,9 +431,8 @@ body.is-admin .app {
 }
 
 .photo-placeholder {
-  display: grid;
-  place-content: center;
-  gap: 8px;
+  position: relative;
+  display: block;
   width: 100%;
   height: 100%;
   color: #8a8174;
@@ -437,8 +440,22 @@ body.is-admin .app {
 }
 
 .photo-placeholder svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 36px;
   height: 36px;
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
+
+.photo-placeholder__text {
+  position: absolute;
+  top: calc(50% + 26px);
+  left: 0;
+  width: 100%;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .photo-remove {
