@@ -910,6 +910,7 @@ function resetJokeScene() {
   const sock = document.getElementById("santaSock");
   const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
+  const party = document.getElementById("jokeParty");
 
   clearJokeTimers();
   giftUnwrapBusy = false;
@@ -927,6 +928,11 @@ function resetJokeScene() {
 
   if (gift) {
     resetGiftBox(gift);
+  }
+
+  if (party) {
+    party.innerHTML = "";
+    party.hidden = true;
   }
 }
 
@@ -1049,10 +1055,36 @@ function unwrapSantaGift() {
     gift.classList.add("is-shaking");
     afterJoke(1000, () => {
       gift.classList.remove("is-shaking");
-      jokePage.classList.add("is-punchline");
+      playJokeFinale();
       giftUnwrapBusy = false;
     });
   });
+}
+
+function jokeFireworkMarkup() {
+  const colors = ["#e11d48", "#f59e0b", "#2563eb", "#16a34a", "#ec4899", "#f8e7b0"];
+  return [0, 1, 2]
+    .map((burst) => {
+      const bits = Array.from({ length: 16 }, (_, index) => {
+        const angle = (index / 16) * 360;
+        const color = colors[(index + burst) % colors.length];
+        return `<span class="joke-firework__bit" style="--angle:${angle}deg;--color:${color};animation-delay:${burst * 0.2}s"></span>`;
+      }).join("");
+      return `<div class="joke-firework">${bits}</div>`;
+    })
+    .join("");
+}
+
+function playJokeFinale() {
+  const party = document.getElementById("jokeParty");
+  jokePage.classList.add("is-punchline");
+
+  if (party) {
+    party.hidden = false;
+    party.innerHTML = `${menuConfettiMarkup()}${jokeFireworkMarkup()}`;
+  }
+
+  playFanfare();
 }
 
 function showPage(page) {

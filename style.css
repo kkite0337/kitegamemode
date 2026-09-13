@@ -1224,24 +1224,75 @@ body.is-admin .app {
 .joke-line {
   position: fixed;
   left: 50%;
-  bottom: 72px;
-  z-index: 31;
+  top: 50%;
+  z-index: 33;
   margin: 0;
   width: min(340px, calc(100% - 32px));
   color: #111;
-  font-size: 36px;
+  font-size: 42px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   text-align: center;
   opacity: 0;
-  transform: translateX(-50%) translateY(10px);
+  transform: translate(-50%, -50%) scale(0.82);
   pointer-events: none;
 }
 
 .joke-page.is-punchline .joke-line {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transform: translate(-50%, -50%) scale(1);
+  transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.22, 0.86, 0.2, 1);
+}
+
+.joke-page.is-punchline .joke-gift-fly {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.joke-party {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  pointer-events: none;
+}
+
+.joke-party .menu-confetti {
+  z-index: 32;
+}
+
+.joke-firework {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.joke-firework__bit {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 0 10px var(--color);
+  animation: joke-firework-burst 0.95s ease-out forwards;
+}
+
+@keyframes joke-firework-burst {
+  0% {
+    transform: rotate(var(--angle)) translateY(0) scale(0.4);
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(var(--angle)) translateY(-150px) scale(0.2);
+    opacity: 0;
+  }
 }
 
 .joke-gift-fly {
