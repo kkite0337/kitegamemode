@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>멈춰!</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <main class="stop-app">
@@ -17,11 +17,14 @@
       <p class="stop-who" id="stopWho"></p>
     </header>
     <section class="stop-stage" id="stopStage"></section>
-    <div class="stop-splash" id="stopSplash" hidden>
-      <p class="stop-splash__logo">멈춰!</p>
+    <div class="stop-splash" id="stopSplash">
+      <div class="stop-splash__inner">
+        <p class="stop-splash__logo">멈춰!</p>
+        <button class="stop-btn" type="button" id="stopIntroStart" data-stop="intro-start">시작</button>
+      </div>
     </div>
   </main>
   <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>

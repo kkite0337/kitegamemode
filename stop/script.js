@@ -53,6 +53,7 @@ function applyHost(data) {
   host.nickname = data.nickname || host.nickname;
   host.players = Array.isArray(data.players) ? data.players : host.players;
   renderStop();
+  showIntroLogo();
 }
 
 function exitToHost() {
@@ -137,21 +138,39 @@ function renderStop() {
   `;
 }
 
-function playIntroLogo() {
+function dismissSplash() {
   const splash = document.getElementById("stopSplash");
+  const app = document.querySelector(".stop-app");
+  app?.classList.add("is-ready");
+  if (!splash || splash.hidden) {
+    return;
+  }
+
+  splash.classList.add("is-out");
+  window.setTimeout(() => {
+    splash.hidden = true;
+  }, 450);
+}
+
+function showIntroLogo() {
+  const splash = document.getElementById("stopSplash");
+  const startButton = document.getElementById("stopIntroStart");
   if (!splash) {
     document.querySelector(".stop-app")?.classList.add("is-ready");
     return;
   }
 
-  splash.hidden = false;
-  window.setTimeout(() => {
-    splash.classList.add("is-out");
+  if (stopState.phase === "run" || stopState.phase === "stop") {
+    splash.hidden = true;
     document.querySelector(".stop-app")?.classList.add("is-ready");
-    window.setTimeout(() => {
-      splash.hidden = true;
-    }, 450);
-  }, 900);
+    return;
+  }
+
+  splash.hidden = false;
+  splash.classList.remove("is-out");
+  if (startButton) {
+    startButton.hidden = false;
+  }
 }
 
 function setPhase(phase) {
@@ -207,6 +226,9 @@ function startMqtt(url) {
         updatedAt: Number(incoming.updatedAt || 0),
       };
       renderStop();
+      if (stopState.phase === "run" || stopState.phase === "stop") {
+        dismissSplash();
+      }
     } catch {
       // ignore
     }
@@ -225,25 +247,41 @@ window.addEventListener("message", (event) => {
   }
 });
 
-stage.addEventListener("click", (event) => {
+document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-stop]");
-  if (!button || !isHost()) {
+  if (!button) {
     return;
   }
 
   const action = button.dataset.stop;
+  if (action === "intro-start") {
+    dismissSplash();
+    setPhase("run");
+    return;
+  }
+
+  if (!isHost()) {
+    return;
+  }
+
   if (action === "exit") {
     exitToHost();
     return;
   }
 
-  if (action === "run" || action === "halt" || action === "lobby") {
+  if (action === "run") {
+    dismissSplash();
+    setPhase("run");
+    return;
+  }
+
+  if (action === "halt" || action === "lobby") {
     setPhase(action === "halt" ? "stop" : action);
   }
 });
 
 document.body.classList.toggle("is-embedded", embedded);
 renderStop();
-playIntroLogo();
+showIntroLogo();
 requestHost();
 startMqtt();
