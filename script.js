@@ -874,8 +874,14 @@ function findAccount(id, password) {
   );
 }
 
-const GIFT_LAYER_COUNT = 3;
+const GIFT_LAYER_COUNT = 4;
 const JOKE_PUNCHLINE = "김우진 동그라미";
+const JOKE_GIFT_FRAMES = [4, 3, 2, 1];
+const JOKE_SUSPENSE = {
+  1: "과연?!",
+  2: "마지막입니다 마지막",
+  3: "아 진짜 찐막 다 옴 진짜",
+};
 
 let jokeReadyTimer = 0;
 const jokeActionTimers = [];
@@ -961,9 +967,24 @@ function setJokePunchline() {
   }
 }
 
-function resetJokeScene() {
+function setJokeGiftFrame(frame) {
   const fly = document.getElementById("jokeGiftFly");
   const photo = document.getElementById("jokeGiftPhoto");
+  if (!fly || !photo) {
+    return;
+  }
+
+  const src = `assets/gift-${frame}.png`;
+  if (photo.getAttribute("src") !== src) {
+    photo.src = src;
+  }
+
+  photo.hidden = false;
+  fly.classList.add("has-photo");
+}
+
+function resetJokeScene() {
+  const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
   const party = document.getElementById("jokeParty");
   const drum = document.getElementById("jokeDrum");
@@ -971,17 +992,14 @@ function resetJokeScene() {
 
   clearJokeTimers();
   giftUnwrapBusy = false;
-  jokePage.classList.remove("is-intro", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline");
+  jokePage.classList.remove("is-intro", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline", "is-suspense");
 
   if (fly) {
     fly.getAnimations().forEach((animation) => animation.cancel());
     fly.removeAttribute("style");
     fly.hidden = true;
     fly.classList.remove("is-unwrapping", "is-shaking");
-    if (photo && photo.naturalWidth) {
-      fly.classList.add("has-photo");
-      photo.hidden = false;
-    }
+    setJokeGiftFrame(4);
   }
 
   if (gift) {
@@ -995,9 +1013,14 @@ function resetJokeScene() {
   }
 
   if (drum) {
-    drum.classList.remove("is-playing");
+    drum.classList.remove("is-playing", "is-suspense", "is-fading");
     drum.hidden = true;
     jokePage.appendChild(drum);
+  }
+
+  const suspense = document.getElementById("jokeSuspense");
+  if (suspense) {
+    suspense.textContent = "";
   }
 
   stopJokeApplause();
@@ -1032,6 +1055,9 @@ function dropGiftFromTop() {
   const floor = window.innerHeight * 0.7;
 
   fly.hidden = false;
+  setJokeGiftFrame(2);
+  afterJoke(380, () => setJokeGiftFrame(3));
+  afterJoke(520, () => setJokeGiftFrame(4));
   const drop = fly.animate(
     [
       { transform: giftFlyPose(x, -220, -12, 0.58), opacity: 1, easing: "cubic-bezier(0.7, 0, 1, 0.18)" },
@@ -1083,6 +1109,7 @@ function revealCenterGift() {
 
   fly.hidden = false;
   fly.classList.remove("is-shaking");
+  setJokeGiftFrame(4);
   jokePage.classList.add("is-opened", "is-gift-ready");
 
   const pop = fly.animate(
@@ -1117,13 +1144,39 @@ function popNestedGift(layer) {
     fly.hidden = false;
     fly.style.visibility = "";
     fly.style.opacity = "1";
+    fly.classList.remove("is-unwrapping");
+    setJokeGiftFrame(4);
   }
 
   void gift.offsetWidth;
   gift.classList.add("is-nesting");
-  afterJoke(680, () => {
+  afterJoke(1100, () => {
     gift.classList.remove("is-nesting");
+    fly?.classList.add("is-shaking");
     giftUnwrapBusy = false;
+  });
+}
+
+function finishGiftLayer() {
+  const gift = document.getElementById("jokeGift");
+  const layer = Number(gift?.dataset.layer || 0);
+
+  if (layer + 1 < GIFT_LAYER_COUNT) {
+    afterJoke(420, () => {
+      gift?.classList.add("is-fading");
+      afterJoke(560, () => {
+        playGiftSuspense(layer + 1);
+      });
+    });
+    return;
+  }
+
+  jokePage.classList.add("is-unwrapped");
+  afterJoke(420, () => {
+    gift?.classList.add("is-fading");
+    afterJoke(560, () => {
+      playGiftSuspense(GIFT_LAYER_COUNT);
+    });
   });
 }
 
@@ -1131,10 +1184,6 @@ function unwrapSantaGift() {
   const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
   const step = Number(gift?.dataset.step || 0);
-  if (fly) {
-    fly.classList.add("is-unwrapping");
-    fly.classList.remove("is-shaking");
-  }
 
   if (
     !gift ||
@@ -1146,6 +1195,24 @@ function unwrapSantaGift() {
   }
 
   giftUnwrapBusy = true;
+  fly?.classList.remove("is-shaking");
+
+  if (fly?.classList.contains("has-photo")) {
+    const next = step + 1;
+    gift.dataset.step = String(next);
+    if (next < 4) {
+      setJokeGiftFrame(JOKE_GIFT_FRAMES[next]);
+      afterJoke(280, () => {
+        giftUnwrapBusy = false;
+      });
+      return;
+    }
+
+    afterJoke(360, finishGiftLayer);
+    return;
+  }
+
+  fly?.classList.add("is-unwrapping");
   gift.classList.remove("is-untying");
   void gift.offsetWidth;
   gift.classList.add("is-untying");
@@ -1159,24 +1226,7 @@ function unwrapSantaGift() {
       return;
     }
 
-    const layer = Number(gift.dataset.layer || 0);
-    if (layer + 1 < GIFT_LAYER_COUNT) {
-      afterJoke(380, () => {
-        gift.classList.add("is-fading");
-        afterJoke(480, () => {
-          playNextGiftWait(layer + 1);
-        });
-      });
-      return;
-    }
-
-    jokePage.classList.add("is-unwrapped");
-    afterJoke(380, () => {
-      gift.classList.add("is-fading");
-      afterJoke(480, () => {
-        playLastGiftWait();
-      });
-    });
+    finishGiftLayer();
   });
 }
 
@@ -1210,7 +1260,7 @@ function hideJokeDrum() {
     return;
   }
 
-  drum.classList.remove("is-playing");
+  drum.classList.remove("is-playing", "is-suspense", "is-fading");
   drum.hidden = true;
 }
 
@@ -1228,9 +1278,65 @@ function showJokeDrum() {
 
   document.body.appendChild(drum);
   drum.hidden = false;
-  drum.classList.remove("is-playing");
+  drum.classList.remove("is-playing", "is-suspense", "is-fading");
   void drum.offsetWidth;
   drum.classList.add("is-playing");
+}
+
+function parkJokeDrum() {
+  const drum = document.getElementById("jokeDrum");
+  if (drum) {
+    jokePage.appendChild(drum);
+  }
+}
+
+function playGiftSuspense(nextLayer) {
+  const drum = document.getElementById("jokeDrum");
+  const line = JOKE_SUSPENSE[nextLayer] || "";
+  const suspense = document.getElementById("jokeSuspense");
+  if (suspense) {
+    suspense.textContent = line;
+  }
+
+  showJokeDrum();
+  playDrumroll();
+
+  afterJoke(2600, () => {
+    drum?.classList.remove("is-playing");
+    if (line) {
+      drum?.classList.add("is-suspense");
+    }
+
+    afterJoke(line ? 3600 : 900, () => {
+      drum?.classList.add("is-fading");
+      afterJoke(650, () => {
+        hideJokeDrum();
+        parkJokeDrum();
+        afterJoke(1100, () => {
+          if (nextLayer < GIFT_LAYER_COUNT) {
+            popNestedGift(nextLayer);
+          } else {
+            startPunchline();
+          }
+        });
+      });
+    });
+  });
+}
+
+function startPunchline() {
+  const fly = document.getElementById("jokeGiftFly");
+  if (fly) {
+    fly.hidden = true;
+  }
+
+  jokePage.classList.add("is-punchline");
+  playJokeFanfare();
+  afterJoke(650, () => {
+    playJokeParty();
+    playApplause();
+    giftUnwrapBusy = false;
+  });
 }
 
 function playJokeFanfare() {
@@ -1258,19 +1364,7 @@ function playJokeFanfare() {
 }
 
 function playNextGiftWait(layer) {
-  showJokeDrum();
-  playDrumroll();
-  afterJoke(4200, () => {
-    playJokeFanfare();
-    afterJoke(700, () => {
-      hideJokeDrum();
-      const drum = document.getElementById("jokeDrum");
-      if (drum) {
-        jokePage.appendChild(drum);
-      }
-      popNestedGift(layer);
-    });
-  });
+  playGiftSuspense(layer);
 }
 
 function jokePartyMarkup() {
@@ -1352,28 +1446,7 @@ function playJokeParty() {
 }
 
 function playLastGiftWait() {
-  const fly = document.getElementById("jokeGiftFly");
-  showJokeDrum();
-  playDrumroll();
-  afterJoke(4200, () => {
-    hideJokeDrum();
-    const drum = document.getElementById("jokeDrum");
-    if (drum) {
-      jokePage.appendChild(drum);
-    }
-
-    if (fly) {
-      fly.hidden = true;
-    }
-
-    jokePage.classList.add("is-punchline");
-    playJokeFanfare();
-    afterJoke(650, () => {
-      playJokeParty();
-      playApplause();
-      giftUnwrapBusy = false;
-    });
-  });
+  playGiftSuspense(GIFT_LAYER_COUNT);
 }
 
 function showPage(page) {
