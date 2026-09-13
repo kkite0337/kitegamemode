@@ -157,6 +157,12 @@ body.is-admin .app {
   outline: none;
 }
 
+.btn-primary:disabled {
+  background: #d6cbb8;
+  color: #fff;
+  cursor: default;
+}
+
 .page-top {
   display: flex;
   align-items: center;

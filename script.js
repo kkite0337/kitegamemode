@@ -986,25 +986,44 @@ function giftMarkup(kind) {
   `;
 }
 
-function userDrinksListMarkup() {
+function playerStatusListMarkup(isDone) {
   const users = playerAccounts();
 
   return users
     .map((account) => {
-      const drink = gameState.drinks[account.id] || emptyDrink();
       const profile = profiles[account.id] || emptyUserProfile();
       const name = profile.name || profile.nickname || account.id;
-      const status = drink.submitted ? "완료" : "수정 중";
+      const done = Boolean(isDone(account.id));
+      const status = done ? "완료" : "수정 중";
 
       return `
         <article class="drink-status">
           <span class="drink-status__name">${escapeHtml(name)}</span>
           <span class="drink-status__sep">&gt;</span>
-          <span class="drink-status__state${drink.submitted ? " is-done" : " is-edit"}">${status}</span>
+          <span class="drink-status__state${done ? " is-done" : " is-edit"}">${status}</span>
         </article>
       `;
     })
     .join("");
+}
+
+function userDrinksListMarkup() {
+  return playerStatusListMarkup((id) => gameState.drinks[id]?.submitted);
+}
+
+function userMenusListMarkup() {
+  return playerStatusListMarkup((id) => gameState.menus[id]?.submitted);
+}
+
+function allMenusSubmitted() {
+  return gamePlayers().every((id) => gameState.menus[id]?.submitted);
+}
+
+function adminReviewMarkup(listMarkup, canGoResult) {
+  return `
+    <div class="drink-status-list">${listMarkup}</div>
+    <button class="btn-primary" type="button" data-action="go-result"${canGoResult ? "" : " disabled"}>결과 보러가기</button>
+  `;
 }
 
 function stopPriceTalk() {
@@ -1449,7 +1468,20 @@ function renderAdminPlay() {
   }
 
   if (gameState.game === "game2") {
-    renderMenuPlay(adminPlay);
+    const menu = currentMenu();
+    const adminPlaying = isInCurrentGame();
+
+    if (gameState.phase === "entry" && adminPlaying && !menu.submitted) {
+      adminPlay.innerHTML = menuFormMarkup(menu);
+      return;
+    }
+
+    if (gameState.phase === "entry" || gameState.phase === "review") {
+      adminPlay.innerHTML = adminReviewMarkup(userMenusListMarkup(), allMenusSubmitted());
+      return;
+    }
+
+    adminPlay.innerHTML = waitMarkup("잠시만 기다려주세요.");
     return;
   }
 
@@ -1467,10 +1499,7 @@ function renderAdminPlay() {
   }
 
   if (gameState.phase === "entry" || gameState.phase === "review") {
-    adminPlay.innerHTML = `
-      <div class="drink-status-list">${userDrinksListMarkup()}</div>
-      <button class="btn-primary" type="button" data-action="go-result">결과 보러가기</button>
-    `;
+    adminPlay.innerHTML = adminReviewMarkup(userDrinksListMarkup(), true);
     return;
   }
 
@@ -1871,6 +1900,10 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "go-result") {
+    if (gameState.game === "game2" && !allMenusSubmitted()) {
+      return;
+    }
+
     gameState.phase = "choose";
     saveGame();
     refreshVisible();
