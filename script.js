@@ -1299,10 +1299,26 @@ function menuSpinButtonMarkup() {
   return `<button class="btn-primary menu-reveal__spin-btn" type="button" data-action="spin-menu-result">결과 확인</button>`;
 }
 
+function menuConfettiMarkup() {
+  const colors = ["#e11d48", "#f59e0b", "#ec4899", "#2563eb", "#16a34a", "#f8e7b0", "#d97706", "#fffdf8"];
+  const bits = Array.from({ length: 56 }, (_, index) => {
+    const left = ((index * 17) % 100) + (index % 7) - 3;
+    const delay = (index % 8) * 0.05;
+    const duration = 1.7 + (index % 5) * 0.18;
+    const drift = (index % 2 === 0 ? -1 : 1) * (18 + (index % 6) * 8);
+    const width = 6 + (index % 5);
+    const height = 8 + (index % 6);
+    return `<span class="menu-confetti__bit" style="left:${left}%;width:${width}px;height:${height}px;background:${colors[index % colors.length]};animation-delay:${delay}s;animation-duration:${duration}s;--drift:${drift}px"></span>`;
+  }).join("");
+
+  return `<div class="menu-confetti" aria-hidden="true">${bits}</div>`;
+}
+
 function menuWinMarkup(winner) {
   const label = MENU_LABELS[winner] || winner;
   return `
     <div class="menu-win">
+      ${menuConfettiMarkup()}
       <div class="menu-win__card">
         <p class="menu-win__title">축하합니다!</p>
         <p class="menu-win__prize">${escapeHtml(label)}당첨!</p>
@@ -1372,6 +1388,7 @@ function showMenuWin(container, winner) {
   }
 
   container.insertAdjacentHTML("beforeend", menuWinMarkup(winner));
+  playFanfare();
 }
 
 function startMenuSpinAnimation(container) {

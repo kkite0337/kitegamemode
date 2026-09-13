@@ -673,10 +673,42 @@ body.is-admin .app {
   z-index: 4;
   display: grid;
   place-items: center;
+  overflow: hidden;
   background: rgba(31, 27, 22, 0.18);
 }
 
+.menu-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.menu-confetti__bit {
+  position: absolute;
+  top: -24px;
+  border-radius: 2px;
+  animation-name: menu-confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes menu-confetti-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(var(--drift), 110vh, 0) rotate(540deg);
+    opacity: 0.2;
+  }
+}
+
 .menu-win__card {
+  position: relative;
+  z-index: 6;
   min-width: 220px;
   padding: 22px 28px;
   border-radius: 16px;
