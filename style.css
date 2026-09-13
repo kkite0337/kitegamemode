@@ -2019,6 +2019,45 @@ body.is-admin .app {
   }
 }
 
+.joke-drum.is-suspense.is-fall .joke-suspense {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+  transform: none;
+  text-align: center;
+  animation: none;
+  display: flex;
+  justify-content: center;
+}
+
+.joke-suspense__fall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: joke-fall 5.5s linear infinite;
+}
+
+.joke-suspense__fall i {
+  font-style: normal;
+  font-size: clamp(36px, 8vw, 52px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+}
+
+@keyframes joke-fall {
+  from {
+    transform: translateY(-50%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
 .joke-drum.is-fading {
   animation: joke-drum-fade 0.6s ease forwards;
 }
