@@ -607,7 +607,7 @@ body.is-admin .app {
 
 .menu-roulette {
   position: relative;
-  width: min(280px, 78vw);
+  width: min(300px, 82vw);
   margin-top: 28px;
   opacity: 0;
   transform: scale(0.86) translateY(-18px);

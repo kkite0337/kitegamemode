@@ -126,12 +126,16 @@ function pickRoulette(first, second) {
   return left.length ? left : right;
 }
 
-function collectMenuPicks() {
-  const picks = [];
-  gamePlayers().forEach((id) => {
-    picks.push(...normalizeMenuPicks(gameState.menus[id]?.picks));
-  });
-  return picks;
+function tallySliceList() {
+  return menuTallies().flatMap((item) => Array.from({ length: item.count }, () => item.key));
+}
+
+function sameSliceBag(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return [...left].sort().join("\0") === [...right].sort().join("\0");
 }
 
 function circularDist(index, other, size) {
@@ -224,22 +228,24 @@ function arrangeMenuSlices(picks) {
 }
 
 function currentRoulette() {
+  const wanted = tallySliceList();
   const stored = sanitizeRoulette(gameState.roulette);
-  if (stored.length) {
+  if (stored.length && sameSliceBag(stored, wanted)) {
     return stored;
   }
 
-  return arrangeMenuSlices(collectMenuPicks());
+  return arrangeMenuSlices(wanted);
 }
 
 function ensureRoulette() {
+  const wanted = tallySliceList();
   const stored = sanitizeRoulette(gameState.roulette);
-  if (stored.length) {
+  if (stored.length && sameSliceBag(stored, wanted)) {
     gameState.roulette = stored;
     return stored;
   }
 
-  gameState.roulette = arrangeMenuSlices(collectMenuPicks());
+  gameState.roulette = arrangeMenuSlices(wanted);
   return gameState.roulette;
 }
 
@@ -1194,20 +1200,29 @@ function menuRouletteMarkup(slices, visible = false) {
     return "";
   }
 
-  const size = 280;
+  const size = 320;
   const center = size / 2;
-  const radius = 128;
+  const radius = 118;
   const start0 = -Math.PI / 2;
   const sliceAngle = (Math.PI * 2) / items.length;
-  const fontSize = items.length <= 6 ? 20 : items.length <= 12 ? 15 : 11;
-  const labelOf = (key) => (items.length <= 8 ? MENU_LABELS[key] || key : key);
+  const fontSize = items.length <= 4 ? 22 : items.length <= 8 ? 16 : 12;
+  const labelOf = (key) => MENU_LABELS[key] || key;
+
+  const pegs = items
+    .map((_, index) => {
+      const angle = start0 + index * sliceAngle;
+      const x = center + 140 * Math.cos(angle);
+      const y = center + 140 * Math.sin(angle);
+      return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5" fill="#f8e7b0" stroke="#8a6a22" stroke-width="1.5"></circle>`;
+    })
+    .join("");
 
   let slicesMarkup = "";
   if (items.length === 1) {
     const key = items[0];
     slicesMarkup = `
       <circle cx="${center}" cy="${center}" r="${radius}" fill="${MENU_COLORS[key]}"></circle>
-      <text x="${center}" y="${center - 36}" fill="#fff" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
+      <text x="${center}" y="${center - 40}" fill="#fff" font-size="28" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
     `;
   } else {
     slicesMarkup = items
@@ -1223,7 +1238,7 @@ function menuRouletteMarkup(slices, visible = false) {
         const lx = center + radius * 0.62 * Math.cos(mid);
         const ly = center + radius * 0.62 * Math.sin(mid);
         return `
-          <path d="M ${center} ${center} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${MENU_COLORS[key]}" stroke="#fffdf8" stroke-width="3"></path>
+          <path d="M ${center} ${center} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${MENU_COLORS[key]}" stroke="#fff7e6" stroke-width="2"></path>
           <text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" fill="#fff" font-size="${fontSize}" font-weight="800" text-anchor="middle" dominant-baseline="middle">${escapeHtml(labelOf(key))}</text>
         `;
       })
@@ -1233,9 +1248,12 @@ function menuRouletteMarkup(slices, visible = false) {
   return `
     <div class="menu-roulette${visible ? " is-in" : ""}">
       <div class="menu-roulette__pointer" aria-hidden="true"></div>
-      <svg class="menu-roulette__wheel" viewBox="0 0 ${size} ${size}" role="img" aria-label="메뉴 룰렛">
+      <svg class="menu-roulette__wheel" viewBox="0 0 ${size} ${size}" role="img" aria-label="메뉴 돌림판">
+        <circle cx="${center}" cy="${center}" r="150" fill="#7c5a1e"></circle>
+        <circle cx="${center}" cy="${center}" r="144" fill="#e8c36a"></circle>
         ${slicesMarkup}
-        <circle cx="${center}" cy="${center}" r="20" fill="#fffdf8" stroke="#d6cbb8" stroke-width="3"></circle>
+        ${pegs}
+        <circle cx="${center}" cy="${center}" r="22" fill="#fffdf8" stroke="#c9a227" stroke-width="4"></circle>
       </svg>
     </div>
   `;
