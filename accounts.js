@@ -33,5 +33,5 @@ const GAME_CHOICES = [
   { id: "drink", label: "음료를 고르자!" },
   { id: "game2", label: "게임 2" },
   { id: "game3", label: "게임 3" },
-  { id: "game4", label: "게임 4" },
+  { id: "stop", label: "멈춰!" },
 ];

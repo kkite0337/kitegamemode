@@ -1071,7 +1071,68 @@ function otherGamePlayMarkup() {
   return `<div class="wait-screen"><p>게임 진행</p></div>`;
 }
 
+function stopGameUrl() {
+  const profile = currentProfile() || emptyUserProfile();
+  const query = new URLSearchParams({
+    embedded: "1",
+    role: currentAccount?.role || "user",
+    id: currentAccount?.id || "",
+    name: profile.name || "",
+    nick: profile.nickname || "",
+  });
+  return `stop/index.html?${query.toString()}`;
+}
+
+function stopHostPayload() {
+  return {
+    type: "stop-host",
+    role: currentAccount?.role || "user",
+    id: currentAccount?.id || "",
+    name: currentProfile()?.name || "",
+    nickname: currentProfile()?.nickname || "",
+    players: gamePlayers().map((id) => {
+      const profile = profiles[id] || emptyUserProfile();
+      return { id, name: profile.name || id, nickname: profile.nickname || "" };
+    }),
+  };
+}
+
+function postStopHost(frame) {
+  if (!frame?.contentWindow) {
+    return;
+  }
+
+  frame.contentWindow.postMessage(stopHostPayload(), "*");
+}
+
+function renderNestedStop(container) {
+  const src = stopGameUrl();
+  const existing = container.querySelector("iframe.nested-game");
+  if (existing && existing.dataset.game === "stop") {
+    postStopHost(existing);
+    return;
+  }
+
+  container.innerHTML = `
+    <iframe
+      class="nested-game"
+      data-game="stop"
+      title="멈춰!"
+      src="${escapeAttr(src)}"
+    ></iframe>
+  `;
+  const frame = container.querySelector("iframe.nested-game");
+  frame.addEventListener("load", () => {
+    postStopHost(frame);
+  });
+}
+
 function renderUserPlay() {
+  if (gameState.game === "stop") {
+    renderNestedStop(userPlay);
+    return;
+  }
+
   if (gameState.game !== "drink") {
     userPlay.innerHTML = otherGamePlayMarkup();
     return;
@@ -1161,6 +1222,11 @@ function renderAdminPlay() {
         ).join("")}
       </div>
     `;
+    return;
+  }
+
+  if (gameState.game === "stop") {
+    renderNestedStop(adminPlay);
     return;
   }
 
@@ -2788,6 +2854,19 @@ setInterval(() => {
   publishMqttKnownUsers();
   broadcastPeerState();
 }, 1500);
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "stop-ready") {
+    if (typeof event.source?.postMessage === "function") {
+      event.source.postMessage(stopHostPayload(), "*");
+    }
+    return;
+  }
+
+  if (event.data?.type === "stop-exit" && currentAccount?.role === "admin") {
+    goToMainMenu();
+  }
+});
+
 lastProfileSignature = profileSignature(profiles);
 lastGameSignature = gameSignature(gameState);
 restoreSession();

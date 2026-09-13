@@ -1,0 +1,149 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: Pretendard, "Apple SD Gothic Neo", sans-serif;
+  background: #f6f4ef;
+  color: #222;
+}
+
+.stop-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+}
+
+.stop-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.stop-brand,
+.stop-who {
+  margin: 0;
+}
+
+.stop-brand {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.stop-who {
+  color: #8a8174;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stop-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: center;
+}
+
+.stop-title {
+  margin: 0;
+  font-size: clamp(42px, 14vw, 72px);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.stop-title.is-run {
+  color: #d97706;
+}
+
+.stop-title.is-stop {
+  color: #dc2626;
+}
+
+.stop-lead {
+  margin: 0;
+  color: #8a8174;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.stop-players {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(420px, 100%);
+}
+
+.stop-chip {
+  padding: 6px 10px;
+  border: 1px solid #ddd4c4;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stop-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(280px, 100%);
+}
+
+.stop-btn {
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #d97706;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stop-btn:hover,
+.stop-btn:focus-visible {
+  background: #b45309;
+  outline: none;
+}
+
+.stop-btn.is-stop {
+  background: #dc2626;
+}
+
+.stop-btn.is-stop:hover,
+.stop-btn.is-stop:focus-visible {
+  background: #b91c1c;
+}
+
+.stop-btn.is-ghost {
+  background: #fff;
+  color: #8a8174;
+  border: 1px solid #ddd4c4;
+}
+
+.stop-btn.is-ghost:hover,
+.stop-btn.is-ghost:focus-visible {
+  background: #fff;
+  color: #d97706;
+  border-color: #d97706;
+}

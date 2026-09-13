@@ -200,6 +200,22 @@ body.is-admin .app {
   flex: 0;
 }
 
+.play-screen:has(.nested-game),
+#adminPlay:has(.nested-game) {
+  justify-content: stretch;
+  align-items: stretch;
+}
+
+.nested-game {
+  display: block;
+  width: 100%;
+  min-height: calc(100dvh - 160px);
+  height: 100%;
+  border: 0;
+  border-radius: 16px;
+  background: #fffdf8;
+}
+
 .center-form .btn-primary {
   margin-top: 24px;
 }
