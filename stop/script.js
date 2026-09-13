@@ -15,7 +15,11 @@ const host = {
   players: [],
 };
 
-let stopState = { phase: "lobby", updatedAt: 0 };
+const freshSession = Number(params.get("fresh") || 0);
+let stopState = {
+  phase: "lobby",
+  updatedAt: freshSession && isHost() ? Date.now() : 0,
+};
 let mqttClient = null;
 let slotAnim = 0;
 
@@ -809,19 +813,47 @@ async function renderPreview() {
     splash.hidden = true;
   }
   document.querySelector(".stop-app")?.classList.add("is-ready");
+  document.querySelector(".stop-app")?.classList.add("is-preview");
   whoLabel.textContent = "미리보기";
   const faces = SLOT_SETS.find((set) => set.id === "F")?.files || [];
-  const sample = Object.fromEntries(
-    SLOT_SETS.filter((set) => set.id !== "F").map((set) => [set.id, set.files[0]]),
-  );
+  const hairs = SLOT_SETS.find((set) => set.id === "hair")?.files || [];
+  const eyes = SLOT_SETS.find((set) => set.id === "E")?.files || [];
+  const noses = SLOT_SETS.find((set) => set.id === "N")?.files || [];
+  const mouths = SLOT_SETS.find((set) => set.id === "M")?.files || [];
+  const clothes = SLOT_SETS.find((set) => set.id === "cloth")?.files || [];
+  const sample = {
+    E: eyes[0],
+    N: noses[0],
+    M: mouths[0],
+    hair: hairs[0],
+    cloth: clothes[0],
+  };
+  const jobs = [];
+  faces.forEach((face, faceIndex) => {
+    jobs.push({ id: `face${faceIndex}`, picks: { ...sample, F: face } });
+  });
+  faces.forEach((face, faceIndex) => {
+    hairs.forEach((hair, hairIndex) => {
+      jobs.push({ id: `fh${faceIndex}${hairIndex}`, picks: { ...sample, F: face, hair } });
+    });
+  });
+  faces.forEach((face, faceIndex) => {
+    jobs.push({
+      id: `big${faceIndex}`,
+      picks: { F: face, E: eyes[1] || eyes[0], N: noses[0], M: mouths[1] || mouths[0], hair: hairs[2] || hairs[0], cloth: clothes[1] || clothes[0] },
+    });
+  });
   stage.innerHTML = `
-    <div class="preview-grid">
-      ${faces.map((_, index) => `<canvas class="result-canvas" id="preview${index}" width="720" height="720"></canvas>`).join("")}
-    </div>
+    <p class="preview-label">얼굴 6종</p>
+    <div class="preview-grid" id="previewFaces">${faces.map((_, index) => `<canvas class="result-canvas" id="face${index}" width="720" height="720"></canvas>`).join("")}</div>
+    <p class="preview-label">얼굴 × 헤어</p>
+    <div class="preview-grid is-wide" id="previewHairs">${jobs.filter((job) => job.id.startsWith("fh")).map((job) => `<canvas class="result-canvas" id="${job.id}" width="720" height="720"></canvas>`).join("")}</div>
+    <p class="preview-label">큰 눈·입</p>
+    <div class="preview-grid" id="previewBig">${faces.map((_, index) => `<canvas class="result-canvas" id="big${index}" width="720" height="720"></canvas>`).join("")}</div>
   `;
-  for (let index = 0; index < faces.length; index += 1) {
-    slot.picks = { ...sample, F: faces[index] };
-    await fillResultCanvas(document.getElementById(`preview${index}`));
+  for (const job of jobs) {
+    slot.picks = job.picks;
+    await fillResultCanvas(document.getElementById(job.id));
   }
 }
 

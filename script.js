@@ -115,27 +115,29 @@ function filledDrinks(drinks) {
   );
 }
 
-function mergeGameState(local, remote) {
+function mergeGameState(local, remote, preferRemote = false) {
   const drinks = mergeDrinkMaps(local.drinks, remote.drinks);
   if (currentAccount && drinks[currentAccount.id] && local.drinks?.[currentAccount.id] && !local.drinks[currentAccount.id].submitted) {
     drinks[currentAccount.id] = pickRicherDrink(local.drinks[currentAccount.id], drinks[currentAccount.id]);
   }
 
+  const primary = preferRemote ? remote : local;
+  const secondary = preferRemote ? local : remote;
   return {
     ...emptyGame(),
-    ...local,
-    ...remote,
-    game: local.game || remote.game,
-    pendingGame: local.pendingGame || remote.pendingGame,
-    players: (local.players || []).length ? local.players : remote.players || [],
-    phase: pickPhase(local.phase, remote.phase),
+    ...secondary,
+    ...primary,
+    game: primary.game || "",
+    pendingGame: primary.pendingGame || "",
+    players: Array.isArray(primary.players) ? primary.players : [],
+    phase: primary.phase || "idle",
     drinks,
     opened: mergeOpenedMaps(local.opened, remote.opened),
-    assignment: Object.keys(local.assignment || {}).length ? local.assignment : remote.assignment || {},
-    priceShares: Object.keys(local.priceShares || {}).length ? local.priceShares : remote.priceShares || {},
+    assignment: Object.keys(primary.assignment || {}).length ? primary.assignment : secondary.assignment || {},
+    priceShares: Object.keys(primary.priceShares || {}).length ? primary.priceShares : secondary.priceShares || {},
     resultPicked: {
-      drink: Boolean(local.resultPicked?.drink || remote.resultPicked?.drink),
-      price: Boolean(local.resultPicked?.price || remote.resultPicked?.price),
+      drink: Boolean(primary.resultPicked?.drink),
+      price: Boolean(primary.resultPicked?.price),
     },
     personalSteps: mergePersonalSteps(local.personalSteps, remote.personalSteps),
   };
@@ -310,6 +312,7 @@ let lastGameSignature = "";
 let lastProfileSignature = "";
 let lastProfileResetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
 let gameUpdatedAt = Number(localStorage.getItem(GAME_UPDATED_KEY) || 0);
+let stopSession = 0;
 let remotePushTimer = 0;
 let remotePushing = false;
 let remotePushQueued = false;
@@ -1079,8 +1082,11 @@ function stopGameUrl() {
     id: currentAccount?.id || "",
     name: profile.name || "",
     nick: profile.nickname || "",
-    v: "7",
+    v: "9",
   });
+  if (stopSession) {
+    query.set("fresh", String(stopSession));
+  }
   return `stop/index.html?${query.toString()}`;
 }
 
@@ -1109,7 +1115,7 @@ function postStopHost(frame) {
 function renderNestedStop(container) {
   const src = stopGameUrl();
   const existing = container.querySelector("iframe.nested-game");
-  if (existing && existing.dataset.game === "stop") {
+  if (existing && existing.dataset.game === "stop" && existing.dataset.session === String(stopSession)) {
     postStopHost(existing);
     return;
   }
@@ -1118,6 +1124,7 @@ function renderNestedStop(container) {
     <iframe
       class="nested-game"
       data-game="stop"
+      data-session="${escapeAttr(String(stopSession))}"
       title="멈춰!"
       src="${escapeAttr(src)}"
     ></iframe>
@@ -1310,7 +1317,7 @@ function goToMainMenu() {
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
   adminView = "main";
-  saveGame();
+  saveGame({ immediate: true });
   refreshVisible();
 }
 
@@ -1335,6 +1342,9 @@ function confirmPlayerPick() {
   gameState.pendingGame = "";
   gameState.players = players;
   gameState.phase = gameId === "drink" ? "entry" : "play";
+  if (gameId === "stop") {
+    stopSession = Date.now();
+  }
   saveGame();
   refreshVisible();
 }
@@ -1847,7 +1857,8 @@ function applyRemoteState(remote, options = {}) {
   }
 
   if (incoming.hasGame) {
-    const next = mergeGameState(gameState, incoming.game);
+    const preferRemote = (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
+    const next = mergeGameState(gameState, incoming.game, preferRemote);
     if (isEditingDrink() && currentAccount) {
       next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
       const nameInput = document.getElementById("drinkName");
@@ -2404,16 +2415,10 @@ function publishMqttDrink(id) {
 function publishMqttGame() {
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
-  const idle =
-    (!game.game || game.phase === "idle") &&
-    !Object.keys(game.drinks).length &&
-    !(game.players || []).length;
-  if (!idle) {
-    publishMqttJson(mqttTopic("game"), {
-      game,
-      gameUpdatedAt,
-    });
-  }
+  publishMqttJson(mqttTopic("game"), {
+    game,
+    gameUpdatedAt,
+  });
   if (currentAccount) {
     publishMqttDrink(currentAccount.id);
   }

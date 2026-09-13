@@ -318,12 +318,34 @@ body {
   background: #fffdf8;
 }
 
+.stop-app.is-preview {
+  min-height: auto;
+  overflow: visible;
+}
+
+.stop-app.is-preview .stop-stage {
+  flex: none;
+  justify-content: flex-start;
+}
+
+.preview-label {
+  width: min(960px, 100%);
+  margin: 18px auto 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+
 .preview-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  width: min(720px, 100%);
-  margin: 0 auto;
+  width: min(960px, 100%);
+  margin: 0 auto 24px;
+}
+
+.preview-grid.is-wide {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .preview-grid .result-canvas {
