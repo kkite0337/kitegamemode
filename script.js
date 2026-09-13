@@ -1778,7 +1778,10 @@ userPlay.addEventListener("input", saveDrinkDraft);
 adminPlay.addEventListener("input", saveDrinkDraft);
 
 function syncEnabled() {
-  return typeof SYNC_URL === "string" && Boolean(SYNC_URL);
+  return Boolean(
+    (typeof SYNC_GIST_ID === "string" && SYNC_GIST_ID) ||
+      (typeof SYNC_URL === "string" && SYNC_URL),
+  );
 }
 
 function emptyRemoteState() {
@@ -1944,9 +1947,36 @@ function packedRemoteState(state, slimPhotos) {
   };
 }
 
+function gistFileContent(data) {
+  const files = data?.files && typeof data.files === "object" ? data.files : {};
+  const named =
+    (typeof SYNC_GIST_FILE === "string" && files[SYNC_GIST_FILE]) || Object.values(files)[0];
+  return named?.content || "";
+}
+
 async function fetchRemoteState() {
   if (!syncEnabled()) {
     return emptyRemoteState();
+  }
+
+  if (typeof SYNC_GIST_ID === "string" && SYNC_GIST_ID) {
+    const response = await fetch(`https://api.github.com/gists/${SYNC_GIST_ID}?t=${Date.now()}`, {
+      cache: "no-store",
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (response.status === 404 || response.status === 204) {
+      return emptyRemoteState();
+    }
+    if (!response.ok) {
+      throw new Error("remote-get-failed");
+    }
+
+    const text = gistFileContent(await response.json());
+    if (!text) {
+      return emptyRemoteState();
+    }
+
+    return normalizeRemoteState(JSON.parse(text));
   }
 
   const response = await fetch(SYNC_URL, { cache: "no-store" });
@@ -1967,15 +1997,35 @@ async function fetchRemoteState() {
 }
 
 async function putRemoteState(state) {
-  const attempts = [packedRemoteState(state, false), packedRemoteState(state, true)];
+  const attempts = [packedRemoteState(state, true), packedRemoteState(state, false)];
   let lastError = null;
 
   for (const payload of attempts) {
-    const response = await fetch(SYNC_URL, {
-      method: "PUT",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload),
-    });
+    const body = JSON.stringify(payload);
+    let response;
+
+    if (typeof SYNC_GIST_ID === "string" && SYNC_GIST_ID) {
+      response = await fetch(`https://api.github.com/gists/${SYNC_GIST_ID}`, {
+        method: "PATCH",
+        headers: {
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          files: {
+            [typeof SYNC_GIST_FILE === "string" && SYNC_GIST_FILE ? SYNC_GIST_FILE : "sync-init.json"]: {
+              content: body,
+            },
+          },
+        }),
+      });
+    } else {
+      response = await fetch(SYNC_URL, {
+        method: "PUT",
+        headers: { "Content-Type": "text/plain" },
+        body,
+      });
+    }
 
     if (response.ok) {
       return;
@@ -1998,7 +2048,7 @@ function packedProfiles(withPhotos) {
   );
 }
 
-function currentSyncPayload(withPhotos = false) {
+function currentSyncPayload(withPhotos = true) {
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
   return {
@@ -2595,11 +2645,15 @@ function startMqttSync(url) {
         mqttClient.subscribe(`${prefix}/reset`, { qos: 0 });
       });
     }
-    publishMqttHello();
-    publishMqttOwn();
-    publishMqttRoster();
-    publishMqttKnownUsers();
-    publishMqttGame();
+    const shareKnown = () => {
+      publishMqttHello();
+      publishMqttOwn();
+      publishMqttRoster();
+      publishMqttKnownUsers();
+      publishMqttGame();
+    };
+    shareKnown();
+    setTimeout(shareKnown, 400);
   });
 
   mqttClient.on("message", (topic, payload) => {
@@ -2688,8 +2742,15 @@ function isEditingDrink() {
   );
 }
 
+function isEditingRegister() {
+  return Boolean(
+    document.activeElement &&
+      (document.activeElement.id === "nameInput" || document.activeElement.id === "nicknameInput"),
+  );
+}
+
 function shouldRefreshAfterRemote(result) {
-  if (!currentAccount || !result.changed || isEditingDrink()) {
+  if (!currentAccount || !result.changed || isEditingDrink() || isEditingRegister()) {
     return false;
   }
 
