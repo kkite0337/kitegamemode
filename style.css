@@ -1196,9 +1196,8 @@ body.is-admin .app {
 .joke-gift-photo {
   position: relative;
   z-index: 4;
-  width: 156px;
-  height: auto;
-  max-height: 176px;
+  width: 168px;
+  height: 168px;
   object-fit: contain;
   pointer-events: none;
   filter: drop-shadow(0 10px 14px rgba(70, 52, 28, 0.16));
@@ -1210,6 +1209,12 @@ body.is-admin .app {
 
 .joke-gift-fly.has-photo .gift {
   display: none;
+}
+
+.joke-gift-fly.is-leaving {
+  opacity: 0 !important;
+  filter: blur(10px);
+  pointer-events: none;
 }
 
 .joke-party {
@@ -1283,7 +1288,8 @@ body.is-admin .app {
   display: grid;
   place-items: center;
   width: 168px;
-  height: 188px;
+  height: 168px;
+  transition: opacity 0.45s ease, filter 0.45s ease;
   margin: 0;
   pointer-events: none;
 }

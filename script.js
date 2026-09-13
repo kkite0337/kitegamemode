@@ -974,7 +974,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png`;
+  const src = `assets/gift-${frame}.png?v=97`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -998,7 +998,7 @@ function resetJokeScene() {
     fly.getAnimations().forEach((animation) => animation.cancel());
     fly.removeAttribute("style");
     fly.hidden = true;
-    fly.classList.remove("is-unwrapping", "is-shaking");
+    fly.classList.remove("is-unwrapping", "is-shaking", "is-leaving");
     setJokeGiftFrame(4);
   }
 
@@ -1144,7 +1144,7 @@ function popNestedGift(layer) {
     fly.hidden = false;
     fly.style.visibility = "";
     fly.style.opacity = "1";
-    fly.classList.remove("is-unwrapping");
+    fly.classList.remove("is-unwrapping", "is-leaving");
     setJokeGiftFrame(4);
   }
 
@@ -1158,25 +1158,26 @@ function popNestedGift(layer) {
 }
 
 function finishGiftLayer() {
+  const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
   const layer = Number(gift?.dataset.layer || 0);
 
-  if (layer + 1 < GIFT_LAYER_COUNT) {
-    afterJoke(420, () => {
-      gift?.classList.add("is-fading");
-      afterJoke(560, () => {
-        playGiftSuspense(layer + 1);
-      });
-    });
-    return;
-  }
+  fly?.classList.remove("is-shaking");
+  fly?.classList.add("is-leaving");
+  gift?.classList.add("is-fading");
 
-  jokePage.classList.add("is-unwrapped");
-  afterJoke(420, () => {
-    gift?.classList.add("is-fading");
-    afterJoke(560, () => {
-      playGiftSuspense(GIFT_LAYER_COUNT);
-    });
+  afterJoke(520, () => {
+    if (fly) {
+      fly.hidden = true;
+    }
+
+    if (layer + 1 < GIFT_LAYER_COUNT) {
+      playGiftSuspense(layer + 1);
+      return;
+    }
+
+    jokePage.classList.add("is-unwrapped");
+    playGiftSuspense(GIFT_LAYER_COUNT);
   });
 }
 
@@ -1200,15 +1201,15 @@ function unwrapSantaGift() {
   if (fly?.classList.contains("has-photo")) {
     const next = step + 1;
     gift.dataset.step = String(next);
-    if (next < 4) {
-      setJokeGiftFrame(JOKE_GIFT_FRAMES[next]);
+    setJokeGiftFrame(JOKE_GIFT_FRAMES[next]);
+    if (next < 3) {
       afterJoke(280, () => {
         giftUnwrapBusy = false;
       });
       return;
     }
 
-    afterJoke(360, finishGiftLayer);
+    afterJoke(420, finishGiftLayer);
     return;
   }
 
