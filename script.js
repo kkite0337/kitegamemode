@@ -1615,9 +1615,15 @@ async function runMenuReveal(container, token) {
   }
 
   intro.remove();
+  const stage = container.querySelector(".menu-reveal");
   const list = document.createElement("div");
   list.className = "menu-tally";
-  container.querySelector(".menu-reveal")?.append(list);
+  const existingWheel = stage?.querySelector(".menu-roulette");
+  if (existingWheel) {
+    existingWheel.before(list);
+  } else {
+    stage?.append(list);
+  }
 
   for (const item of menuTallies()) {
     if (token !== menuTalkToken) {
@@ -1643,20 +1649,11 @@ async function runMenuReveal(container, token) {
     return;
   }
 
-  const stage = container.querySelector(".menu-reveal");
-  if (stage) {
-    stage.insertAdjacentHTML("beforeend", menuRouletteMarkup(currentRoulette()));
-    const wheel = stage.querySelector(".menu-roulette");
-    if (wheel) {
-      void wheel.offsetWidth;
-      wheel.classList.add("is-in");
-    }
-  }
-
   if (token === menuTalkToken) {
     container.dataset.menuReveal = "done";
-    if (container === adminPlay && stage && !stage.querySelector("[data-action='spin-menu-result']")) {
-      stage.insertAdjacentHTML("beforeend", menuSpinButtonMarkup());
+    const doneStage = container.querySelector(".menu-reveal");
+    if (container === adminPlay && doneStage && !doneStage.querySelector("[data-action='spin-menu-result']")) {
+      doneStage.insertAdjacentHTML("beforeend", menuSpinButtonMarkup());
     }
   }
 }
@@ -1673,9 +1670,11 @@ function renderMenuReveal(container) {
 
   container.dataset.menuReveal = "running";
   const token = ++menuTalkToken;
+  ensureRoulette();
   container.innerHTML = `
     <div class="menu-reveal">
       <p class="menu-reveal__intro"></p>
+      ${menuRouletteMarkup(currentRoulette(), true)}
     </div>
   `;
   runMenuReveal(container, token);
@@ -2028,7 +2027,7 @@ function renderUserPlay() {
   }
 
   if (gameState.game === "game2") {
-    if (gameState.phase !== "menu-reveal") {
+    if (gameState.phase !== "menu-reveal" && gameState.phase !== "choose") {
       clearMenuReveal(userPlay);
     }
 
@@ -2036,7 +2035,7 @@ function renderUserPlay() {
       clearMenuSpin(userPlay);
     }
 
-    if (gameState.phase === "menu-reveal") {
+    if (gameState.phase === "menu-reveal" || gameState.phase === "choose") {
       renderMenuReveal(userPlay);
       return;
     }
@@ -2048,11 +2047,6 @@ function renderUserPlay() {
 
     if (gameState.phase === "menu-payout") {
       userPlay.innerHTML = menuMealMarkup();
-      return;
-    }
-
-    if (gameState.phase === "choose") {
-      userPlay.innerHTML = waitMarkup("잠시만 기다려주세요.");
       return;
     }
 
@@ -2158,7 +2152,7 @@ function renderAdminPlay() {
   }
 
   if (gameState.game === "game2") {
-    if (gameState.phase !== "menu-reveal") {
+    if (gameState.phase !== "menu-reveal" && gameState.phase !== "choose") {
       clearMenuReveal(adminPlay);
     }
 
@@ -2179,16 +2173,7 @@ function renderAdminPlay() {
       return;
     }
 
-    if (gameState.phase === "choose") {
-      adminPlay.innerHTML = `
-        <div class="game-choices">
-          <button class="btn-primary" type="button" data-action="confirm-menu-result">결과 확인</button>
-        </div>
-      `;
-      return;
-    }
-
-    if (gameState.phase === "menu-reveal") {
+    if (gameState.phase === "choose" || gameState.phase === "menu-reveal") {
       renderMenuReveal(adminPlay);
       return;
     }
@@ -2630,7 +2615,15 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "go-result") {
-    if (gameState.game === "game2" && !allMenusSubmitted()) {
+    if (gameState.game === "game2") {
+      if (!allMenusSubmitted()) {
+        return;
+      }
+
+      ensureRoulette();
+      gameState.phase = "menu-reveal";
+      saveGame({ immediate: true });
+      refreshVisible();
       return;
     }
 
@@ -3837,7 +3830,11 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (gameState.game === "game2" && gameState.phase === "menu-reveal" && isMenuRevealBusy()) {
+  if (
+    gameState.game === "game2" &&
+    (gameState.phase === "menu-reveal" || gameState.phase === "choose") &&
+    isMenuRevealBusy()
+  ) {
     return false;
   }
 
