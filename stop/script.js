@@ -131,11 +131,27 @@ function renderStop() {
   }
 
   stage.innerHTML = `
-    <p class="stop-title">멈춰!</p>
     <p class="stop-lead">준비되면 시작하세요</p>
     ${playerChips()}
     ${hostActions()}
   `;
+}
+
+function playIntroLogo() {
+  const splash = document.getElementById("stopSplash");
+  if (!splash) {
+    document.querySelector(".stop-app")?.classList.add("is-ready");
+    return;
+  }
+
+  splash.hidden = false;
+  window.setTimeout(() => {
+    splash.classList.add("is-out");
+    document.querySelector(".stop-app")?.classList.add("is-ready");
+    window.setTimeout(() => {
+      splash.hidden = true;
+    }, 450);
+  }, 900);
 }
 
 function setPhase(phase) {
@@ -228,5 +244,6 @@ stage.addEventListener("click", (event) => {
 
 document.body.classList.toggle("is-embedded", embedded);
 renderStop();
+playIntroLogo();
 requestHost();
 startMqtt();

@@ -28,10 +28,13 @@ body {
 
 .stop-top {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
   margin-bottom: 12px;
+  text-align: center;
 }
 
 .stop-brand,
@@ -40,14 +43,65 @@ body {
 }
 
 .stop-brand {
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 800;
+  opacity: 0;
+}
+
+.stop-app.is-ready .stop-brand {
+  opacity: 1;
+  transition: opacity 0.35s ease;
 }
 
 .stop-who {
   color: #8a8174;
   font-size: 13px;
   font-weight: 700;
+}
+
+.stop-splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #f6f4ef;
+  z-index: 20;
+}
+
+.stop-splash[hidden] {
+  display: none;
+}
+
+.stop-splash__logo {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: clamp(48px, 16vw, 80px);
+  font-weight: 800;
+  line-height: 1;
+  animation: stop-splash-in 0.35s ease;
+}
+
+.stop-splash.is-out {
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.stop-splash.is-out .stop-splash__logo {
+  transform: scale(0.92);
+  transition: transform 0.45s ease;
+}
+
+@keyframes stop-splash-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .stop-stage {
