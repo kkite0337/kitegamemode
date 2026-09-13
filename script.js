@@ -126,6 +126,32 @@ function pickRoulette(first, second) {
   return left.length ? left : right;
 }
 
+function emptySpin() {
+  return { targetIndex: -1, winner: "", turns: 0, duration: 0, startedAt: 0 };
+}
+
+function sanitizeSpin(spin, slices = []) {
+  const next = { ...emptySpin(), ...(spin && typeof spin === "object" ? spin : {}) };
+  const items = sanitizeRoulette(slices);
+  const index = Number(next.targetIndex);
+  if (!Number.isFinite(index) || index < 0 || (items.length && index >= items.length) || !next.startedAt) {
+    return emptySpin();
+  }
+
+  next.targetIndex = Math.floor(index);
+  next.winner = items[next.targetIndex] || (MENU_OPTIONS.includes(next.winner) ? next.winner : "");
+  next.turns = Math.min(12, Math.max(5, Number(next.turns) || 7));
+  next.duration = Math.min(12000, Math.max(4500, Number(next.duration) || 6800));
+  next.startedAt = Number(next.startedAt) || 0;
+  return next.startedAt && next.winner ? next : emptySpin();
+}
+
+function pickSpin(first, second) {
+  const left = first && typeof first === "object" ? first : emptySpin();
+  const right = second && typeof second === "object" ? second : emptySpin();
+  return (Number(left.startedAt) || 0) >= (Number(right.startedAt) || 0) ? left : right;
+}
+
 function tallySliceList() {
   return menuTallies().flatMap((item) => Array.from({ length: item.count }, () => item.key));
 }
@@ -339,12 +365,14 @@ function sanitizeGameState(game, resetAt = currentResetAt()) {
     next.priceShares = {};
     next.personalSteps = emptyPersonalSteps();
     next.roulette = [];
+    next.spin = emptySpin();
     if (next.phase !== "idle" && next.phase !== "pick" && next.phase !== "entry" && next.phase !== "play") {
       next.game = next.pendingGame || "";
       next.phase = next.pendingGame ? "pick" : "idle";
     }
   } else {
     next.roulette = sanitizeRoulette(next.roulette);
+    next.spin = sanitizeSpin(next.spin, next.roulette);
   }
   return next;
 }
@@ -357,6 +385,7 @@ const PHASE_RANK = {
   review: 3,
   choose: 4,
   "menu-reveal": 5,
+  "menu-spin": 6,
   "drink-reveal": 5,
   "price-reveal": 6,
 };
@@ -427,6 +456,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       },
       personalSteps: mergePersonalSteps(local.personalSteps, remote.personalSteps),
       roulette: pickRoulette(primary.roulette, secondary.roulette),
+      spin: pickSpin(primary.spin, secondary.spin),
     },
     currentResetAt(),
   );
@@ -456,6 +486,7 @@ function emptyGame() {
     priceShares: {},
     personalSteps: emptyPersonalSteps(),
     roulette: [],
+    spin: emptySpin(),
   };
 }
 
@@ -579,6 +610,7 @@ function loadGame() {
       priceShares: { ...parsed.priceShares },
       personalSteps: { ...emptyPersonalSteps(), ...parsed.personalSteps },
       roulette: sanitizeRoulette(parsed.roulette),
+      spin: parsed.spin,
     });
   } catch {
     return emptyGame();
@@ -631,6 +663,7 @@ let syncWsRestart = 0;
 let mqttClient = null;
 let priceTalkToken = 0;
 let menuTalkToken = 0;
+let menuSpinFrame = 0;
 
 function profileSignature(state) {
   return JSON.stringify(state);
@@ -760,6 +793,7 @@ function gameSignature(state) {
     priceShares: state.priceShares,
     personalSteps: state.personalSteps,
     roulette: state.roulette,
+    spin: state.spin,
   });
 }
 
@@ -1247,7 +1281,8 @@ function menuRouletteMarkup(slices, visible = false) {
 
   return `
     <div class="menu-roulette${visible ? " is-in" : ""}">
-      <div class="menu-roulette__pointer" aria-hidden="true"></div>
+      <div class="menu-roulette__pointer" aria-hidden="true"><span class="menu-roulette__bob"></span></div>
+      <div class="menu-roulette__spin">
       <svg class="menu-roulette__wheel" viewBox="0 0 ${size} ${size}" role="img" aria-label="메뉴 돌림판">
         <circle cx="${center}" cy="${center}" r="150" fill="#7c5a1e"></circle>
         <circle cx="${center}" cy="${center}" r="144" fill="#e8c36a"></circle>
@@ -1255,11 +1290,28 @@ function menuRouletteMarkup(slices, visible = false) {
         ${pegs}
         <circle cx="${center}" cy="${center}" r="22" fill="#fffdf8" stroke="#c9a227" stroke-width="4"></circle>
       </svg>
+      </div>
     </div>
   `;
 }
 
-function menuRevealFinalMarkup() {
+function menuSpinButtonMarkup() {
+  return `<button class="btn-primary menu-reveal__spin-btn" type="button" data-action="spin-menu-result">결과 확인</button>`;
+}
+
+function menuWinMarkup(winner) {
+  const label = MENU_LABELS[winner] || winner;
+  return `
+    <div class="menu-win">
+      <div class="menu-win__card">
+        <p class="menu-win__title">축하합니다!</p>
+        <p class="menu-win__prize">${escapeHtml(label)}당첨!</p>
+      </div>
+    </div>
+  `;
+}
+
+function menuRevealFinalMarkup(forAdmin = false) {
   return `
     <div class="menu-reveal">
       <div class="menu-tally">
@@ -1268,8 +1320,121 @@ function menuRevealFinalMarkup() {
           .join("")}
       </div>
       ${menuRouletteMarkup(currentRoulette(), true)}
+      ${forAdmin ? menuSpinButtonMarkup() : ""}
     </div>
   `;
+}
+
+function menuSpinStageMarkup() {
+  return `
+    <div class="menu-reveal menu-reveal--spin">
+      ${menuRouletteMarkup(currentRoulette(), true)}
+    </div>
+  `;
+}
+
+function currentSpin() {
+  return sanitizeSpin(gameState.spin, currentRoulette());
+}
+
+function spinKey(spin) {
+  return `${spin?.startedAt || 0}-${spin?.targetIndex ?? -1}`;
+}
+
+function spinRotation(spin, slices) {
+  const count = slices.length || 1;
+  return spin.turns * 360 - ((spin.targetIndex + 0.5) * 360) / count;
+}
+
+function easeOutQuint(value) {
+  return 1 - (1 - value) ** 5;
+}
+
+function cancelMenuSpin() {
+  if (menuSpinFrame) {
+    cancelAnimationFrame(menuSpinFrame);
+    menuSpinFrame = 0;
+  }
+}
+
+function clearMenuSpin(container) {
+  if (!container?.dataset.menuSpin) {
+    return;
+  }
+
+  cancelMenuSpin();
+  delete container.dataset.menuSpin;
+}
+
+function showMenuWin(container, winner) {
+  if (container.querySelector(".menu-win")) {
+    return;
+  }
+
+  container.insertAdjacentHTML("beforeend", menuWinMarkup(winner));
+}
+
+function startMenuSpinAnimation(container) {
+  const spin = currentSpin();
+  const slices = currentRoulette();
+  const wheel = container.querySelector(".menu-roulette__spin");
+  if (!spin.startedAt || !wheel || !slices.length) {
+    return;
+  }
+
+  const total = spinRotation(spin, slices);
+  const key = spinKey(spin);
+  container.dataset.menuSpin = key;
+
+  const tick = () => {
+    const latest = currentSpin();
+    if (spinKey(latest) !== key) {
+      return;
+    }
+
+    const progress = Math.min(1, (Date.now() - latest.startedAt) / latest.duration);
+    wheel.style.transform = `rotate(${total * easeOutQuint(progress)}deg)`;
+    if (progress < 1) {
+      menuSpinFrame = requestAnimationFrame(tick);
+      return;
+    }
+
+    showMenuWin(container, latest.winner || slices[latest.targetIndex]);
+  };
+
+  cancelMenuSpin();
+  tick();
+}
+
+function renderMenuSpin(container) {
+  const spin = currentSpin();
+  const key = spinKey(spin);
+  if (container.dataset.menuSpin === key && container.querySelector(".menu-roulette__spin")) {
+    return;
+  }
+
+  cancelMenuSpin();
+  container.innerHTML = menuSpinStageMarkup();
+  startMenuSpinAnimation(container);
+}
+
+function beginMenuSpin() {
+  const slices = ensureRoulette();
+  if (!slices.length) {
+    return;
+  }
+
+  const targetIndex = Math.floor(Math.random() * slices.length);
+  gameState.spin = {
+    targetIndex,
+    winner: slices[targetIndex],
+    turns: 6 + Math.floor(Math.random() * 3),
+    duration: 6800,
+    startedAt: Date.now(),
+  };
+  gameState.phase = "menu-spin";
+  saveGame({ immediate: true });
+  refreshVisible();
 }
 
 function playThud() {
@@ -1380,6 +1545,9 @@ async function runMenuReveal(container, token) {
 
   if (token === menuTalkToken) {
     container.dataset.menuReveal = "done";
+    if (container === adminPlay && stage && !stage.querySelector("[data-action='spin-menu-result']")) {
+      stage.insertAdjacentHTML("beforeend", menuSpinButtonMarkup());
+    }
   }
 }
 
@@ -1389,7 +1557,7 @@ function renderMenuReveal(container) {
   }
 
   if (container.dataset.menuReveal === "done") {
-    container.innerHTML = menuRevealFinalMarkup();
+    container.innerHTML = menuRevealFinalMarkup(container === adminPlay);
     return;
   }
 
@@ -1754,8 +1922,17 @@ function renderUserPlay() {
       clearMenuReveal(userPlay);
     }
 
+    if (gameState.phase !== "menu-spin") {
+      clearMenuSpin(userPlay);
+    }
+
     if (gameState.phase === "menu-reveal") {
       renderMenuReveal(userPlay);
+      return;
+    }
+
+    if (gameState.phase === "menu-spin") {
+      renderMenuSpin(userPlay);
       return;
     }
 
@@ -1865,6 +2042,10 @@ function renderAdminPlay() {
       clearMenuReveal(adminPlay);
     }
 
+    if (gameState.phase !== "menu-spin") {
+      clearMenuSpin(adminPlay);
+    }
+
     const menu = currentMenu();
     const adminPlaying = isInCurrentGame();
 
@@ -1889,6 +2070,11 @@ function renderAdminPlay() {
 
     if (gameState.phase === "menu-reveal") {
       renderMenuReveal(adminPlay);
+      return;
+    }
+
+    if (gameState.phase === "menu-spin") {
+      renderMenuSpin(adminPlay);
       return;
     }
 
@@ -1963,6 +2149,8 @@ function beginPlayerPick(gameId) {
   adminPlay.dataset.priceTalk = "";
   clearMenuReveal(userPlay);
   clearMenuReveal(adminPlay);
+  clearMenuSpin(userPlay);
+  clearMenuSpin(adminPlay);
   saveGame();
   refreshVisible();
 }
@@ -1975,6 +2163,8 @@ function goToMainMenu() {
   adminPlay.dataset.priceTalk = "";
   clearMenuReveal(userPlay);
   clearMenuReveal(adminPlay);
+  clearMenuSpin(userPlay);
+  clearMenuSpin(adminPlay);
   adminView = "main";
   saveGame({ immediate: true });
   refreshVisible();
@@ -2330,6 +2520,11 @@ function handlePlayClick(event) {
     gameState.phase = "menu-reveal";
     saveGame({ immediate: true });
     refreshVisible();
+    return;
+  }
+
+  if (button.dataset.action === "spin-menu-result") {
+    beginMenuSpin();
     return;
   }
 
@@ -3512,6 +3707,13 @@ function shouldRefreshAfterRemote(result) {
 
   if (gameState.game === "game2" && gameState.phase === "menu-reveal" && isMenuRevealBusy()) {
     return false;
+  }
+
+  if (gameState.game === "game2" && gameState.phase === "menu-spin") {
+    const key = spinKey(currentSpin());
+    if (userPlay?.dataset.menuSpin === key || adminPlay?.dataset.menuSpin === key) {
+      return false;
+    }
   }
 
   if (
