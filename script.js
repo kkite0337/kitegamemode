@@ -185,6 +185,8 @@ let syncGuestConns = [];
 let syncIsHost = false;
 let applyingPeerState = false;
 let syncRestartTimer = 0;
+let syncWs = null;
+let syncWsRestart = 0;
 let priceTalkToken = 0;
 
 function profileSignature(state) {
@@ -1245,13 +1247,14 @@ refreshUsers.addEventListener("click", async () => {
     refreshStatus.textContent = "불러오는 중...";
   }
 
+  sendWs({ type: "request" });
   if (syncHostConn?.open) {
     sendPeer(syncHostConn, { type: "request" });
-    await new Promise((resolve) => setTimeout(resolve, 400));
   }
   if (syncIsHost) {
     broadcastPeerState();
   }
+  await new Promise((resolve) => setTimeout(resolve, 700));
   await pullRemoteState({ replaceCurrent: true });
   reloadProfilesFromStorage();
   gameState = loadGame();
@@ -1682,12 +1685,19 @@ function sendPeer(conn, data) {
   }
 }
 
+function sendWs(data) {
+  if (syncWs?.readyState === WebSocket.OPEN) {
+    syncWs.send(JSON.stringify({ room: peerRoomId(), ...data }));
+  }
+}
+
 function broadcastPeerState() {
   if (applyingPeerState) {
     return;
   }
 
   const payload = currentSyncPayload();
+  sendWs(payload);
   if (syncIsHost) {
     syncGuestConns.forEach((conn) => sendPeer(conn, payload));
     return;
@@ -1768,7 +1778,25 @@ function peerOptions() {
     path: "/",
     secure: true,
     config: {
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:openrelay.metered.ca:80" },
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turns:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+      ],
     },
   };
 }
@@ -1843,6 +1871,74 @@ function joinPeerRoom(room) {
   syncPeer.on("error", () => {
     schedulePeerRestart();
   });
+}
+
+function handleRelayMessage(raw) {
+  let data = raw;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return;
+    }
+  }
+
+  if (!data || typeof data !== "object") {
+    return;
+  }
+
+  if (data.room && data.room !== peerRoomId()) {
+    return;
+  }
+
+  handlePeerPayload(data, {
+    open: true,
+    send: (message) => sendWs(message),
+  });
+}
+
+function scheduleWsRestart() {
+  clearTimeout(syncWsRestart);
+  syncWsRestart = setTimeout(() => {
+    startWsSync();
+  }, 1500);
+}
+
+function startWsSync() {
+  const url = typeof SYNC_WS === "string" ? SYNC_WS : "";
+  if (!url) {
+    return;
+  }
+
+  try {
+    if (syncWs) {
+      syncWs.onclose = null;
+      syncWs.close();
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    syncWs = new WebSocket(url);
+  } catch {
+    scheduleWsRestart();
+    return;
+  }
+
+  syncWs.onopen = () => {
+    sendWs({ type: "request" });
+    sendWs(currentSyncPayload());
+  };
+  syncWs.onmessage = (event) => {
+    handleRelayMessage(event.data);
+  };
+  syncWs.onclose = () => {
+    scheduleWsRestart();
+  };
+  syncWs.onerror = () => {
+    // onclose가 재연결합니다.
+  };
 }
 
 function scheduleRemotePush(immediate = false) {
@@ -2037,10 +2133,19 @@ setInterval(() => {
 setInterval(() => {
   pullRemoteState();
 }, 1000);
+setInterval(() => {
+  if (!currentAccount) {
+    return;
+  }
+
+  sendWs({ type: "request" });
+  broadcastPeerState();
+}, 1500);
 lastProfileSignature = profileSignature(profiles);
 lastGameSignature = gameSignature(gameState);
 restoreSession();
 startPeerSync();
+startWsSync();
 pullRemoteState();
 
 window.addEventListener("pageshow", () => {

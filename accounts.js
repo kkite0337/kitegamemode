@@ -16,6 +16,8 @@ const ACCOUNT_NUMBER = "";
 // 여러 폰이 같은 참가자/게임 상태를 보게 하는 공유 저장소입니다.
 const SYNC_URL = "https://kvdb.io/Tz221H6wkuGCFTuDvTkmL2/state";
 const SYNC_ROOM = "kitegamemodekrv1";
+const SYNC_WS =
+  "wss://demo.piesocket.com/v3/kitegamemodekrv1?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self=1";
 
 const GAME_CHOICES = [
   { id: "drink", label: "음료를 고르자!" },
