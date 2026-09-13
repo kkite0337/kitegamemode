@@ -875,6 +875,7 @@ function findAccount(id, password) {
 }
 
 const GIFT_LAYER_COUNT = 3;
+const JOKE_PUNCHLINE = "김우진 동그라미";
 
 let jokeReadyTimer = 0;
 const jokeActionTimers = [];
@@ -953,12 +954,20 @@ function rebuildGiftBox(layer = 0) {
   return next;
 }
 
+function setJokePunchline() {
+  const line = document.querySelector(".joke-line");
+  if (line) {
+    line.textContent = JOKE_PUNCHLINE;
+  }
+}
+
 function resetJokeScene() {
   const sock = document.getElementById("santaSock");
   const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
   const party = document.getElementById("jokeParty");
   const drum = document.getElementById("jokeDrum");
+  setJokePunchline();
 
   clearJokeTimers();
   giftUnwrapBusy = false;
