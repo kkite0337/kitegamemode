@@ -24,10 +24,97 @@ function emptyProfiles() {
   );
 }
 
+function emptyDrink() {
+  return { name: "", price: "", submitted: false, updatedAt: 0 };
+}
+
 function emptyDrinks() {
+  return Object.fromEntries(ACCOUNTS.map((account) => [account.id, emptyDrink()]));
+}
+
+function pickRicherDrink(first, second) {
+  const left = { ...emptyDrink(), ...first };
+  const right = { ...emptyDrink(), ...second };
+  if (left.submitted !== right.submitted) {
+    return left.submitted ? left : right;
+  }
+
+  if ((left.updatedAt || 0) !== (right.updatedAt || 0)) {
+    return (left.updatedAt || 0) > (right.updatedAt || 0) ? left : right;
+  }
+
+  const score = (item) => Number(Boolean(item.name)) + Number(Boolean(item.price));
+  return score(left) >= score(right) ? left : right;
+}
+
+function mergeDrinkMaps(first, second) {
   return Object.fromEntries(
-    ACCOUNTS.map((account) => [account.id, { name: "", price: "", submitted: false }]),
+    participantIds().map((id) => {
+      if (!second || !Object.prototype.hasOwnProperty.call(second, id)) {
+        return [id, { ...emptyDrink(), ...first?.[id] }];
+      }
+
+      return [id, pickRicherDrink(first?.[id], second[id])];
+    }),
   );
+}
+
+const PHASE_RANK = {
+  idle: 0,
+  pick: 1,
+  entry: 2,
+  play: 2,
+  review: 3,
+  choose: 4,
+  "drink-reveal": 5,
+  "price-reveal": 6,
+};
+
+function pickPhase(local, remote) {
+  return (PHASE_RANK[remote] || 0) > (PHASE_RANK[local] || 0) ? remote : local;
+}
+
+const STEP_RANK = { talk: 0, celebrate: 1, payout: 2, done: 3 };
+
+function mergePersonalSteps(first, second) {
+  return Object.fromEntries(
+    participantIds().map((id) => {
+      const left = first?.[id] || "talk";
+      const right = second?.[id] || "talk";
+      return [id, (STEP_RANK[right] || 0) > (STEP_RANK[left] || 0) ? right : left];
+    }),
+  );
+}
+
+function mergeOpenedMaps(first, second) {
+  return Object.fromEntries(
+    participantIds().map((id) => {
+      const left = first?.[id] || { drink: false, price: false };
+      const right = second?.[id] || { drink: false, price: false };
+      return [id, { drink: Boolean(left.drink || right.drink), price: Boolean(left.price || right.price) }];
+    }),
+  );
+}
+
+function mergeGameState(local, remote) {
+  return {
+    ...emptyGame(),
+    ...local,
+    ...remote,
+    game: local.game || remote.game,
+    pendingGame: local.pendingGame || remote.pendingGame,
+    players: (local.players || []).length ? local.players : remote.players || [],
+    phase: pickPhase(local.phase, remote.phase),
+    drinks: mergeDrinkMaps(local.drinks, remote.drinks),
+    opened: mergeOpenedMaps(local.opened, remote.opened),
+    assignment: Object.keys(local.assignment || {}).length ? local.assignment : remote.assignment || {},
+    priceShares: Object.keys(local.priceShares || {}).length ? local.priceShares : remote.priceShares || {},
+    resultPicked: {
+      drink: Boolean(local.resultPicked?.drink || remote.resultPicked?.drink),
+      price: Boolean(local.resultPicked?.price || remote.resultPicked?.price),
+    },
+    personalSteps: mergePersonalSteps(local.personalSteps, remote.personalSteps),
+  };
 }
 
 function emptyOpened() {
@@ -460,11 +547,11 @@ function completeUserSetup() {
 
 function currentDrink() {
   if (!currentAccount) {
-    return { name: "", price: "", submitted: false };
+    return emptyDrink();
   }
 
   if (!gameState.drinks[currentAccount.id]) {
-    gameState.drinks[currentAccount.id] = { name: "", price: "", submitted: false };
+    gameState.drinks[currentAccount.id] = emptyDrink();
   }
 
   return gameState.drinks[currentAccount.id];
@@ -1217,6 +1304,8 @@ function submitDrink() {
   drink.name = name;
   drink.price = String(amount);
   drink.submitted = true;
+  drink.updatedAt = Date.now();
+  publishMqttDrink(currentAccount.id);
 
   if (currentAccount.role === "admin") {
     gameState.phase = "review";
@@ -1625,6 +1714,32 @@ adminPlay.addEventListener("click", handlePlayClick);
 userPlay.addEventListener("submit", handlePlaySubmit);
 adminPlay.addEventListener("submit", handlePlaySubmit);
 
+function saveDrinkDraft(event) {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || (input.id !== "drinkName" && input.id !== "drinkPrice")) {
+    return;
+  }
+
+  const drink = currentDrink();
+  if (!drink || drink.submitted) {
+    return;
+  }
+
+  if (input.id === "drinkName") {
+    drink.name = input.value;
+  } else {
+    drink.price = input.value;
+  }
+  drink.updatedAt = Date.now();
+  persistGameLocal();
+  if (currentAccount) {
+    publishMqttDrink(currentAccount.id);
+  }
+}
+
+userPlay.addEventListener("input", saveDrinkDraft);
+adminPlay.addEventListener("input", saveDrinkDraft);
+
 function syncEnabled() {
   return typeof SYNC_URL === "string" && Boolean(SYNC_URL);
 }
@@ -1736,13 +1851,23 @@ function applyRemoteState(remote, options = {}) {
     changed = true;
   }
 
-  if (incoming.hasGame && incoming.gameUpdatedAt > gameUpdatedAt) {
-    const typingDrink =
-      document.activeElement &&
-      (document.activeElement.id === "drinkName" || document.activeElement.id === "drinkPrice");
-    if (!(typingDrink && incoming.game.phase === gameState.phase && incoming.game.game === gameState.game)) {
-      gameState = incoming.game;
-      gameUpdatedAt = incoming.gameUpdatedAt;
+  if (incoming.hasGame) {
+    const next = mergeGameState(gameState, incoming.game);
+    if (isEditingDrink() && currentAccount) {
+      next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
+      const nameInput = document.getElementById("drinkName");
+      const priceInput = document.getElementById("drinkPrice");
+      if (nameInput) {
+        next.drinks[currentAccount.id].name = nameInput.value;
+      }
+      if (priceInput) {
+        next.drinks[currentAccount.id].price = priceInput.value;
+      }
+    }
+
+    if (gameSignature(next) !== lastGameSignature) {
+      gameState = next;
+      gameUpdatedAt = Math.max(gameUpdatedAt, incoming.gameUpdatedAt || 0);
       persistGameLocal();
       changed = true;
     }
@@ -2168,11 +2293,26 @@ function publishMqttOwn() {
   });
 }
 
+function publishMqttDrink(id) {
+  const drink = gameState.drinks[id];
+  if (!drink) {
+    return;
+  }
+
+  publishMqttJson(mqttTopic("drink", id), {
+    resetAt: currentResetAt(),
+    drink,
+  });
+}
+
 function publishMqttGame() {
   publishMqttJson(mqttTopic("game"), {
     game: gameState,
     gameUpdatedAt,
   });
+  if (currentAccount) {
+    publishMqttDrink(currentAccount.id);
+  }
 }
 
 function publishMqttReset(resetAt) {
@@ -2180,6 +2320,10 @@ function publishMqttReset(resetAt) {
     publishMqttJson(mqttTopic("user", id), {
       resetAt,
       profile: emptyUserProfile(resetAt),
+    });
+    publishMqttJson(mqttTopic("drink", id), {
+      resetAt,
+      drink: emptyDrink(),
     });
   });
   publishMqttJson(mqttTopic("reset"), { resetAt });
@@ -2229,6 +2373,30 @@ function handleMqttMessage(topic, data) {
     return;
   }
 
+  if (topic.includes("/drink/")) {
+    const id = topic.slice(topic.lastIndexOf("/") + 1);
+    if (!participantIds().includes(id)) {
+      return;
+    }
+
+    const result = applyRemoteState({
+      resetAt: Number(data.resetAt || 0),
+      profiles: {},
+      game: {
+        ...gameState,
+        drinks: {
+          ...gameState.drinks,
+          [id]: data.drink || data,
+        },
+      },
+      gameUpdatedAt: Date.now(),
+    });
+    if (shouldRefreshAfterRemote(result)) {
+      refreshVisible();
+    }
+    return;
+  }
+
   if (topic.endsWith("/game")) {
     const result = applyRemoteState({
       resetAt: currentResetAt(),
@@ -2272,6 +2440,7 @@ function startMqttSync(url) {
 
   mqttClient.on("connect", () => {
     mqttClient.subscribe(mqttTopic("user") + "/+", { qos: 0 });
+    mqttClient.subscribe(mqttTopic("drink") + "/+", { qos: 0 });
     mqttClient.subscribe(mqttTopic("game"), { qos: 0 });
     mqttClient.subscribe(mqttTopic("reset"), { qos: 0 });
     publishMqttOwn();
@@ -2355,8 +2524,15 @@ async function flushRemotePush() {
   }
 }
 
+function isEditingDrink() {
+  return Boolean(
+    document.activeElement &&
+      (document.activeElement.id === "drinkName" || document.activeElement.id === "drinkPrice"),
+  );
+}
+
 function shouldRefreshAfterRemote(result) {
-  if (!currentAccount || !result.changed) {
+  if (!currentAccount || !result.changed || isEditingDrink()) {
     return false;
   }
 
