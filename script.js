@@ -879,6 +879,7 @@ const GIFT_LAYER_COUNT = 3;
 let jokeReadyTimer = 0;
 const jokeActionTimers = [];
 let giftUnwrapBusy = false;
+let jokeAudioCtx = null;
 
 function afterJoke(ms, fn) {
   const id = window.setTimeout(() => {
@@ -904,6 +905,35 @@ function resetGiftBox(gift, layer = 0) {
   gift.dataset.step = "0";
   gift.dataset.layer = String(layer);
   gift.classList.remove("is-untying", "is-nesting", "is-shaking", "is-fading", "is-hidden");
+}
+
+function resumeJokeAudio() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return null;
+  }
+
+  if (!jokeAudioCtx) {
+    jokeAudioCtx = new AudioContextClass();
+  }
+
+  if (jokeAudioCtx.state === "suspended") {
+    jokeAudioCtx.resume();
+  }
+
+  return jokeAudioCtx;
+}
+
+function rebuildGiftBox(layer = 0) {
+  const old = document.getElementById("jokeGift");
+  if (!old) {
+    return null;
+  }
+
+  const next = old.cloneNode(true);
+  resetGiftBox(next, layer);
+  old.replaceWith(next);
+  return next;
 }
 
 function resetJokeScene() {
@@ -940,6 +970,7 @@ function resetJokeScene() {
   if (drum) {
     drum.classList.remove("is-playing");
     drum.hidden = true;
+    jokePage.appendChild(drum);
   }
 }
 
@@ -1014,15 +1045,22 @@ function revealSantaGift() {
   jokePage.classList.add("is-opened");
 }
 
-function popNestedGift(gift, layer) {
-  gift.classList.add("is-hidden");
-  gift.classList.remove("is-fading", "is-untying", "is-nesting");
-  gift.dataset.step = "0";
-  gift.dataset.layer = String(layer);
-  void gift.offsetWidth;
-  gift.classList.remove("is-hidden");
-  gift.classList.add("is-nesting");
+function popNestedGift(layer) {
+  const fly = document.getElementById("jokeGiftFly");
+  const gift = rebuildGiftBox(layer);
+  if (!gift) {
+    giftUnwrapBusy = false;
+    return;
+  }
 
+  if (fly) {
+    fly.hidden = false;
+    fly.style.visibility = "";
+    fly.style.opacity = "1";
+  }
+
+  void gift.offsetWidth;
+  gift.classList.add("is-nesting");
   afterJoke(680, () => {
     gift.classList.remove("is-nesting");
     giftUnwrapBusy = false;
@@ -1061,7 +1099,7 @@ function unwrapSantaGift() {
       afterJoke(380, () => {
         gift.classList.add("is-fading");
         afterJoke(480, () => {
-          playNextGiftWait(gift, layer + 1);
+          playNextGiftWait(layer + 1);
         });
       });
       return;
@@ -1078,12 +1116,11 @@ function unwrapSantaGift() {
 }
 
 function playDrumroll() {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) {
+  const context = resumeJokeAudio();
+  if (!context) {
     return;
   }
 
-  const context = new AudioContextClass();
   const now = context.currentTime;
 
   for (let index = 0; index < 8; index += 1) {
@@ -1102,7 +1139,17 @@ function playDrumroll() {
   }
 }
 
-function playNextGiftWait(gift, layer) {
+function hideJokeDrum() {
+  const drum = document.getElementById("jokeDrum");
+  if (!drum) {
+    return;
+  }
+
+  drum.classList.remove("is-playing");
+  drum.hidden = true;
+}
+
+function showJokeDrum() {
   const drum = document.getElementById("jokeDrum");
   const fly = document.getElementById("jokeGiftFly");
 
@@ -1110,27 +1157,53 @@ function playNextGiftWait(gift, layer) {
     fly.style.visibility = "hidden";
   }
 
-  if (drum) {
-    drum.hidden = false;
-    drum.classList.remove("is-playing");
-    void drum.offsetWidth;
-    drum.classList.add("is-playing");
+  if (!drum) {
+    return;
   }
 
+  document.body.appendChild(drum);
+  drum.hidden = false;
+  drum.classList.remove("is-playing");
+  void drum.offsetWidth;
+  drum.classList.add("is-playing");
+}
+
+function playJokeFanfare() {
+  const context = resumeJokeAudio();
+  if (!context) {
+    return;
+  }
+
+  const notes = [523.25, 659.25, 783.99, 1046.5];
+  const now = context.currentTime;
+
+  notes.forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, now + index * 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + index * 0.12 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.12 + 0.38);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now + index * 0.12);
+    oscillator.stop(now + index * 0.12 + 0.4);
+  });
+}
+
+function playNextGiftWait(layer) {
+  showJokeDrum();
   playDrumroll();
   afterJoke(2100, () => {
-    playFanfare();
+    playJokeFanfare();
     afterJoke(700, () => {
+      hideJokeDrum();
+      const drum = document.getElementById("jokeDrum");
       if (drum) {
-        drum.classList.remove("is-playing");
-        drum.hidden = true;
+        jokePage.appendChild(drum);
       }
-
-      if (fly) {
-        fly.style.visibility = "";
-      }
-
-      popNestedGift(gift, layer);
+      popNestedGift(layer);
     });
   });
 }
@@ -1168,12 +1241,10 @@ function jokePartyMarkup() {
 }
 
 function playApplause() {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) {
+  const context = resumeJokeAudio();
+  if (!context) {
     return;
   }
-
-  const context = new AudioContextClass();
   const duration = 2.3;
   const length = Math.floor(context.sampleRate * duration);
   const buffer = context.createBuffer(1, length, context.sampleRate);
@@ -1211,25 +1282,14 @@ function playJokeParty() {
 }
 
 function playLastGiftWait() {
-  const drum = document.getElementById("jokeDrum");
   const fly = document.getElementById("jokeGiftFly");
-
-  if (fly) {
-    fly.style.visibility = "hidden";
-  }
-
-  if (drum) {
-    drum.hidden = false;
-    drum.classList.remove("is-playing");
-    void drum.offsetWidth;
-    drum.classList.add("is-playing");
-  }
-
+  showJokeDrum();
   playDrumroll();
   afterJoke(2100, () => {
+    hideJokeDrum();
+    const drum = document.getElementById("jokeDrum");
     if (drum) {
-      drum.classList.remove("is-playing");
-      drum.hidden = true;
+      jokePage.appendChild(drum);
     }
 
     if (fly) {
@@ -1237,7 +1297,7 @@ function playLastGiftWait() {
     }
 
     jokePage.classList.add("is-punchline");
-    playFanfare();
+    playJokeFanfare();
     afterJoke(650, () => {
       playJokeParty();
       playApplause();
@@ -1453,8 +1513,11 @@ function refreshVisible() {
   }
 
   if (currentAccount.role === "joke") {
+    const firstOpen = jokePage.hidden;
     showPage("joke");
-    playSantaSock();
+    if (firstOpen) {
+      playSantaSock();
+    }
     return;
   }
 
@@ -2949,6 +3012,8 @@ jokePage.addEventListener("click", (event) => {
   if (event.target.closest("#jokeLogout")) {
     return;
   }
+
+  resumeJokeAudio();
 
   if (jokePage.classList.contains("is-unwrapped") || jokePage.classList.contains("is-punchline")) {
     return;
