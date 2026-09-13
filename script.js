@@ -157,11 +157,7 @@ function tallySliceList() {
 }
 
 function sameSliceBag(left, right) {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return [...left].sort().join("\0") === [...right].sort().join("\0");
+  return sliceBag(left) === sliceBag(right);
 }
 
 function circularDist(index, other, size) {
@@ -169,18 +165,31 @@ function circularDist(index, other, size) {
   return Math.min(gap, size - gap);
 }
 
+function adjacentPairCount(slices) {
+  const size = slices.length;
+  if (size < 2) {
+    return 0;
+  }
+
+  return slices.reduce((count, item, index) => count + (item === slices[(index + 1) % size] ? 1 : 0), 0);
+}
+
+function sliceBag(slices) {
+  return [...sanitizeRoulette(slices)].sort().join("\0");
+}
+
 function arrangeMenuSlices(picks) {
-  const items = (Array.isArray(picks) ? picks : []).filter((item) => MENU_OPTIONS.includes(item));
+  const items = sanitizeRoulette(picks);
   const size = items.length;
   if (size <= 1) {
     return items.slice();
   }
 
-  const counts = new Map();
+  const remaining = new Map();
   items.forEach((item) => {
-    counts.set(item, (counts.get(item) || 0) + 1);
+    remaining.set(item, (remaining.get(item) || 0) + 1);
   });
-  const types = [...counts.entries()].sort((left, right) => {
+  const types = [...remaining.entries()].sort((left, right) => {
     if (right[1] !== left[1]) {
       return right[1] - left[1];
     }
@@ -189,68 +198,115 @@ function arrangeMenuSlices(picks) {
 
   const result = new Array(size).fill(null);
 
-  function planPositions(count, start) {
-    return Array.from({ length: count }, (_, index) => Math.round(start + (index * size) / count) % size);
+  function slotScore(index, type) {
+    const left = result[(index - 1 + size) % size];
+    const right = result[(index + 1) % size];
+    let score = 0;
+    if (left === type) {
+      score -= 80;
+    }
+    if (right === type) {
+      score -= 80;
+    }
+    if (left && left !== type) {
+      score += 3;
+    }
+    if (right && right !== type) {
+      score += 3;
+    }
+
+    let minSame = size;
+    for (let other = 0; other < size; other += 1) {
+      if (result[other] === type) {
+        minSame = Math.min(minSame, circularDist(index, other, size));
+      }
+    }
+    return score + minSame;
   }
 
-  function nearestEmpty(target) {
+  function nextSlot(type) {
     let best = -1;
-    let bestGap = size + 1;
+    let bestScore = -Infinity;
     for (let index = 0; index < size; index += 1) {
       if (result[index] !== null) {
         continue;
       }
-      const gap = circularDist(index, target, size);
-      if (gap < bestGap) {
-        bestGap = gap;
+      const score = slotScore(index, type);
+      if (score > bestScore) {
+        bestScore = score;
         best = index;
       }
     }
     return best;
   }
 
-  function scorePlan(positions) {
-    const used = new Set();
-    let collisions = 0;
-    let occupiedHits = 0;
-    let minPair = size;
-    positions.forEach((position) => {
-      if (used.has(position)) {
-        collisions += 1;
+  types.forEach(([type, count], typeIndex) => {
+    if (typeIndex === 0) {
+      for (let placed = 0; placed < count; placed += 1) {
+        const target = Math.round((placed * size) / count) % size;
+        const slot = result[target] === null ? target : nextSlot(type);
+        if (slot >= 0) {
+          result[slot] = type;
+        }
       }
-      used.add(position);
-      if (result[position] !== null) {
-        occupiedHits += 1;
-      }
-    });
-    for (let i = 0; i < positions.length; i += 1) {
-      for (let j = i + 1; j < positions.length; j += 1) {
-        minPair = Math.min(minPair, circularDist(positions[i], positions[j], size));
-      }
-    }
-    return -occupiedHits * 1000 - collisions * 100 + minPair;
-  }
-
-  types.forEach(([type, count]) => {
-    let bestStart = 0;
-    let bestScore = -Infinity;
-    for (let start = 0; start < size; start += 1) {
-      const score = scorePlan(planPositions(count, start));
-      if (score > bestScore) {
-        bestScore = score;
-        bestStart = start;
-      }
+      return;
     }
 
-    planPositions(count, bestStart).forEach((target) => {
-      const slot = result[target] === null ? target : nearestEmpty(target);
+    for (let placed = 0; placed < count; placed += 1) {
+      const slot = nextSlot(type);
       if (slot >= 0) {
         result[slot] = type;
       }
-    });
+    }
   });
 
-  return result.map((item, index) => item || items[index]);
+  const leftover = [];
+  types.forEach(([type, count]) => {
+    const used = result.filter((item) => item === type).length;
+    for (let extra = 0; extra < count - used; extra += 1) {
+      leftover.push(type);
+    }
+  });
+  result.forEach((item, index) => {
+    if (!item && leftover.length) {
+      result[index] = leftover.shift();
+    }
+  });
+
+  let arranged = result.map((item, index) => item || items[index]);
+  let improved = true;
+  let guard = 0;
+  while (improved && guard < size * size) {
+    improved = false;
+    guard += 1;
+    const currentPairs = adjacentPairCount(arranged);
+    if (!currentPairs) {
+      break;
+    }
+
+    for (let index = 0; index < size && !improved; index += 1) {
+      const next = (index + 1) % size;
+      if (arranged[index] !== arranged[next]) {
+        continue;
+      }
+
+      for (let swap = 0; swap < size; swap += 1) {
+        if (arranged[swap] === arranged[index]) {
+          continue;
+        }
+
+        const trial = arranged.slice();
+        [trial[next], trial[swap]] = [trial[swap], trial[next]];
+        if (adjacentPairCount(trial) < currentPairs) {
+          arranged = trial;
+          improved = true;
+          break;
+        }
+      }
+    }
+  }
+
+  return sliceBag(arranged) === sliceBag(items) ? arranged : items.slice();
 }
 
 function currentRoulette() {
@@ -1442,9 +1498,14 @@ function beginMenuSpin() {
   }
 
   const targetIndex = Math.floor(Math.random() * slices.length);
+  const winner = slices[targetIndex];
+  if (!MENU_OPTIONS.includes(winner)) {
+    return;
+  }
+
   gameState.spin = {
     targetIndex,
-    winner: slices[targetIndex],
+    winner,
     turns: 6 + Math.floor(Math.random() * 3),
     duration: 6800,
     startedAt: Date.now(),
