@@ -1409,7 +1409,7 @@ function confirmPlayerPick() {
   if (gameId === "stop") {
     stopSession = Date.now();
   }
-  saveGame();
+  saveGame({ immediate: true });
   refreshVisible();
 }
 
@@ -1435,7 +1435,7 @@ function submitDrink() {
     gameState.phase = "review";
   }
 
-  saveGame();
+  saveGame({ immediate: true });
   refreshVisible();
 }
 
@@ -2826,7 +2826,15 @@ function isEditingRegister() {
 }
 
 function shouldRefreshAfterRemote(result) {
-  if (!currentAccount || !result.changed || isEditingDrink() || isEditingRegister()) {
+  if (!currentAccount || !result.changed || isEditingRegister()) {
+    return false;
+  }
+
+  if (userMain && !userMain.hidden && isInCurrentGame()) {
+    return true;
+  }
+
+  if (isEditingDrink()) {
     return false;
   }
 
@@ -2834,6 +2842,7 @@ function shouldRefreshAfterRemote(result) {
     gameState.game === "drink" &&
     currentAccount.role !== "admin" &&
     !currentDrink().submitted &&
+    document.getElementById("drinkName") &&
     (gameState.phase === "entry" || gameState.phase === "review" || gameState.phase === "choose")
   ) {
     return false;
