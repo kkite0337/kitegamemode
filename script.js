@@ -874,6 +874,187 @@ function findAccount(id, password) {
   );
 }
 
+const GIFT_LAYER_COUNT = 3;
+
+let jokeReadyTimer = 0;
+const jokeActionTimers = [];
+let giftUnwrapBusy = false;
+
+function afterJoke(ms, fn) {
+  const id = window.setTimeout(() => {
+    const index = jokeActionTimers.indexOf(id);
+    if (index !== -1) {
+      jokeActionTimers.splice(index, 1);
+    }
+
+    fn();
+  }, ms);
+
+  jokeActionTimers.push(id);
+  return id;
+}
+
+function clearJokeTimers() {
+  window.clearTimeout(jokeReadyTimer);
+  jokeReadyTimer = 0;
+  jokeActionTimers.splice(0).forEach((id) => window.clearTimeout(id));
+}
+
+function resetGiftBox(gift, layer = 0) {
+  gift.dataset.step = "0";
+  gift.dataset.layer = String(layer);
+  gift.classList.remove("is-untying", "is-nesting", "is-shaking");
+}
+
+function resetJokeScene() {
+  const sock = document.getElementById("santaSock");
+  const fly = document.getElementById("jokeGiftFly");
+  const gift = document.getElementById("jokeGift");
+
+  clearJokeTimers();
+  giftUnwrapBusy = false;
+  jokePage.classList.remove("is-ready", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline");
+
+  if (sock) {
+    sock.classList.remove("is-playing", "is-opening");
+  }
+
+  if (fly) {
+    fly.getAnimations().forEach((animation) => animation.cancel());
+    fly.removeAttribute("style");
+    fly.hidden = true;
+  }
+
+  if (gift) {
+    resetGiftBox(gift);
+  }
+}
+
+function playSantaSock() {
+  const sock = document.getElementById("santaSock");
+  if (!sock) {
+    return;
+  }
+
+  resetJokeScene();
+  void sock.offsetWidth;
+  sock.classList.add("is-playing");
+  jokeReadyTimer = window.setTimeout(() => {
+    jokePage.classList.add("is-ready");
+  }, 1250);
+}
+
+function revealSantaGift() {
+  const sock = document.getElementById("santaSock");
+  const fly = document.getElementById("jokeGiftFly");
+  const cuff = sock?.querySelector(".santa-sock__cuff");
+
+  if (
+    !sock ||
+    !fly ||
+    !cuff ||
+    !jokePage.classList.contains("is-ready") ||
+    jokePage.classList.contains("is-opening")
+  ) {
+    return;
+  }
+
+  jokePage.classList.add("is-opening");
+  sock.classList.add("is-opening");
+
+  const mouth = cuff.getBoundingClientRect();
+  const startX = mouth.left + mouth.width / 2;
+  const startY = mouth.top + 4;
+  const endX = window.innerWidth / 2;
+  const endY = window.innerHeight / 2;
+
+  fly.hidden = false;
+  const animation = fly.animate(
+    [
+      {
+        transform: `translate(${startX}px, ${startY}px) translate(-50%, 12%) rotate(-8deg) scale(0.4)`,
+        opacity: 0.15,
+      },
+      {
+        transform: `translate(${startX}px, ${startY - 80}px) translate(-50%, -50%) rotate(12deg) scale(1.2)`,
+        opacity: 1,
+        offset: 0.32,
+      },
+      {
+        transform: `translate(${endX}px, ${endY}px) translate(-50%, -50%) rotate(0deg) scale(2.85)`,
+        opacity: 1,
+      },
+    ],
+    {
+      duration: 920,
+      easing: "cubic-bezier(0.22, 0.82, 0.18, 1)",
+      fill: "forwards",
+    },
+  );
+
+  animation.addEventListener("finish", () => {
+    animation.commitStyles();
+    animation.cancel();
+    jokePage.classList.add("is-gift-ready");
+  });
+
+  jokePage.classList.add("is-opened");
+}
+
+function popNestedGift(gift, layer) {
+  resetGiftBox(gift, layer);
+  void gift.offsetWidth;
+  gift.classList.add("is-nesting");
+
+  afterJoke(680, () => {
+    gift.classList.remove("is-nesting");
+    giftUnwrapBusy = false;
+  });
+}
+
+function unwrapSantaGift() {
+  const gift = document.getElementById("jokeGift");
+  const step = Number(gift?.dataset.step || 0);
+
+  if (
+    !gift ||
+    giftUnwrapBusy ||
+    !jokePage.classList.contains("is-gift-ready") ||
+    step >= 4
+  ) {
+    return;
+  }
+
+  giftUnwrapBusy = true;
+  gift.classList.remove("is-untying");
+  void gift.offsetWidth;
+  gift.classList.add("is-untying");
+  gift.dataset.step = String(step + 1);
+
+  afterJoke(720, () => {
+    gift.classList.remove("is-untying");
+
+    if (Number(gift.dataset.step) < 4) {
+      giftUnwrapBusy = false;
+      return;
+    }
+
+    const layer = Number(gift.dataset.layer || 0);
+    if (layer + 1 < GIFT_LAYER_COUNT) {
+      popNestedGift(gift, layer + 1);
+      return;
+    }
+
+    jokePage.classList.add("is-unwrapped");
+    gift.classList.add("is-shaking");
+    afterJoke(1000, () => {
+      gift.classList.remove("is-shaking");
+      jokePage.classList.add("is-punchline");
+      giftUnwrapBusy = false;
+    });
+  });
+}
+
 function showPage(page) {
   loginPage.hidden = page !== "login";
   userPage.hidden = page !== "user";
@@ -927,6 +1108,7 @@ function enterAccount(account) {
 }
 
 function logout() {
+  resetJokeScene();
   currentAccount = null;
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_RESET_KEY);
@@ -1081,6 +1263,7 @@ function refreshVisible() {
 
   if (currentAccount.role === "joke") {
     showPage("joke");
+    playSantaSock();
     return;
   }
 
@@ -2571,6 +2754,25 @@ loginForm.addEventListener("submit", (event) => {
 
 document.getElementById("userLogout").addEventListener("click", logout);
 document.getElementById("jokeLogout").addEventListener("click", logout);
+jokePage.addEventListener("click", (event) => {
+  if (event.target.closest("#jokeLogout")) {
+    return;
+  }
+
+  if (jokePage.classList.contains("is-unwrapped") || jokePage.classList.contains("is-punchline")) {
+    return;
+  }
+
+  if (jokePage.classList.contains("is-gift-ready")) {
+    if (event.target.closest("#jokeGiftFly")) {
+      unwrapSantaGift();
+    }
+
+    return;
+  }
+
+  revealSantaGift();
+});
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
 adminToMain.addEventListener("click", () => showAdminView("main"));

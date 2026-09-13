@@ -11,7 +11,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=61">
+  <link rel="stylesheet" href="style.css?v=74">
 </head>
 <body>
   <main class="app">
@@ -50,10 +50,37 @@
         <button class="btn-text" type="button" id="jokeLogout">로그아웃</button>
       </header>
       <div class="joke-stage">
-        <p class="joke-kicker">비밀 계정 접속 성공</p>
-        <p class="joke-title">들켰다.</p>
-        <p class="joke-lead">이 아이디 찾은 사람이<br>오늘 분위기 책임자다.</p>
-        <p class="joke-stamp">최종 판결</p>
+        <div class="santa-sock" id="santaSock" aria-hidden="true">
+          <div class="santa-sock__drop">
+            <span class="santa-sock__gift">🎁</span>
+          </div>
+          <div class="santa-sock__shape">
+            <div class="santa-sock__cuff"></div>
+            <div class="santa-sock__leg"></div>
+            <div class="santa-sock__foot"></div>
+          </div>
+        </div>
+      </div>
+      <p class="joke-click">클릭해보세요!</p>
+      <p class="joke-unwrap">선물을 풀러보세요</p>
+      <p class="joke-line">민지언니 바~보</p>
+      <div class="joke-gift-fly" id="jokeGiftFly" hidden>
+        <div class="gift" id="jokeGift" data-step="0" data-layer="0">
+          <div class="gift-inner"></div>
+          <div class="gift-paper">
+            <div class="gift-paper__body"></div>
+            <div class="gift-paper__flap"></div>
+          </div>
+          <div class="gift-ribbon gift-ribbon--v"></div>
+          <div class="gift-ribbon gift-ribbon--h"></div>
+          <div class="gift-bow">
+            <span class="gift-bow__loop is-left"></span>
+            <span class="gift-bow__loop is-right"></span>
+            <span class="gift-bow__knot"></span>
+            <span class="gift-bow__tail is-left"></span>
+            <span class="gift-bow__tail is-right"></span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -79,7 +106,7 @@
   </main>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="accounts.js?v=61"></script>
-  <script src="script.js?v=61"></script>
+  <script src="accounts.js?v=74"></script>
+  <script src="script.js?v=74"></script>
 </body>
 </html>
