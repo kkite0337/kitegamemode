@@ -87,6 +87,10 @@ body.is-admin .app {
   margin-bottom: 0;
 }
 
+.register-stage .profile-field:first-child {
+  margin-top: 0;
+}
+
 .login-form label,
 .profile-field label {
   margin-bottom: 8px;
@@ -425,42 +429,6 @@ body.is-admin .app {
   accent-color: #d97706;
 }
 
-.player-pick__photo {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  overflow: hidden;
-  border: 2px dashed #d7cfc0;
-  border-radius: 50%;
-  background: #f3efe6;
-  flex: 0 0 auto;
-}
-
-.player-pick__photo.has-photo {
-  border-style: solid;
-  border-color: #d7cfc0;
-}
-
-.player-pick__photo img,
-.player-pick__photo .photo-placeholder {
-  width: 100%;
-  height: 100%;
-}
-
-.player-pick__photo .photo-placeholder {
-  gap: 0;
-}
-
-.player-pick__photo .photo-placeholder svg {
-  width: 22px;
-  height: 22px;
-}
-
-.player-pick__photo .photo-placeholder__text {
-  display: none;
-}
-
 .player-pick__meta {
   display: flex;
   flex-direction: column;
@@ -497,113 +465,9 @@ body.is-admin .app {
   margin-top: 4px;
 }
 
-.photo-field {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.photo-button,
-.admin-photo {
-  display: grid;
-  place-items: center;
-  width: 180px;
-  height: 180px;
-  padding: 0;
-  overflow: hidden;
-  border: 2px dashed #d7cfc0;
-  border-radius: 50%;
-  background: #fffdf8;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.photo-button {
-  cursor: pointer;
-}
-
-.photo-button.is-locked {
-  cursor: default;
-}
-
-.photo-button.is-locked:hover,
-.photo-button.is-locked:focus-visible {
-  border-color: #d7cfc0;
-}
-
 .profile-field input[readonly] {
   background: #f3efe6;
   color: #5c574e;
-}
-
-.photo-button:hover,
-.photo-button:focus-visible {
-  border-color: #d97706;
-  outline: none;
-}
-
-.photo-button.has-photo,
-.admin-photo.has-photo {
-  border-style: solid;
-}
-
-.photo-button img,
-.admin-photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.photo-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 100%;
-  color: #8a8174;
-  font-size: 14px;
-}
-
-.photo-placeholder svg {
-  display: block;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  margin: 0;
-}
-
-.photo-placeholder__text {
-  line-height: 1.2;
-  text-align: center;
-}
-
-.photo-remove {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #8a8174;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.photo-remove[hidden] {
-  display: none;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 #adminSettings {
@@ -635,24 +499,6 @@ body.is-admin .app {
 #adminSettings .admin-card {
   width: auto;
   min-width: 0;
-}
-
-.admin-list--people .admin-photo,
-#adminSettings .admin-photo {
-  width: min(96px, 24vw);
-  height: min(96px, 24vw);
-}
-
-.admin-list--people .photo-placeholder,
-#adminSettings .admin-photo .photo-placeholder {
-  font-size: 11px;
-  gap: 4px;
-}
-
-.admin-list--people .photo-placeholder svg,
-#adminSettings .admin-photo .photo-placeholder svg {
-  width: 22px;
-  height: 22px;
 }
 
 .admin-list--people .admin-card__id,
@@ -855,18 +701,6 @@ body.is-admin .app {
 }
 
 @media (max-width: 400px) {
-  .photo-button,
-  .admin-photo {
-    width: min(180px, 56vw);
-    height: min(180px, 56vw);
-  }
-
-  .admin-list--people .admin-photo,
-  #adminSettings .admin-photo {
-    width: min(64px, 18vw);
-    height: min(64px, 18vw);
-  }
-
   .digit-slot {
     width: clamp(36px, 12vw, 48px);
     height: clamp(48px, 16vw, 64px);
