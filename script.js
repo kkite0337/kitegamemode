@@ -1406,8 +1406,6 @@ function winningMealLabel() {
 function menuMealMarkup(forAdmin = false) {
   return `
     <div class="payout-screen">
-      <button class="account-copy" type="button" data-action="copy-account">${escapeHtml(accountLabel())}</button>
-      <p class="payout-copy" id="copyNotice" hidden>복사되었습니다</p>
       <p class="payout-label">식사</p>
       <p class="payout-value">${escapeHtml(winningMealLabel())}</p>
       ${forAdmin ? `<button class="btn-primary next-btn" type="button" data-action="go-main">넘어가기</button>` : ""}
