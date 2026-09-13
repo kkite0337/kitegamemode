@@ -962,8 +962,8 @@ function setJokePunchline() {
 }
 
 function resetJokeScene() {
-  const sock = document.getElementById("santaSock");
   const fly = document.getElementById("jokeGiftFly");
+  const photo = document.getElementById("jokeGiftPhoto");
   const gift = document.getElementById("jokeGift");
   const party = document.getElementById("jokeParty");
   const drum = document.getElementById("jokeDrum");
@@ -971,16 +971,17 @@ function resetJokeScene() {
 
   clearJokeTimers();
   giftUnwrapBusy = false;
-  jokePage.classList.remove("is-ready", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline");
-
-  if (sock) {
-    sock.classList.remove("is-playing", "is-opening");
-  }
+  jokePage.classList.remove("is-intro", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline");
 
   if (fly) {
     fly.getAnimations().forEach((animation) => animation.cancel());
     fly.removeAttribute("style");
     fly.hidden = true;
+    fly.classList.remove("is-unwrapping");
+    if (photo && photo.naturalWidth) {
+      fly.classList.add("has-photo");
+      photo.hidden = false;
+    }
   }
 
   if (gift) {
@@ -1002,42 +1003,26 @@ function resetJokeScene() {
   stopJokeApplause();
 }
 
-function playSantaSock() {
-  const sock = document.getElementById("santaSock");
-  if (!sock) {
-    return;
-  }
-
+function showJokeIntro() {
   resetJokeScene();
+  jokePage.classList.add("is-intro");
   preloadJokeApplause();
-  void sock.offsetWidth;
-  sock.classList.add("is-playing");
-  jokeReadyTimer = window.setTimeout(() => {
-    jokePage.classList.add("is-ready");
-  }, 1250);
 }
 
-function revealSantaGift() {
-  const sock = document.getElementById("santaSock");
-  const fly = document.getElementById("jokeGiftFly");
-  const cuff = sock?.querySelector(".santa-sock__cuff");
+function startJokeChallenge() {
+  resetJokeScene();
+  dropGiftFromTop();
+}
 
-  if (
-    !sock ||
-    !fly ||
-    !cuff ||
-    !jokePage.classList.contains("is-ready") ||
-    jokePage.classList.contains("is-opening")
-  ) {
+function dropGiftFromTop() {
+  const fly = document.getElementById("jokeGiftFly");
+  if (!fly || jokePage.classList.contains("is-opening")) {
     return;
   }
 
+  preloadJokeApplause();
   jokePage.classList.add("is-opening");
-  sock.classList.add("is-opening");
 
-  const mouth = cuff.getBoundingClientRect();
-  const startX = mouth.left + mouth.width / 2;
-  const startY = mouth.top + 4;
   const endX = window.innerWidth / 2;
   const endY = window.innerHeight / 2;
 
@@ -1045,22 +1030,24 @@ function revealSantaGift() {
   const animation = fly.animate(
     [
       {
-        transform: `translate(${startX}px, ${startY}px) translate(-50%, 12%) rotate(-8deg) scale(0.4)`,
-        opacity: 0.15,
+        transform: `translate(${endX}px, -40px) translate(-50%, -100%) rotate(-16deg) scale(0.62)`,
+        opacity: 1,
       },
       {
-        transform: `translate(${startX}px, ${startY - 80}px) translate(-50%, -50%) rotate(12deg) scale(1.2)`,
-        opacity: 1,
-        offset: 0.32,
+        transform: `translate(${endX + 22}px, ${endY * 0.38}px) translate(-50%, -50%) rotate(11deg) scale(1.08)`,
+        offset: 0.42,
+      },
+      {
+        transform: `translate(${endX - 10}px, ${endY + 18}px) translate(-50%, -50%) rotate(-5deg) scale(2.72)`,
+        offset: 0.78,
       },
       {
         transform: `translate(${endX}px, ${endY}px) translate(-50%, -50%) rotate(0deg) scale(2.85)`,
-        opacity: 1,
       },
     ],
     {
-      duration: 920,
-      easing: "cubic-bezier(0.22, 0.82, 0.18, 1)",
+      duration: 1080,
+      easing: "cubic-bezier(0.2, 0.72, 0.18, 1)",
       fill: "forwards",
     },
   );
@@ -1068,10 +1055,8 @@ function revealSantaGift() {
   animation.addEventListener("finish", () => {
     animation.commitStyles();
     animation.cancel();
-    jokePage.classList.add("is-gift-ready");
+    jokePage.classList.add("is-opened", "is-gift-ready");
   });
-
-  jokePage.classList.add("is-opened");
 }
 
 function popNestedGift(layer) {
@@ -1097,8 +1082,12 @@ function popNestedGift(layer) {
 }
 
 function unwrapSantaGift() {
+  const fly = document.getElementById("jokeGiftFly");
   const gift = document.getElementById("jokeGift");
   const step = Number(gift?.dataset.step || 0);
+  if (fly) {
+    fly.classList.add("is-unwrapping");
+  }
 
   if (
     !gift ||
@@ -1550,7 +1539,7 @@ function refreshVisible() {
     const firstOpen = jokePage.hidden;
     showPage("joke");
     if (firstOpen) {
-      playSantaSock();
+      showJokeIntro();
     }
     return;
   }
@@ -3042,8 +3031,37 @@ loginForm.addEventListener("submit", (event) => {
 
 document.getElementById("userLogout").addEventListener("click", logout);
 document.getElementById("jokeLogout").addEventListener("click", logout);
+document.getElementById("jokeChallenge").addEventListener("click", (event) => {
+  event.stopPropagation();
+  resumeJokeAudio();
+  startJokeChallenge();
+});
+
+(function setupJokeGiftPhoto() {
+  const fly = document.getElementById("jokeGiftFly");
+  const photo = document.getElementById("jokeGiftPhoto");
+  if (!fly || !photo) {
+    return;
+  }
+
+  photo.addEventListener("load", () => {
+    if (photo.naturalWidth) {
+      fly.classList.add("has-photo");
+      photo.hidden = false;
+    }
+  });
+
+  photo.addEventListener("error", () => {
+    fly.classList.remove("has-photo");
+    photo.hidden = true;
+  });
+
+  if (photo.complete && photo.naturalWidth) {
+    fly.classList.add("has-photo");
+  }
+})();
 jokePage.addEventListener("click", (event) => {
-  if (event.target.closest("#jokeLogout")) {
+  if (event.target.closest("#jokeLogout") || jokePage.classList.contains("is-intro")) {
     return;
   }
 
@@ -3053,15 +3071,9 @@ jokePage.addEventListener("click", (event) => {
     return;
   }
 
-  if (jokePage.classList.contains("is-gift-ready")) {
-    if (event.target.closest("#jokeGiftFly")) {
-      unwrapSantaGift();
-    }
-
-    return;
+  if (jokePage.classList.contains("is-gift-ready") && event.target.closest("#jokeGiftFly")) {
+    unwrapSantaGift();
   }
-
-  revealSantaGift();
 });
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));

@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=90">
+  <link rel="stylesheet" href="style.css?v=92">
 </head>
 <body>
   <main class="app">
@@ -46,24 +46,16 @@
       <div class="play-screen" id="userPlay" hidden></div>
     </section>
 
-    <section class="page joke-page" id="jokePage" hidden>
+    <section class="page joke-page is-intro" id="jokePage" hidden>
       <header class="page-top">
         <p class="page-role">USER100</p>
         <button class="btn-text" type="button" id="jokeLogout">로그아웃</button>
       </header>
-      <div class="joke-stage">
-        <div class="santa-sock" id="santaSock" aria-hidden="true">
-          <div class="santa-sock__drop">
-            <span class="santa-sock__gift">🎁</span>
-          </div>
-          <div class="santa-sock__shape">
-            <div class="santa-sock__cuff"></div>
-            <div class="santa-sock__leg"></div>
-            <div class="santa-sock__foot"></div>
-          </div>
-        </div>
+      <div class="joke-intro" id="jokeIntro">
+        <p class="joke-intro__title"><span>기프티콘 사냥꾼,</span></p>
+        <button class="joke-intro__go" type="button" id="jokeChallenge">도전!</button>
       </div>
-      <p class="joke-click">클릭해보세요!</p>
+      <div class="joke-stage"></div>
       <p class="joke-unwrap">선물을 풀러보세요</p>
       <p class="joke-line">김우진 동그라미</p>
       <div class="joke-drum" id="jokeDrum" hidden aria-hidden="true">
@@ -77,6 +69,7 @@
       </div>
       <div class="joke-party" id="jokeParty" hidden aria-hidden="true"></div>
       <div class="joke-gift-fly" id="jokeGiftFly" hidden>
+        <img class="joke-gift-photo" id="jokeGiftPhoto" src="assets/gift-box.png" alt="">
         <div class="gift" id="jokeGift" data-step="0" data-layer="0">
           <div class="gift-inner"></div>
           <div class="gift-paper">
@@ -118,7 +111,7 @@
   </main>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="accounts.js?v=90"></script>
-  <script src="script.js?v=90"></script>
+  <script src="accounts.js?v=92"></script>
+  <script src="script.js?v=92"></script>
 </body>
 </html>
