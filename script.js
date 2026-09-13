@@ -3,6 +3,7 @@ const SESSION_RESET_KEY = "gift-draw-session-reset";
 const PROFILE_KEY = "gift-draw-profiles";
 const PROFILE_RESET_KEY = "gift-draw-profile-reset";
 const GAME_KEY = "gift-draw-game";
+const GAME_UPDATED_KEY = "gift-draw-game-updated";
 const RESET_CHANNEL = "gift-draw-reset-channel";
 
 function participantIds() {
@@ -174,6 +175,16 @@ let adminView = "settings";
 let lastGameSignature = "";
 let lastProfileSignature = "";
 let lastProfileResetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
+let gameUpdatedAt = Number(localStorage.getItem(GAME_UPDATED_KEY) || 0);
+let remotePushTimer = 0;
+let remotePushing = false;
+let remotePushQueued = false;
+let syncPeer = null;
+let syncHostConn = null;
+let syncGuestConns = [];
+let syncIsHost = false;
+let applyingPeerState = false;
+let syncRestartTimer = 0;
 let priceTalkToken = 0;
 
 function profileSignature(state) {
@@ -218,6 +229,15 @@ function saveProfile(id) {
   }
 }
 
+function persistProfilesLocal() {
+  userIds().forEach(saveProfile);
+  if (!writeLocal(PROFILE_KEY, profiles)) {
+    writeLocal(PROFILE_KEY, Object.fromEntries(userIds().map((id) => [id, slimProfile(profiles[id])])));
+  }
+
+  lastProfileSignature = profileSignature(profiles);
+}
+
 function saveProfiles(options = {}) {
   if (currentAccount && profiles[currentAccount.id]) {
     profiles[currentAccount.id].updatedAt = Date.now();
@@ -231,12 +251,8 @@ function saveProfiles(options = {}) {
     replaceProfiles(merged);
   }
 
-  userIds().forEach(saveProfile);
-  if (!writeLocal(PROFILE_KEY, profiles)) {
-    writeLocal(PROFILE_KEY, Object.fromEntries(userIds().map((id) => [id, slimProfile(profiles[id])])));
-  }
-
-  lastProfileSignature = profileSignature(profiles);
+  persistProfilesLocal();
+  scheduleRemotePush(Boolean(options.immediate));
 }
 
 function reloadProfilesFromStorage() {
@@ -253,16 +269,21 @@ function resetUserProfiles() {
   lastProfileResetAt = resetAt;
   localStorage.setItem(PROFILE_RESET_KEY, String(resetAt));
   replaceProfiles(Object.fromEntries(userIds().map((id) => [id, emptyUserProfile(resetAt)])));
-  saveProfiles({ replaceAll: true });
+  persistProfilesLocal();
   gameState = emptyGame();
-  saveGame();
+  gameUpdatedAt = resetAt;
+  persistGameLocal();
   notifyProfilesReset();
+  scheduleRemotePush(true);
   refreshVisible();
 }
 
-function saveGame() {
+function saveGame(options = {}) {
+  gameUpdatedAt = Date.now();
   localStorage.setItem(GAME_KEY, JSON.stringify(gameState));
+  localStorage.setItem(GAME_UPDATED_KEY, String(gameUpdatedAt));
   lastGameSignature = gameSignature(gameState);
+  scheduleRemotePush(Boolean(options.immediate));
 }
 
 function gameSignature(state) {
@@ -402,7 +423,7 @@ function completeUserSetup() {
   }
 
   profile.submitted = true;
-  saveProfiles();
+  saveProfiles({ immediate: true });
   refreshVisible();
 }
 
@@ -1218,7 +1239,20 @@ function showRefreshStatus() {
   refreshStatus.textContent = `불러왔습니다. 제출 완료 ${submittedCount}명 / 전체 ${userIds().length}명`;
 }
 
-refreshUsers.addEventListener("click", () => {
+refreshUsers.addEventListener("click", async () => {
+  if (refreshStatus) {
+    refreshStatus.hidden = false;
+    refreshStatus.textContent = "불러오는 중...";
+  }
+
+  if (syncHostConn?.open) {
+    sendPeer(syncHostConn, { type: "request" });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  if (syncIsHost) {
+    broadcastPeerState();
+  }
+  await pullRemoteState({ replaceCurrent: true });
   reloadProfilesFromStorage();
   gameState = loadGame();
   lastGameSignature = gameSignature(gameState);
@@ -1331,7 +1365,7 @@ registerForm.addEventListener("change", async (event) => {
     }
 
     currentProfile().photo = photo;
-    saveProfiles();
+    saveProfiles({ immediate: true });
     renderRegister();
   } catch {
     input.value = "";
@@ -1443,6 +1477,468 @@ adminPlay.addEventListener("click", handlePlayClick);
 userPlay.addEventListener("submit", handlePlaySubmit);
 adminPlay.addEventListener("submit", handlePlaySubmit);
 
+function syncEnabled() {
+  return typeof SYNC_URL === "string" && Boolean(SYNC_URL);
+}
+
+function emptyRemoteState() {
+  return {
+    resetAt: 0,
+    profiles: {},
+    game: emptyGame(),
+    gameUpdatedAt: 0,
+  };
+}
+
+function normalizeRemoteState(raw) {
+  const parsed = raw && typeof raw === "object" ? raw : {};
+  const game = parsed.game && typeof parsed.game === "object" ? parsed.game : {};
+  return {
+    resetAt: Number(parsed.resetAt || 0),
+    profiles: parsed.profiles && typeof parsed.profiles === "object" ? parsed.profiles : {},
+    game: {
+      ...emptyGame(),
+      ...game,
+      drinks: { ...emptyDrinks(), ...game.drinks },
+      opened: { ...emptyOpened(), ...game.opened },
+      resultPicked: { drink: false, price: false, ...game.resultPicked },
+      priceShares: { ...game.priceShares },
+      personalSteps: { ...emptyPersonalSteps(), ...game.personalSteps },
+    },
+    gameUpdatedAt: Number(parsed.gameUpdatedAt || 0),
+  };
+}
+
+function persistGameLocal() {
+  localStorage.setItem(GAME_KEY, JSON.stringify(gameState));
+  localStorage.setItem(GAME_UPDATED_KEY, String(gameUpdatedAt));
+  lastGameSignature = gameSignature(gameState);
+}
+
+function mergeProfileMaps(first, second) {
+  return Object.fromEntries(
+    userIds().map((id) => [id, pickRicherProfile(first?.[id], second?.[id])]),
+  );
+}
+
+function applyResetProfiles(resetAt, remoteProfiles) {
+  return Object.fromEntries(
+    userIds().map((id) => {
+      const incoming = { ...emptyUserProfile(resetAt), ...(remoteProfiles?.[id] || {}) };
+      if ((incoming.resetAt || 0) < resetAt && (incoming.updatedAt || 0) <= resetAt) {
+        return [id, emptyUserProfile(resetAt)];
+      }
+
+      return [id, incoming];
+    }),
+  );
+}
+
+function applyRemoteState(remote, options = {}) {
+  const incoming = normalizeRemoteState(remote);
+  const localReset = currentResetAt();
+  const remoteReset = incoming.resetAt;
+
+  if (remoteReset > localReset) {
+    localStorage.setItem(PROFILE_RESET_KEY, String(remoteReset));
+    lastProfileResetAt = remoteReset;
+    replaceProfiles(applyResetProfiles(remoteReset, incoming.profiles));
+    persistProfilesLocal();
+    gameState = incoming.game;
+    gameUpdatedAt = incoming.gameUpdatedAt;
+    persistGameLocal();
+    return { changed: true, reset: true };
+  }
+
+  const keepDraft =
+    !options.replaceCurrent &&
+    currentAccount &&
+    profiles[currentAccount.id] &&
+    !profiles[currentAccount.id].submitted &&
+    !incoming.profiles[currentAccount.id]?.submitted;
+
+  const draft = keepDraft ? { ...profiles[currentAccount.id] } : null;
+  const merged = mergeProfileMaps(profiles, incoming.profiles);
+  if (draft) {
+    merged[currentAccount.id] = draft;
+  }
+
+  const effectiveReset = Math.max(localReset, remoteReset);
+  userIds().forEach((id) => {
+    const item = merged[id];
+    if ((item.resetAt || 0) < effectiveReset && (item.updatedAt || 0) <= effectiveReset) {
+      merged[id] = emptyUserProfile(effectiveReset);
+    }
+  });
+
+  let changed = false;
+  const nextProfileSig = profileSignature(merged);
+  if (nextProfileSig !== lastProfileSignature) {
+    replaceProfiles(merged);
+    persistProfilesLocal();
+    changed = true;
+  }
+
+  if (incoming.gameUpdatedAt > gameUpdatedAt) {
+    const typingDrink =
+      document.activeElement &&
+      (document.activeElement.id === "drinkName" || document.activeElement.id === "drinkPrice");
+    if (!(typingDrink && incoming.game.phase === gameState.phase && incoming.game.game === gameState.game)) {
+      gameState = incoming.game;
+      gameUpdatedAt = incoming.gameUpdatedAt;
+      persistGameLocal();
+      changed = true;
+    }
+  }
+
+  return { changed, reset: false };
+}
+
+function buildRemotePayload(base) {
+  const remote = normalizeRemoteState(base);
+  const useLocalGame = gameUpdatedAt >= remote.gameUpdatedAt;
+  return {
+    resetAt: Math.max(currentResetAt(), remote.resetAt),
+    profiles: mergeProfileMaps(profiles, remote.profiles),
+    game: useLocalGame ? gameState : remote.game,
+    gameUpdatedAt: useLocalGame ? gameUpdatedAt : remote.gameUpdatedAt,
+  };
+}
+
+function packedRemoteState(state, slimPhotos) {
+  return {
+    resetAt: state.resetAt,
+    profiles: Object.fromEntries(
+      userIds().map((id) => {
+        const item = state.profiles[id] || emptyUserProfile(state.resetAt);
+        return [id, slimPhotos ? slimProfile(item) : item];
+      }),
+    ),
+    game: state.game,
+    gameUpdatedAt: state.gameUpdatedAt,
+  };
+}
+
+async function fetchRemoteState() {
+  if (!syncEnabled()) {
+    return emptyRemoteState();
+  }
+
+  const response = await fetch(SYNC_URL, { cache: "no-store" });
+  if (response.status === 404 || response.status === 204) {
+    return emptyRemoteState();
+  }
+
+  if (!response.ok) {
+    throw new Error("remote-get-failed");
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return emptyRemoteState();
+  }
+
+  return normalizeRemoteState(JSON.parse(text));
+}
+
+async function putRemoteState(state) {
+  const attempts = [packedRemoteState(state, false), packedRemoteState(state, true)];
+  let lastError = null;
+
+  for (const payload of attempts) {
+    const response = await fetch(SYNC_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      return;
+    }
+
+    lastError = new Error(`remote-put-failed:${response.status}`);
+  }
+
+  throw lastError || new Error("remote-put-failed");
+}
+
+function currentSyncPayload() {
+  return {
+    type: "state",
+    resetAt: currentResetAt(),
+    profiles: JSON.parse(JSON.stringify(profiles)),
+    game: JSON.parse(JSON.stringify(gameState)),
+    gameUpdatedAt,
+  };
+}
+
+function peerRoomId() {
+  return typeof SYNC_ROOM === "string" && SYNC_ROOM ? SYNC_ROOM : "kitegamemodekrv1";
+}
+
+function sendPeer(conn, data) {
+  if (conn?.open) {
+    conn.send(data);
+  }
+}
+
+function broadcastPeerState() {
+  if (applyingPeerState) {
+    return;
+  }
+
+  const payload = currentSyncPayload();
+  if (syncIsHost) {
+    syncGuestConns.forEach((conn) => sendPeer(conn, payload));
+    return;
+  }
+
+  sendPeer(syncHostConn, payload);
+}
+
+function handlePeerPayload(data, fromConn) {
+  if (data?.type === "request") {
+    sendPeer(fromConn, currentSyncPayload());
+    return;
+  }
+
+  if (data?.type !== "state") {
+    return;
+  }
+
+  applyingPeerState = true;
+  let result = { changed: false, reset: false };
+  try {
+    result = applyRemoteState(data, { replaceCurrent: Number(data.resetAt || 0) > currentResetAt() });
+    if (syncIsHost) {
+      const merged = currentSyncPayload();
+      syncGuestConns.forEach((conn) => sendPeer(conn, merged));
+    }
+  } finally {
+    applyingPeerState = false;
+  }
+
+  if (logoutUserIfReset()) {
+    return;
+  }
+
+  if (shouldRefreshAfterRemote(result)) {
+    refreshVisible();
+  }
+}
+
+function rememberGuest(conn) {
+  if (!syncGuestConns.includes(conn)) {
+    syncGuestConns.push(conn);
+  }
+}
+
+function dropGuest(conn) {
+  syncGuestConns = syncGuestConns.filter((item) => item !== conn);
+}
+
+function attachPeerConnection(conn, asHost) {
+  conn.on("open", () => {
+    sendPeer(conn, currentSyncPayload());
+    if (!asHost) {
+      sendPeer(conn, { type: "request" });
+    }
+  });
+  conn.on("data", (data) => handlePeerPayload(data, conn));
+  conn.on("close", () => {
+    if (asHost) {
+      dropGuest(conn);
+      return;
+    }
+
+    syncHostConn = null;
+    schedulePeerRestart();
+  });
+  conn.on("error", () => {
+    if (!asHost) {
+      schedulePeerRestart();
+    }
+  });
+}
+
+function peerOptions() {
+  return {
+    host: "0.peerjs.com",
+    port: 443,
+    path: "/",
+    secure: true,
+    config: {
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    },
+  };
+}
+
+function destroySyncPeer() {
+  syncGuestConns.splice(0).forEach((conn) => {
+    try {
+      conn.close();
+    } catch {
+      // ignore
+    }
+  });
+  syncHostConn = null;
+  syncIsHost = false;
+  if (syncPeer) {
+    try {
+      syncPeer.destroy();
+    } catch {
+      // ignore
+    }
+    syncPeer = null;
+  }
+}
+
+function schedulePeerRestart() {
+  clearTimeout(syncRestartTimer);
+  syncRestartTimer = setTimeout(() => {
+    startPeerSync();
+  }, 1200);
+}
+
+function startPeerSync() {
+  if (typeof Peer !== "function") {
+    return;
+  }
+
+  destroySyncPeer();
+  const room = peerRoomId();
+  syncPeer = new Peer(room, peerOptions());
+  syncPeer.on("open", () => {
+    syncIsHost = true;
+  });
+  syncPeer.on("connection", (conn) => {
+    rememberGuest(conn);
+    attachPeerConnection(conn, true);
+  });
+  syncPeer.on("disconnected", () => {
+    try {
+      syncPeer.reconnect();
+    } catch {
+      schedulePeerRestart();
+    }
+  });
+  syncPeer.on("error", (error) => {
+    if (error?.type === "unavailable-id") {
+      joinPeerRoom(room);
+      return;
+    }
+
+    schedulePeerRestart();
+  });
+}
+
+function joinPeerRoom(room) {
+  destroySyncPeer();
+  syncPeer = new Peer(peerOptions());
+  syncPeer.on("open", () => {
+    syncIsHost = false;
+    syncHostConn = syncPeer.connect(room, { reliable: true });
+    attachPeerConnection(syncHostConn, false);
+  });
+  syncPeer.on("error", () => {
+    schedulePeerRestart();
+  });
+}
+
+function scheduleRemotePush(immediate = false) {
+  broadcastPeerState();
+  if (!syncEnabled()) {
+    return;
+  }
+
+  remotePushQueued = true;
+  if (!immediate) {
+    clearTimeout(remotePushTimer);
+    remotePushTimer = setTimeout(() => {
+      flushRemotePush();
+    }, 350);
+    return;
+  }
+
+  clearTimeout(remotePushTimer);
+  flushRemotePush();
+}
+
+async function flushRemotePush() {
+  if (!syncEnabled() || remotePushing) {
+    return;
+  }
+
+  remotePushQueued = false;
+  remotePushing = true;
+  try {
+    let remote = emptyRemoteState();
+    try {
+      remote = await fetchRemoteState();
+    } catch {
+      remote = emptyRemoteState();
+    }
+
+    if (remote.resetAt > currentResetAt()) {
+      const result = applyRemoteState(remote, { replaceCurrent: true });
+      if (logoutUserIfReset()) {
+        return;
+      }
+
+      if (result.changed && currentAccount) {
+        refreshVisible();
+      }
+      return;
+    }
+
+    await putRemoteState(buildRemotePayload(remote));
+  } catch {
+    // HTTP 저장소가 막혀 있어도 방 연결로 동기화합니다.
+  } finally {
+    remotePushing = false;
+    if (remotePushQueued) {
+      clearTimeout(remotePushTimer);
+      remotePushTimer = setTimeout(() => {
+        flushRemotePush();
+      }, 800);
+    }
+  }
+}
+
+function shouldRefreshAfterRemote(result) {
+  if (!currentAccount || !result.changed) {
+    return false;
+  }
+
+  if (result.reset || currentAccount.role === "admin" || currentProfile()?.submitted) {
+    return true;
+  }
+
+  return false;
+}
+
+async function pullRemoteState(options = {}) {
+  if (!syncEnabled()) {
+    return false;
+  }
+
+  try {
+    const remote = await fetchRemoteState();
+    const result = applyRemoteState(remote, options);
+    if (logoutUserIfReset()) {
+      return true;
+    }
+
+    if (shouldRefreshAfterRemote(result)) {
+      refreshVisible();
+    }
+
+    return result.changed;
+  } catch {
+    return false;
+  }
+}
+
 function syncProfilesFromStorage() {
   if (logoutUserIfReset()) {
     return;
@@ -1538,9 +2034,14 @@ setInterval(() => {
   syncProfilesFromStorage();
   syncGameFromStorage();
 }, 500);
+setInterval(() => {
+  pullRemoteState();
+}, 1000);
 lastProfileSignature = profileSignature(profiles);
 lastGameSignature = gameSignature(gameState);
 restoreSession();
+startPeerSync();
+pullRemoteState();
 
 window.addEventListener("pageshow", () => {
   reloadProfilesFromStorage();
@@ -1552,4 +2053,6 @@ window.addEventListener("pageshow", () => {
   if (currentAccount) {
     refreshVisible();
   }
+
+  pullRemoteState();
 });
