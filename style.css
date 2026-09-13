@@ -1159,9 +1159,49 @@ body.is-admin .app {
 }
 
 .joke-page.is-unwrapped .joke-unwrap,
-.joke-page.is-punchline .joke-unwrap {
+.joke-page.is-punchline .joke-unwrap,
+.joke-page.is-nudge .joke-unwrap {
   opacity: 0;
   animation: none;
+}
+
+.joke-nudge {
+  position: fixed;
+  left: 50%;
+  top: calc(50% - 150px);
+  z-index: 36;
+  margin: 0;
+  width: min(320px, calc(100% - 32px));
+  color: #171412;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.joke-page.is-nudge .joke-nudge {
+  animation: joke-nudge-in 0.4s cubic-bezier(0.22, 0.86, 0.2, 1) both;
+}
+
+.joke-page.is-punchline .joke-nudge {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes joke-nudge-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -80%) scale(0.92);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
 }
 
 .joke-line {

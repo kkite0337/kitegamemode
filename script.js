@@ -889,6 +889,7 @@ let giftUnwrapBusy = false;
 let jokeAudioCtx = null;
 let jokeApplause = null;
 let jokeDrumroll = null;
+let jokeTada = null;
 
 function afterJoke(ms, fn) {
   const id = window.setTimeout(() => {
@@ -931,6 +932,27 @@ function resumeJokeAudio() {
   }
 
   return jokeAudioCtx;
+}
+
+function stopJokeTada() {
+  if (!jokeTada) {
+    return;
+  }
+
+  jokeTada.pause();
+  jokeTada.removeAttribute("src");
+  jokeTada.load();
+  jokeTada = null;
+}
+
+function playJokeTada() {
+  stopJokeTada();
+  resumeJokeAudio();
+
+  const audio = new Audio("assets/fanfare.mp3");
+  audio.volume = 0.74;
+  jokeTada = audio;
+  audio.play().catch(() => {});
 }
 
 function stopJokeDrumroll() {
@@ -986,7 +1008,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=99`;
+  const src = `assets/gift-${frame}.png?v=100`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1004,7 +1026,7 @@ function resetJokeScene() {
 
   clearJokeTimers();
   giftUnwrapBusy = false;
-  jokePage.classList.remove("is-intro", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline", "is-suspense");
+  jokePage.classList.remove("is-intro", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline", "is-suspense", "is-nudge");
 
   if (fly) {
     fly.getAnimations().forEach((animation) => animation.cancel());
@@ -1036,6 +1058,7 @@ function resetJokeScene() {
   }
 
   stopJokeDrumroll();
+  stopJokeTada();
   stopJokeApplause();
 }
 
@@ -1161,6 +1184,12 @@ function popNestedGift(layer) {
     setJokeGiftFrame(4);
   }
 
+  playJokeTada();
+  jokePage.classList.add("is-nudge");
+  afterJoke(3000, () => {
+    jokePage.classList.remove("is-nudge");
+  });
+
   void gift.offsetWidth;
   gift.classList.add("is-nesting");
   afterJoke(1100, () => {
@@ -1177,6 +1206,7 @@ function finishGiftLayer() {
 
   fly?.classList.remove("is-shaking");
   fly?.classList.add("is-leaving");
+  jokePage.classList.remove("is-nudge");
   gift?.classList.add("is-fading");
 
   afterJoke(520, () => {
