@@ -977,7 +977,7 @@ function resetJokeScene() {
     fly.getAnimations().forEach((animation) => animation.cancel());
     fly.removeAttribute("style");
     fly.hidden = true;
-    fly.classList.remove("is-unwrapping");
+    fly.classList.remove("is-unwrapping", "is-shaking");
     if (photo && photo.naturalWidth) {
       fly.classList.add("has-photo");
       photo.hidden = false;
@@ -1014,6 +1014,10 @@ function startJokeChallenge() {
   dropGiftFromTop();
 }
 
+function giftFlyPose(x, y, rotate = 0, scale = 1.28, squash = 1) {
+  return `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rotate}deg) scale(${scale}, ${scale * squash})`;
+}
+
 function dropGiftFromTop() {
   const fly = document.getElementById("jokeGiftFly");
   if (!fly || jokePage.classList.contains("is-opening")) {
@@ -1022,40 +1026,82 @@ function dropGiftFromTop() {
 
   preloadJokeApplause();
   jokePage.classList.add("is-opening");
+  fly.classList.remove("is-shaking");
 
-  const endX = window.innerWidth / 2;
-  const endY = window.innerHeight / 2;
+  const x = window.innerWidth / 2;
+  const floor = window.innerHeight * 0.7;
 
   fly.hidden = false;
-  const animation = fly.animate(
+  const drop = fly.animate(
     [
-      {
-        transform: `translate(${endX}px, -40px) translate(-50%, -100%) rotate(-16deg) scale(0.62)`,
-        opacity: 1,
-      },
-      {
-        transform: `translate(${endX + 22}px, ${endY * 0.38}px) translate(-50%, -50%) rotate(11deg) scale(1.08)`,
-        offset: 0.42,
-      },
-      {
-        transform: `translate(${endX - 10}px, ${endY + 18}px) translate(-50%, -50%) rotate(-5deg) scale(2.72)`,
-        offset: 0.78,
-      },
-      {
-        transform: `translate(${endX}px, ${endY}px) translate(-50%, -50%) rotate(0deg) scale(2.85)`,
-      },
+      { transform: giftFlyPose(x, -220, -12, 0.58), opacity: 1, easing: "cubic-bezier(0.7, 0, 1, 0.18)" },
+      { transform: giftFlyPose(x, floor, 4, 1.38, 0.72), offset: 0.3, easing: "cubic-bezier(0.18, 0.86, 0.28, 1)" },
+      { transform: giftFlyPose(x, floor - 92, -9, 1.22), offset: 0.42, easing: "cubic-bezier(0.55, 0, 1, 0.28)" },
+      { transform: giftFlyPose(x, floor, 5, 1.34, 0.78), offset: 0.54, easing: "cubic-bezier(0.18, 0.86, 0.28, 1)" },
+      { transform: giftFlyPose(x, floor - 48, -5, 1.24), offset: 0.64, easing: "cubic-bezier(0.55, 0, 1, 0.28)" },
+      { transform: giftFlyPose(x, floor, 3, 1.3, 0.86), offset: 0.74, easing: "cubic-bezier(0.18, 0.86, 0.28, 1)" },
+      { transform: giftFlyPose(x, floor - 16, -2, 1.26), offset: 0.82, easing: "cubic-bezier(0.55, 0, 1, 0.28)" },
+      { transform: giftFlyPose(x, floor, 0, 1.28), offset: 0.9 },
+      { transform: giftFlyPose(x, floor, 0, 1.28), opacity: 1 },
     ],
     {
-      duration: 1080,
-      easing: "cubic-bezier(0.2, 0.72, 0.18, 1)",
+      duration: 1680,
       fill: "forwards",
     },
   );
 
-  animation.addEventListener("finish", () => {
-    animation.commitStyles();
-    animation.cancel();
-    jokePage.classList.add("is-opened", "is-gift-ready");
+  drop.addEventListener("finish", () => {
+    const vanish = fly.animate(
+      [
+        { transform: giftFlyPose(x, floor, 0, 1.28), opacity: 1 },
+        { transform: giftFlyPose(x, floor, 0, 0.35), opacity: 0 },
+      ],
+      {
+        duration: 280,
+        easing: "ease-in",
+        fill: "forwards",
+      },
+    );
+
+    vanish.addEventListener("finish", () => {
+      fly.getAnimations().forEach((animation) => animation.cancel());
+      fly.removeAttribute("style");
+      fly.hidden = true;
+      afterJoke(1500, revealCenterGift);
+    });
+  });
+}
+
+function revealCenterGift() {
+  const fly = document.getElementById("jokeGiftFly");
+  if (!fly) {
+    return;
+  }
+
+  const x = window.innerWidth / 2;
+  const y = window.innerHeight / 2;
+
+  fly.hidden = false;
+  fly.classList.remove("is-shaking");
+  jokePage.classList.add("is-opened", "is-gift-ready");
+
+  const pop = fly.animate(
+    [
+      { transform: giftFlyPose(x, y, 0, 0.2), opacity: 0 },
+      { transform: giftFlyPose(x, y, 0, 3.08), opacity: 1, offset: 0.7 },
+      { transform: giftFlyPose(x, y, 0, 2.85), opacity: 1 },
+    ],
+    {
+      duration: 420,
+      easing: "cubic-bezier(0.22, 0.86, 0.2, 1)",
+      fill: "forwards",
+    },
+  );
+
+  pop.addEventListener("finish", () => {
+    pop.commitStyles();
+    pop.cancel();
+    fly.classList.add("is-shaking");
   });
 }
 
@@ -1087,6 +1133,7 @@ function unwrapSantaGift() {
   const step = Number(gift?.dataset.step || 0);
   if (fly) {
     fly.classList.add("is-unwrapping");
+    fly.classList.remove("is-shaking");
   }
 
   if (
