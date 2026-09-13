@@ -2051,6 +2051,11 @@ function renderUserPlay() {
       return;
     }
 
+    if (gameState.phase === "choose") {
+      userPlay.innerHTML = waitMarkup("잠시만 기다려주세요.");
+      return;
+    }
+
     renderMenuPlay(userPlay);
     return;
   }
@@ -2517,7 +2522,7 @@ loginForm.addEventListener("submit", (event) => {
 document.getElementById("userLogout").addEventListener("click", logout);
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
-adminToMain.addEventListener("click", () => goToMainMenu());
+adminToMain.addEventListener("click", () => showAdminView("main"));
 resetUsers.addEventListener("click", resetUserProfiles);
 function showRefreshStatus() {
   if (!refreshStatus) {
