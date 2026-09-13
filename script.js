@@ -864,17 +864,19 @@ function resultTableMarkup() {
   }).join("");
 
   return `
-    <div class="result-table-wrap">
-      <table class="result-table">
-        <thead>
-          <tr>
-            <th>이름</th>
-            <th>음료</th>
-            <th>지불 금액</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+    <div class="result-screen">
+      <div class="result-table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>음료</th>
+              <th>지불 금액</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
       <button class="btn-primary" type="button" data-action="go-main">메인으로</button>
     </div>
   `;
@@ -1360,7 +1362,7 @@ loginForm.addEventListener("submit", (event) => {
 document.getElementById("userLogout").addEventListener("click", logout);
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
-adminToMain.addEventListener("click", () => showAdminView("main"));
+adminToMain.addEventListener("click", () => goToMainMenu());
 resetUsers.addEventListener("click", resetUserProfiles);
 function showRefreshStatus() {
   if (!refreshStatus) {
