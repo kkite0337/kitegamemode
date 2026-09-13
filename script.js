@@ -3,6 +3,7 @@ const SESSION_RESET_KEY = "gift-draw-session-reset";
 const PROFILE_KEY = "gift-draw-profiles";
 const PROFILE_RESET_KEY = "gift-draw-profile-reset";
 const GAME_KEY = "gift-draw-game";
+const RESET_CHANNEL = "gift-draw-reset-channel";
 
 function participantIds() {
   return ACCOUNTS.map((account) => account.id);
@@ -254,6 +255,7 @@ function resetUserProfiles() {
   saveProfiles({ replaceAll: true });
   gameState = emptyGame();
   saveGame();
+  notifyProfilesReset();
   refreshVisible();
 }
 
@@ -300,6 +302,26 @@ function sessionInvalidatedByReset(account) {
   }
 
   return currentResetAt() > Number(sessionStorage.getItem(SESSION_RESET_KEY) || 0);
+}
+
+function logoutUserIfReset() {
+  if (!sessionInvalidatedByReset(currentAccount)) {
+    return false;
+  }
+
+  reloadProfilesFromStorage();
+  logout();
+  return true;
+}
+
+function notifyProfilesReset() {
+  try {
+    const channel = new BroadcastChannel(RESET_CHANNEL);
+    channel.postMessage({ resetAt: currentResetAt() });
+    channel.close();
+  } catch {
+    // BroadcastChannel를 지원하지 않으면 storage 이벤트로 처리합니다.
+  }
 }
 
 function enterAccount(account) {
@@ -1405,6 +1427,10 @@ userPlay.addEventListener("submit", handlePlaySubmit);
 adminPlay.addEventListener("submit", handlePlaySubmit);
 
 function syncProfilesFromStorage() {
+  if (logoutUserIfReset()) {
+    return;
+  }
+
   const resetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
   const wasSubmitted = Boolean(currentProfile()?.submitted);
   const next = loadProfiles();
@@ -1429,8 +1455,7 @@ function syncProfilesFromStorage() {
   lastProfileResetAt = resetAt;
   lastProfileSignature = signature;
 
-  if (wasSubmitted && !currentProfile()?.submitted) {
-    refreshVisible();
+  if (logoutUserIfReset()) {
     return;
   }
 
@@ -1472,10 +1497,30 @@ window.addEventListener("storage", (event) => {
   }
 });
 
+try {
+  const resetChannel = new BroadcastChannel(RESET_CHANNEL);
+  resetChannel.addEventListener("message", () => {
+    if (logoutUserIfReset()) {
+      return;
+    }
+
+    reloadProfilesFromStorage();
+    if (currentAccount) {
+      refreshVisible();
+    }
+  });
+} catch {
+  // ignore
+}
+
 setInterval(() => {
+  if (logoutUserIfReset()) {
+    return;
+  }
+
   syncProfilesFromStorage();
   syncGameFromStorage();
-}, 1000);
+}, 500);
 lastProfileSignature = profileSignature(profiles);
 lastGameSignature = gameSignature(gameState);
 restoreSession();
