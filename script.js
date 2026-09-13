@@ -1068,13 +1068,10 @@ function unwrapSantaGift() {
     }
 
     jokePage.classList.add("is-unwrapped");
-    gift.classList.add("is-shaking");
-    afterJoke(1000, () => {
-      gift.classList.remove("is-shaking");
+    afterJoke(380, () => {
       gift.classList.add("is-fading");
-      afterJoke(420, () => {
-        playJokeFinale();
-        giftUnwrapBusy = false;
+      afterJoke(480, () => {
+        playLastGiftWait();
       });
     });
   });
@@ -1170,22 +1167,83 @@ function jokePartyMarkup() {
   return `<div class="joke-confetti">${confetti}</div><div class="joke-bursts">${bursts}</div>`;
 }
 
-function playJokeFinale() {
-  const fly = document.getElementById("jokeGiftFly");
+function playApplause() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const context = new AudioContextClass();
+  const duration = 2.3;
+  const length = Math.floor(context.sampleRate * duration);
+  const buffer = context.createBuffer(1, length, context.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let index = 0; index < length; index += 1) {
+    const fade = Math.pow(1 - index / length, 0.42);
+    const clap = Math.random() > 0.7 ? 1 : 0.12;
+    data[index] = (Math.random() * 2 - 1) * fade * clap * 0.34;
+  }
+
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  source.buffer = buffer;
+  filter.type = "bandpass";
+  filter.frequency.value = 1700;
+  filter.Q.value = 0.75;
+  gain.gain.value = 0.5;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(context.destination);
+  source.start();
+}
+
+function playJokeParty() {
   const party = document.getElementById("jokeParty");
-  jokePage.classList.add("is-punchline");
+  if (!party) {
+    return;
+  }
+
+  document.body.appendChild(party);
+  party.hidden = false;
+  party.innerHTML = jokePartyMarkup();
+}
+
+function playLastGiftWait() {
+  const drum = document.getElementById("jokeDrum");
+  const fly = document.getElementById("jokeGiftFly");
 
   if (fly) {
-    fly.hidden = true;
+    fly.style.visibility = "hidden";
   }
 
-  if (party) {
-    document.body.appendChild(party);
-    party.hidden = false;
-    party.innerHTML = jokePartyMarkup();
+  if (drum) {
+    drum.hidden = false;
+    drum.classList.remove("is-playing");
+    void drum.offsetWidth;
+    drum.classList.add("is-playing");
   }
 
-  playFanfare();
+  playDrumroll();
+  afterJoke(2100, () => {
+    if (drum) {
+      drum.classList.remove("is-playing");
+      drum.hidden = true;
+    }
+
+    if (fly) {
+      fly.hidden = true;
+    }
+
+    jokePage.classList.add("is-punchline");
+    playFanfare();
+    afterJoke(650, () => {
+      playJokeParty();
+      playApplause();
+      giftUnwrapBusy = false;
+    });
+  });
 }
 
 function showPage(page) {
