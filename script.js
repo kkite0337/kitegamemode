@@ -15,7 +15,7 @@ function emptyProfiles() {
   return Object.fromEntries(
     ACCOUNTS.filter((account) => account.role === "user").map((account) => [
       account.id,
-      { name: "", nickname: "", photo: "", submitted: false },
+      { name: "", nickname: "", photo: "", submitted: false, updatedAt: 0 },
     ]),
   );
 }
@@ -49,42 +49,62 @@ function emptyGame() {
   };
 }
 
-function readStoredProfile(id) {
-  const raw = localStorage.getItem(userProfileKey(id));
+function emptyUserProfile() {
+  return { name: "", nickname: "", photo: "", submitted: false, updatedAt: 0 };
+}
+
+function readJson(key, fallback) {
+  const raw = localStorage.getItem(key);
   if (!raw) {
-    return emptyProfiles()[id];
+    return fallback;
   }
 
   try {
-    return { ...emptyProfiles()[id], ...JSON.parse(raw) };
+    return JSON.parse(raw);
   } catch {
-    return emptyProfiles()[id];
+    return fallback;
   }
 }
 
-function migrateLegacyProfiles() {
-  const saved = localStorage.getItem(PROFILE_KEY);
-  if (!saved) {
-    return;
+function readStoredProfile(id) {
+  const parsed = readJson(userProfileKey(id), null);
+  if (!parsed) {
+    return emptyUserProfile();
   }
 
-  try {
-    const parsed = JSON.parse(saved);
-    userIds().forEach((id) => {
-      if (!localStorage.getItem(userProfileKey(id)) && parsed[id]) {
-        localStorage.setItem(userProfileKey(id), JSON.stringify({ ...emptyProfiles()[id], ...parsed[id] }));
-      }
-    });
-  } catch {
-    // ignore broken legacy data
+  return { ...emptyUserProfile(), ...parsed };
+}
+
+function readLegacyProfiles() {
+  const parsed = readJson(PROFILE_KEY, null);
+  if (!parsed || typeof parsed !== "object") {
+    return {};
   }
 
-  localStorage.removeItem(PROFILE_KEY);
+  return parsed;
+}
+
+function pickRicherProfile(first, second) {
+  const left = { ...emptyUserProfile(), ...first };
+  const right = { ...emptyUserProfile(), ...second };
+  if ((left.updatedAt || 0) !== (right.updatedAt || 0)) {
+    return (left.updatedAt || 0) > (right.updatedAt || 0) ? left : right;
+  }
+
+  if (left.submitted !== right.submitted) {
+    return left.submitted ? left : right;
+  }
+
+  const score = (item) =>
+    Number(Boolean(item.name)) + Number(Boolean(item.nickname)) + Number(Boolean(item.photo));
+  return score(left) >= score(right) ? left : right;
 }
 
 function loadProfiles() {
-  migrateLegacyProfiles();
-  return Object.fromEntries(userIds().map((id) => [id, readStoredProfile(id)]));
+  const legacy = readLegacyProfiles();
+  return Object.fromEntries(
+    userIds().map((id) => [id, pickRicherProfile(readStoredProfile(id), legacy[id])]),
+  );
 }
 
 function loadGame() {
@@ -131,6 +151,7 @@ const adminPlay = document.getElementById("adminPlay");
 const adminToSettings = document.getElementById("adminToSettings");
 const adminToMain = document.getElementById("adminToMain");
 const resetUsers = document.getElementById("resetUsers");
+const refreshUsers = document.getElementById("refreshUsers");
 
 let currentAccount = null;
 let adminView = "settings";
@@ -150,21 +171,61 @@ function replaceProfiles(next) {
   Object.assign(profiles, next);
 }
 
+function writeLocal(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function slimProfile(profile) {
+  return {
+    name: profile.name || "",
+    nickname: profile.nickname || "",
+    photo: "",
+    submitted: Boolean(profile.submitted),
+    updatedAt: profile.updatedAt || 0,
+  };
+}
+
 function saveProfile(id) {
-  localStorage.setItem(userProfileKey(id), JSON.stringify(profiles[id]));
+  const profile = profiles[id];
+  if (!profile) {
+    return;
+  }
+
+  if (!writeLocal(userProfileKey(id), profile)) {
+    writeLocal(userProfileKey(id), slimProfile(profile));
+  }
 }
 
 function saveProfiles() {
-  try {
-    if (currentAccount?.role === "user") {
-      saveProfile(currentAccount.id);
-    } else {
-      userIds().forEach(saveProfile);
-    }
-  } catch {
-    // 사진이 커도 제출 화면 전환은 막지 않습니다.
+  if (currentAccount?.role === "user" && profiles[currentAccount.id]) {
+    profiles[currentAccount.id].updatedAt = Date.now();
   }
 
+  const merged = loadProfiles();
+  if (currentAccount?.role === "user") {
+    merged[currentAccount.id] = profiles[currentAccount.id];
+  } else if (currentAccount?.role === "admin") {
+    userIds().forEach((id) => {
+      merged[id] = profiles[id];
+    });
+  }
+
+  replaceProfiles(merged);
+  userIds().forEach(saveProfile);
+  if (!writeLocal(PROFILE_KEY, profiles)) {
+    writeLocal(PROFILE_KEY, Object.fromEntries(userIds().map((id) => [id, slimProfile(profiles[id])])));
+  }
+
+  lastProfileSignature = profileSignature(profiles);
+}
+
+function reloadProfilesFromStorage() {
+  replaceProfiles(loadProfiles());
   lastProfileSignature = profileSignature(profiles);
 }
 
@@ -342,6 +403,7 @@ function showAdminView(view) {
   adminToMain.classList.toggle("is-active", view === "main");
 
   if (view === "settings") {
+    reloadProfilesFromStorage();
     renderAdmin();
     return;
   }
@@ -1090,6 +1152,12 @@ document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
 adminToMain.addEventListener("click", () => showAdminView("main"));
 resetUsers.addEventListener("click", resetUserProfiles);
+refreshUsers.addEventListener("click", () => {
+  reloadProfilesFromStorage();
+  gameState = loadGame();
+  lastGameSignature = gameSignature(gameState);
+  refreshVisible();
+});
 
 registerForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1243,7 +1311,9 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "refresh") {
+    reloadProfilesFromStorage();
     gameState = loadGame();
+    lastGameSignature = gameSignature(gameState);
     refreshVisible();
     return;
   }

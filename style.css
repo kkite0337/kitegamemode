@@ -523,9 +523,10 @@ body:has(.admin-page:not([hidden])) .app {
   word-break: break-word;
 }
 
+.btn-refresh,
 .btn-reset {
   width: min(280px, 100%);
-  margin: 8px 0 32px;
+  margin: 8px 0 0;
   padding: 13px 16px;
   border: 1px solid #ddd4c4;
   border-radius: 12px;
@@ -533,6 +534,17 @@ body:has(.admin-page:not([hidden])) .app {
   color: #8a8174;
   font-weight: 700;
   cursor: pointer;
+}
+
+.btn-reset {
+  margin-bottom: 32px;
+}
+
+.btn-refresh:hover,
+.btn-refresh:focus-visible {
+  border-color: #d97706;
+  color: #d97706;
+  outline: none;
 }
 
 .btn-reset:hover,
