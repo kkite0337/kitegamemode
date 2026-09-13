@@ -481,6 +481,48 @@ body.is-admin .app {
   margin-top: 4px;
 }
 
+.menu-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  width: min(420px, 100%);
+}
+
+.menu-pick__list {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-pick__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 56px;
+  padding: 12px 10px;
+  border: 1px solid #ddd4c4;
+  border-radius: 16px;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.menu-pick__check {
+  width: 20px;
+  height: 20px;
+  accent-color: #d97706;
+}
+
+.menu-pick .btn-primary {
+  width: min(280px, 100%);
+  margin-top: 0;
+}
+
 .profile-field input[readonly] {
   background: #f3efe6;
   color: #5c574e;

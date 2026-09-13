@@ -100,10 +100,91 @@ function sanitizeDrinks(drinks, resetAt = currentResetAt()) {
   );
 }
 
+const MENU_OPTIONS = ["한", "중", "일", "양", "동"];
+
+function emptyMenu() {
+  return { picks: [], submitted: false, updatedAt: 0 };
+}
+
+function emptyMenus() {
+  return Object.fromEntries(ACCOUNTS.map((account) => [account.id, emptyMenu()]));
+}
+
+function normalizeMenuPicks(picks) {
+  const allowed = new Set(MENU_OPTIONS);
+  return [...new Set((Array.isArray(picks) ? picks : []).filter((item) => allowed.has(item)))];
+}
+
+function isEmptyMenu(menu) {
+  const item = { ...emptyMenu(), ...menu, picks: normalizeMenuPicks(menu?.picks) };
+  return !item.submitted && !item.picks.length;
+}
+
+function menuIsStale(menu, resetAt = currentResetAt()) {
+  const item = { ...emptyMenu(), ...menu, picks: normalizeMenuPicks(menu?.picks) };
+  if (isEmptyMenu(item)) {
+    return true;
+  }
+
+  return (item.updatedAt || 0) <= resetAt;
+}
+
+function pickRicherMenu(first, second) {
+  const resetAt = currentResetAt();
+  const left = { ...emptyMenu(), ...first, picks: normalizeMenuPicks(first?.picks) };
+  const right = { ...emptyMenu(), ...second, picks: normalizeMenuPicks(second?.picks) };
+  const leftStale = menuIsStale(left, resetAt);
+  const rightStale = menuIsStale(right, resetAt);
+  if (leftStale !== rightStale) {
+    return leftStale ? right : left;
+  }
+
+  if (leftStale && rightStale) {
+    return emptyMenu();
+  }
+
+  if (left.submitted !== right.submitted) {
+    return left.submitted ? left : right;
+  }
+
+  return (left.updatedAt || 0) >= (right.updatedAt || 0) ? left : right;
+}
+
+function mergeMenuMaps(first, second) {
+  const resetAt = currentResetAt();
+  return Object.fromEntries(
+    participantIds().map((id) => {
+      const local = first?.[id];
+      const remote = second?.[id];
+      if (!second || !Object.prototype.hasOwnProperty.call(second, id) || menuIsStale(remote, resetAt)) {
+        return [id, menuIsStale(local, resetAt) ? emptyMenu() : { ...emptyMenu(), ...local, picks: normalizeMenuPicks(local?.picks) }];
+      }
+
+      if (menuIsStale(local, resetAt)) {
+        return [id, { ...emptyMenu(), ...remote, picks: normalizeMenuPicks(remote?.picks) }];
+      }
+
+      return [id, pickRicherMenu(local, remote)];
+    }),
+  );
+}
+
+function sanitizeMenus(menus, resetAt = currentResetAt()) {
+  return Object.fromEntries(
+    participantIds().map((id) => {
+      const menu = menus?.[id];
+      return [id, menuIsStale(menu, resetAt) ? emptyMenu() : { ...emptyMenu(), ...menu, picks: normalizeMenuPicks(menu?.picks) }];
+    }),
+  );
+}
+
 function sanitizeGameState(game, resetAt = currentResetAt()) {
   const drinks = sanitizeDrinks(game?.drinks, resetAt);
-  const next = { ...emptyGame(), ...game, drinks };
-  const hasFresh = participantIds().some((id) => !isEmptyDrink(drinks[id]));
+  const menus = sanitizeMenus(game?.menus, resetAt);
+  const next = { ...emptyGame(), ...game, drinks, menus };
+  const hasFresh =
+    participantIds().some((id) => !isEmptyDrink(drinks[id])) ||
+    participantIds().some((id) => !isEmptyMenu(menus[id]));
   if (!hasFresh) {
     next.assignment = {};
     next.opened = emptyOpened();
@@ -165,8 +246,12 @@ function filledDrinks(drinks) {
 
 function mergeGameState(local, remote, preferRemote = false) {
   const drinks = mergeDrinkMaps(local.drinks, remote.drinks);
+  const menus = mergeMenuMaps(local.menus, remote.menus);
   if (currentAccount && drinks[currentAccount.id] && local.drinks?.[currentAccount.id] && !local.drinks[currentAccount.id].submitted) {
     drinks[currentAccount.id] = pickRicherDrink(local.drinks[currentAccount.id], drinks[currentAccount.id]);
+  }
+  if (currentAccount && menus[currentAccount.id] && local.menus?.[currentAccount.id] && !local.menus[currentAccount.id].submitted) {
+    menus[currentAccount.id] = pickRicherMenu(local.menus[currentAccount.id], menus[currentAccount.id]);
   }
 
   const primary = preferRemote ? remote : local;
@@ -181,6 +266,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       players: Array.isArray(primary.players) ? primary.players : [],
       phase: primary.phase || "idle",
       drinks,
+      menus,
       opened: mergeOpenedMaps(local.opened, remote.opened),
       assignment: Object.keys(primary.assignment || {}).length ? primary.assignment : secondary.assignment || {},
       priceShares: Object.keys(primary.priceShares || {}).length ? primary.priceShares : secondary.priceShares || {},
@@ -211,6 +297,7 @@ function emptyGame() {
     phase: "idle",
     players: [],
     drinks: emptyDrinks(),
+    menus: emptyMenus(),
     assignment: {},
     opened: emptyOpened(),
     resultPicked: { drink: false, price: false },
@@ -333,6 +420,7 @@ function loadGame() {
       pendingGame: parsed.pendingGame || "",
       players: Array.isArray(parsed.players) ? parsed.players : [],
       drinks: { ...emptyDrinks(), ...parsed.drinks },
+      menus: { ...emptyMenus(), ...parsed.menus },
       opened: { ...emptyOpened(), ...parsed.opened },
       resultPicked: { drink: false, price: false, ...parsed.resultPicked },
       priceShares: { ...parsed.priceShares },
@@ -510,6 +598,7 @@ function gameSignature(state) {
     phase: state.phase,
     players: state.players,
     drinks: state.drinks,
+    menus: state.menus,
     assignment: state.assignment,
     opened: state.opened,
     resultPicked: state.resultPicked,
@@ -647,6 +736,24 @@ function completeUserSetup() {
   saveProfiles({ immediate: true });
   publishMqttHello();
   refreshVisible();
+}
+
+function currentMenu() {
+  if (!currentAccount) {
+    return emptyMenu();
+  }
+
+  if (!gameState.menus) {
+    gameState.menus = emptyMenus();
+  }
+
+  if (!gameState.menus[currentAccount.id]) {
+    gameState.menus[currentAccount.id] = emptyMenu();
+  }
+
+  const menu = gameState.menus[currentAccount.id];
+  menu.picks = normalizeMenuPicks(menu.picks);
+  return menu;
 }
 
 function currentDrink() {
@@ -800,6 +907,26 @@ function renderAdmin() {
       `;
     })
     .join("");
+}
+
+function menuFormMarkup(menu) {
+  const picks = new Set(normalizeMenuPicks(menu.picks));
+  const options = MENU_OPTIONS.map(
+    (item) => `
+      <label class="menu-pick__item">
+        <input class="menu-pick__check" type="checkbox" value="${escapeAttr(item)}" ${picks.has(item) ? "checked" : ""}>
+        <span>${escapeHtml(item)}</span>
+      </label>
+    `,
+  ).join("");
+
+  return `
+    <form class="menu-pick" data-form="menu">
+      <div class="menu-pick__list">${options}</div>
+      <p class="player-pick__error" id="menuPickError" hidden>하나 이상 선택하세요</p>
+      <button class="btn-primary" type="submit">제출</button>
+    </form>
+  `;
 }
 
 function drinkFormMarkup(drink) {
@@ -1203,9 +1330,24 @@ function renderNestedStop(container) {
   });
 }
 
+function renderMenuPlay(container) {
+  const menu = currentMenu();
+  if (isInCurrentGame() && !menu.submitted) {
+    container.innerHTML = menuFormMarkup(menu);
+    return;
+  }
+
+  container.innerHTML = waitMarkup("잠시만 기다려주세요.");
+}
+
 function renderUserPlay() {
   if (gameState.game === "stop") {
     renderNestedStop(userPlay);
+    return;
+  }
+
+  if (gameState.game === "game2") {
+    renderMenuPlay(userPlay);
     return;
   }
 
@@ -1303,6 +1445,11 @@ function renderAdminPlay() {
 
   if (gameState.game === "stop") {
     renderNestedStop(adminPlay);
+    return;
+  }
+
+  if (gameState.game === "game2") {
+    renderMenuPlay(adminPlay);
     return;
   }
 
@@ -1412,6 +1559,40 @@ function confirmPlayerPick() {
   gameState.phase = gameId === "drink" || gameId === "game2" ? "entry" : "play";
   if (gameId === "stop") {
     stopSession = Date.now();
+  }
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function selectedMenuPicks(form) {
+  return [...form.querySelectorAll(".menu-pick__check:checked")].map((input) => input.value);
+}
+
+function submitMenu() {
+  const menu = currentMenu();
+  if (!menu || menu.submitted) {
+    return;
+  }
+
+  const form = document.querySelector("form[data-form='menu']");
+  const picks = selectedMenuPicks(form || document);
+  const error = document.getElementById("menuPickError");
+  if (!picks.length) {
+    if (error) {
+      error.hidden = false;
+    }
+    return;
+  }
+
+  if (error) {
+    error.hidden = true;
+  }
+
+  menu.picks = normalizeMenuPicks(picks);
+  menu.submitted = true;
+  menu.updatedAt = Date.now();
+  if (currentAccount.role === "admin") {
+    gameState.phase = "review";
   }
   saveGame({ immediate: true });
   refreshVisible();
@@ -1774,6 +1955,13 @@ function handlePlayClick(event) {
 }
 
 function handlePlaySubmit(event) {
+  const menuForm = event.target.closest("form[data-form='menu']");
+  if (menuForm) {
+    event.preventDefault();
+    submitMenu();
+    return;
+  }
+
   const form = event.target.closest("form[data-form='drink']");
   if (!form) {
     return;
@@ -1811,8 +1999,31 @@ function saveDrinkDraft(event) {
   }
 }
 
+function saveMenuDraft(event) {
+  const box = event.target.closest(".menu-pick__check");
+  if (!(box instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const menu = currentMenu();
+  if (!menu || menu.submitted) {
+    return;
+  }
+
+  const form = box.closest("form[data-form='menu']");
+  menu.picks = normalizeMenuPicks(selectedMenuPicks(form || document));
+  menu.updatedAt = Date.now();
+  persistGameLocal();
+}
+
+function isEditingMenu() {
+  return Boolean(document.activeElement?.classList?.contains("menu-pick__check"));
+}
+
 userPlay.addEventListener("input", saveDrinkDraft);
 adminPlay.addEventListener("input", saveDrinkDraft);
+userPlay.addEventListener("change", saveMenuDraft);
+adminPlay.addEventListener("change", saveMenuDraft);
 
 function syncEnabled() {
   return Boolean(
@@ -1841,6 +2052,7 @@ function normalizeRemoteState(raw) {
       ...emptyGame(),
       ...game,
       drinks: { ...emptyDrinks(), ...game.drinks },
+      menus: { ...emptyMenus(), ...game.menus },
       opened: { ...emptyOpened(), ...game.opened },
       resultPicked: { drink: false, price: false, ...game.resultPicked },
       priceShares: { ...game.priceShares },
@@ -2838,7 +3050,7 @@ function shouldRefreshAfterRemote(result) {
     return true;
   }
 
-  if (isEditingDrink()) {
+  if (isEditingDrink() || isEditingMenu()) {
     return false;
   }
 
@@ -2849,6 +3061,10 @@ function shouldRefreshAfterRemote(result) {
     document.getElementById("drinkName") &&
     (gameState.phase === "entry" || gameState.phase === "review" || gameState.phase === "choose")
   ) {
+    return false;
+  }
+
+  if (gameState.game === "game2" && !currentMenu().submitted && document.querySelector("form[data-form='menu']")) {
     return false;
   }
 
