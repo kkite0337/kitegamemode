@@ -272,6 +272,7 @@ function showPage(page) {
   loginPage.hidden = page !== "login";
   userPage.hidden = page !== "user";
   adminPage.hidden = page !== "admin";
+  document.body.classList.toggle("is-admin", page === "admin");
 }
 
 function enterAccount(account) {

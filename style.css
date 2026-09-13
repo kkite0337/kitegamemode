@@ -40,7 +40,8 @@ textarea {
   padding: 24px 16px;
 }
 
-body:has(.admin-page:not([hidden])) .app {
+body:has(.admin-page:not([hidden])) .app,
+body.is-admin .app {
   width: min(720px, 100%);
 }
 
@@ -481,43 +482,51 @@ body:has(.admin-page:not([hidden])) .app {
   padding-bottom: 24px;
 }
 
-#adminSettings .admin-list {
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+#adminSettings .admin-list,
+.admin-list--people {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  justify-content: center;
+  gap: 10px;
 }
 
+.admin-list--people .admin-card,
 #adminSettings .admin-card {
-  flex: 1;
   width: auto;
   min-width: 0;
 }
 
+.admin-list--people .admin-photo,
 #adminSettings .admin-photo {
   width: min(96px, 24vw);
   height: min(96px, 24vw);
 }
 
+.admin-list--people .photo-placeholder,
 #adminSettings .admin-photo .photo-placeholder {
   font-size: 11px;
   gap: 4px;
 }
 
+.admin-list--people .photo-placeholder svg,
 #adminSettings .admin-photo .photo-placeholder svg {
   width: 22px;
   height: 22px;
 }
 
+.admin-list--people .admin-card__id,
 #adminSettings .admin-card__id {
   margin-bottom: 10px;
   font-size: 12px;
 }
 
+.admin-list--people .admin-card__text,
 #adminSettings .admin-card__text {
   margin-top: 10px;
 }
 
+.admin-list--people .admin-card__value,
 #adminSettings .admin-card__value {
   font-size: 13px;
   word-break: break-word;
@@ -692,6 +701,10 @@ body:has(.admin-page:not([hidden])) .app {
   }
 }
 
+.admin-page {
+  width: 100%;
+}
+
 @media (max-width: 400px) {
   .photo-button,
   .admin-photo {
@@ -699,9 +712,10 @@ body:has(.admin-page:not([hidden])) .app {
     height: min(180px, 56vw);
   }
 
+  .admin-list--people .admin-photo,
   #adminSettings .admin-photo {
-    width: min(84px, 22vw);
-    height: min(84px, 22vw);
+    width: min(72px, 20vw);
+    height: min(72px, 20vw);
   }
 
   .digit-slot {
@@ -717,4 +731,10 @@ body:has(.admin-page:not([hidden])) .app {
   .gift-button {
     font-size: 72px;
   }
+}
+
+.admin-list--people {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-direction: unset;
 }
