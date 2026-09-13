@@ -311,8 +311,16 @@ body.is-admin .app {
 }
 
 .result-table-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
   overflow-x: auto;
+}
+
+.result-table-wrap .btn-primary {
+  width: min(280px, 100%);
+  margin-top: 28px;
 }
 
 .result-table {

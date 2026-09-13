@@ -875,6 +875,7 @@ function resultTableMarkup() {
         </thead>
         <tbody>${rows}</tbody>
       </table>
+      <button class="btn-primary" type="button" data-action="go-main">메인으로</button>
     </div>
   `;
 }
@@ -1156,6 +1157,17 @@ function beginPlayerPick(gameId) {
   userPlay.dataset.priceTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  saveGame();
+  refreshVisible();
+}
+
+function goToMainMenu() {
+  gameState = emptyGame();
+  userPlay.dataset.fanfare = "";
+  userPlay.dataset.priceTalk = "";
+  adminPlay.dataset.fanfare = "";
+  adminPlay.dataset.priceTalk = "";
+  adminView = "main";
   saveGame();
   refreshVisible();
 }
@@ -1554,6 +1566,11 @@ function handlePlayClick(event) {
   if (button.dataset.action === "go-payout") {
     setPersonalStep("payout");
     refreshVisible();
+    return;
+  }
+
+  if (button.dataset.action === "go-main") {
+    goToMainMenu();
     return;
   }
 
