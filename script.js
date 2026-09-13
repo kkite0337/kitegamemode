@@ -903,7 +903,7 @@ function clearJokeTimers() {
 function resetGiftBox(gift, layer = 0) {
   gift.dataset.step = "0";
   gift.dataset.layer = String(layer);
-  gift.classList.remove("is-untying", "is-nesting", "is-shaking");
+  gift.classList.remove("is-untying", "is-nesting", "is-shaking", "is-fading", "is-hidden");
 }
 
 function resetJokeScene() {
@@ -1008,8 +1008,12 @@ function revealSantaGift() {
 }
 
 function popNestedGift(gift, layer) {
-  resetGiftBox(gift, layer);
+  gift.classList.add("is-hidden");
+  gift.classList.remove("is-fading", "is-untying", "is-nesting");
+  gift.dataset.step = "0";
+  gift.dataset.layer = String(layer);
   void gift.offsetWidth;
+  gift.classList.remove("is-hidden");
   gift.classList.add("is-nesting");
 
   afterJoke(680, () => {
@@ -1047,7 +1051,10 @@ function unwrapSantaGift() {
 
     const layer = Number(gift.dataset.layer || 0);
     if (layer + 1 < GIFT_LAYER_COUNT) {
-      popNestedGift(gift, layer + 1);
+      gift.classList.add("is-fading");
+      afterJoke(480, () => {
+        popNestedGift(gift, layer + 1);
+      });
       return;
     }
 
