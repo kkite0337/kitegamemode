@@ -1017,7 +1017,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=114`;
+  const src = `assets/gift-${frame}.png?v=115`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2532,8 +2532,10 @@ function showDrinkBoard(container) {
 
 async function runDrinkTalk(container, token) {
   const intro = container.querySelector("[data-drink-intro]");
-  const result = container.querySelector("[data-drink-result]");
-  if (!intro || !result) {
+  const lead = container.querySelector("[data-drink-lead]");
+  const giver = container.querySelector("[data-drink-giver]");
+  const drinkLine = container.querySelector("[data-drink-name]");
+  if (!intro || !lead || !giver || !drinkLine) {
     return;
   }
 
@@ -2553,7 +2555,7 @@ async function runDrinkTalk(container, token) {
   }
 
   const leadDone = await typeChunks(
-    result,
+    lead,
     [{ text: "당신이 마실 음료는,", cls: "" }],
     token,
     () => drinkTalkToken,
@@ -2568,9 +2570,9 @@ async function runDrinkTalk(container, token) {
   }
 
   const nickDone = await typeChunks(
-    result,
+    giver,
     [
-      { text: ` ${assignedGiverNickname()}`, cls: "price-accent" },
+      { text: assignedGiverNickname(), cls: "drink-accent" },
       { text: "님이 작성해주신", cls: "" },
     ],
     token,
@@ -2586,10 +2588,10 @@ async function runDrinkTalk(container, token) {
   }
 
   const nameDone = await typeChunks(
-    result,
+    drinkLine,
     [
-      { text: ` ${assignedDrinkName()}`, cls: "price-accent" },
-      { text: " 메뉴 입니다!", cls: "" },
+      { text: assignedDrinkName(), cls: "drink-accent" },
+      { text: " 입니다.", cls: "" },
     ],
     token,
     () => drinkTalkToken,
@@ -2630,7 +2632,9 @@ function renderDrinkTalk(container) {
   container.innerHTML = `
     <div class="ai-talk ai-talk--drink">
       <p class="ai-talk__line" data-drink-intro></p>
-      <p class="ai-talk__line" data-drink-result></p>
+      <p class="ai-talk__line" data-drink-lead></p>
+      <p class="ai-talk__line" data-drink-giver></p>
+      <p class="ai-talk__line" data-drink-name></p>
     </div>
   `;
 

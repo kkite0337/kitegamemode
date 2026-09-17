@@ -260,11 +260,15 @@ body.is-admin .app {
 }
 
 .ai-talk--drink .ai-talk__line {
-  min-height: 1.7em;
+  min-height: 0;
+}
+
+.ai-talk--drink .ai-talk__line:not(:empty) + .ai-talk__line {
+  margin-top: 10px;
 }
 
 .ai-talk--drink .ai-talk__line + .ai-talk__line {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .ai-talk--drink .next-btn {
@@ -273,6 +277,13 @@ body.is-admin .app {
 
 .price-accent {
   color: #dc2626;
+}
+
+.drink-accent {
+  color: #dc2626;
+  font-size: 1.28em;
+  font-weight: 900;
+  letter-spacing: -0.04em;
 }
 
 .digit-board {
