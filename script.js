@@ -1016,7 +1016,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=109`;
+  const src = `assets/gift-${frame}.png?v=110`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3219,28 +3219,13 @@ function assignDrinks() {
   }
 
   const ids = gamePlayers().filter((id) => gameState.drinks[id]?.submitted);
-
-  if (ids.length < 2) {
-    gameState.assignment = Object.fromEntries(ids.map((id) => [id, id]));
-    return;
-  }
-
   const givers = [...ids];
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    for (let i = givers.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [givers[i], givers[j]] = [givers[j], givers[i]];
-    }
-
-    if (givers.every((giver, index) => giver !== ids[index])) {
-      gameState.assignment = Object.fromEntries(ids.map((id, index) => [id, givers[index]]));
-      return;
-    }
+  for (let i = givers.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [givers[i], givers[j]] = [givers[j], givers[i]];
   }
 
-  gameState.assignment = Object.fromEntries(
-    ids.map((id, index) => [id, ids[(index + 1) % ids.length]]),
-  );
+  gameState.assignment = Object.fromEntries(ids.map((id, index) => [id, givers[index]]));
 }
 
 function parsePrice(value) {
