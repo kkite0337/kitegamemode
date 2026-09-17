@@ -435,9 +435,8 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
     next.roulette = [];
     next.spin = emptySpin();
     next.boardReady = false;
-    if (next.phase !== "idle" && next.phase !== "pick" && next.phase !== "entry" && next.phase !== "play") {
-      next.game = next.pendingGame || "";
-      next.phase = next.pendingGame ? "pick" : "idle";
+    if (isLateGamePhase(next.phase)) {
+      next.phase = next.game === "drink" || next.game === "game2" ? "entry" : next.game ? "play" : "idle";
     }
   } else {
     next.roulette = sanitizeRoulette(next.roulette);
@@ -469,6 +468,23 @@ const PHASE_RANK = {
 
 function pickPhase(local, remote) {
   return (PHASE_RANK[remote] || 0) > (PHASE_RANK[local] || 0) ? remote : local;
+}
+
+function isStartGamePhase(phase) {
+  return phase === "idle" || phase === "pick" || phase === "entry" || phase === "play";
+}
+
+function isLateGamePhase(phase) {
+  return (
+    phase === "review" ||
+    phase === "choose" ||
+    phase === "drink-reveal" ||
+    phase === "drink-board" ||
+    phase === "price-reveal" ||
+    phase === "menu-reveal" ||
+    phase === "menu-spin" ||
+    phase === "menu-payout"
+  );
 }
 
 const STEP_RANK = { talk: 0, celebrate: 1, payout: 2, done: 3 };
@@ -513,6 +529,7 @@ function mergeGameState(local, remote, preferRemote = false) {
 
   const primary = preferRemote ? remote : local;
   const secondary = preferRemote ? local : remote;
+  const restarting = isStartGamePhase(primary.phase);
   return sanitizeGameState(
     {
       ...emptyGame(),
@@ -522,22 +539,21 @@ function mergeGameState(local, remote, preferRemote = false) {
       pendingGame: primary.pendingGame || "",
       players: Array.isArray(primary.players) ? primary.players : [],
       phase: primary.phase || "idle",
-      boardReady: Boolean(primary.boardReady),
+      boardReady: restarting ? false : Boolean(primary.boardReady),
       drinks,
       menus,
-      opened: mergeOpenedMaps(local.opened, remote.opened),
-      assignment: Object.keys(primary.assignment || {}).length ? primary.assignment : secondary.assignment || {},
-      priceShares: Object.keys(primary.priceShares || {}).length ? primary.priceShares : secondary.priceShares || {},
-      resultPicked: {
-        drink: Boolean(primary.resultPicked?.drink),
-        price: Boolean(primary.resultPicked?.price),
-      },
-      personalSteps:
-        primary.phase === "idle" || primary.phase === "pick" || primary.phase === "entry" || primary.phase === "play"
-          ? { ...emptyPersonalSteps(), ...primary.personalSteps }
-          : mergePersonalSteps(local.personalSteps, remote.personalSteps),
-      roulette: pickRoulette(primary.roulette, secondary.roulette),
-      spin: pickSpin(primary.spin, secondary.spin),
+      opened: restarting ? emptyOpened() : mergeOpenedMaps(local.opened, remote.opened),
+      assignment: restarting ? {} : Object.keys(primary.assignment || {}).length ? primary.assignment : secondary.assignment || {},
+      priceShares: restarting ? {} : Object.keys(primary.priceShares || {}).length ? primary.priceShares : secondary.priceShares || {},
+      resultPicked: restarting
+        ? { drink: false, price: false }
+        : {
+            drink: Boolean(primary.resultPicked?.drink),
+            price: Boolean(primary.resultPicked?.price),
+          },
+      personalSteps: restarting ? emptyPersonalSteps() : mergePersonalSteps(local.personalSteps, remote.personalSteps),
+      roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
+      spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
     },
     currentGameResetAt(),
   );
@@ -1032,7 +1048,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=119`;
+  const src = `assets/gift-${frame}.png?v=120`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1572,9 +1588,6 @@ function applyIncomingGameReset(incoming) {
     gameState.boardReady = false;
     gameState.roulette = [];
     gameState.spin = emptySpin();
-    if (gameState.game === "drink" || gameState.game === "game2") {
-      gameState.phase = "entry";
-    }
   } else if (incomingReset) {
     setGameResetAt(incomingReset);
   }
@@ -3251,13 +3264,12 @@ function beginPlayerPick(gameId) {
   clearMenuReveal(adminPlay);
   clearMenuSpin(userPlay);
   clearMenuSpin(adminPlay);
-  publishMqttGameRound(resetAt);
   saveGame({ immediate: true });
+  publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
 function goToMainMenu() {
-  const resetAt = bumpGameRound();
   gameState = emptyGame();
   userPlay.dataset.fanfare = "";
   userPlay.dataset.priceTalk = "";
@@ -3270,7 +3282,6 @@ function goToMainMenu() {
   clearMenuSpin(userPlay);
   clearMenuSpin(adminPlay);
   adminView = "main";
-  publishMqttGameRound(resetAt);
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -3300,8 +3311,8 @@ function confirmPlayerPick() {
   if (gameId === "stop") {
     stopSession = Date.now();
   }
-  publishMqttGameRound(resetAt);
   saveGame({ immediate: true });
+  publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
@@ -3972,10 +3983,7 @@ function applyRemoteState(remote, options = {}) {
   }
 
   if (incoming.hasGame) {
-    const preferRemote =
-      roundAdvanced ||
-      (incoming.gameUpdatedAt || 0) > gameUpdatedAt ||
-      (incomingRound > 0 && (incoming.gameUpdatedAt || 0) >= gameUpdatedAt);
+    const preferRemote = roundAdvanced || (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
     const next = mergeGameState(gameState, incoming.game, preferRemote);
     if (!roundAdvanced && isEditingDrink() && currentAccount) {
       next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
