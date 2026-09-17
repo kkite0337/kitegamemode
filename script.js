@@ -432,6 +432,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
     next.resultPicked = { drink: false, price: false };
     next.priceShares = {};
     next.personalSteps = emptyPersonalSteps();
+    next.appeals = emptyAppeals();
     next.roulette = [];
     next.spin = emptySpin();
     next.boardReady = false;
@@ -444,6 +445,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   }
 
   next.boardReady = Boolean(next.boardReady);
+  next.appeals = sanitizeAppeals(next.appeals);
   if (next.phase === "drink-board" && !next.boardReady) {
     next.phase = "drink-reveal";
   }
@@ -554,6 +556,7 @@ function mergeGameState(local, remote, preferRemote = false) {
             price: Boolean(primary.resultPicked?.price),
           },
       personalSteps: restarting ? emptyPersonalSteps() : mergePersonalSteps(local.personalSteps, remote.personalSteps),
+      appeals: restarting ? emptyAppeals() : mergeAppealMaps(local.appeals, remote.appeals),
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
     },
@@ -564,6 +567,45 @@ function mergeGameState(local, remote, preferRemote = false) {
 function emptyOpened() {
   return Object.fromEntries(
     participantIds().map((id) => [id, { drink: false, price: false }]),
+  );
+}
+
+function emptyAppeals() {
+  return Object.fromEntries(
+    participantIds().map((id) => [id, { drink: false, price: false, submitted: false }]),
+  );
+}
+
+function sanitizeAppeals(appeals) {
+  return Object.fromEntries(
+    participantIds().map((id) => {
+      const item = appeals?.[id] || {};
+      return [
+        id,
+        {
+          drink: Boolean(item.drink),
+          price: Boolean(item.price),
+          submitted: Boolean(item.submitted),
+        },
+      ];
+    }),
+  );
+}
+
+function mergeAppealMaps(first, second) {
+  return Object.fromEntries(
+    participantIds().map((id) => {
+      const left = { drink: false, price: false, submitted: false, ...first?.[id] };
+      const right = { drink: false, price: false, submitted: false, ...second?.[id] };
+      return [
+        id,
+        {
+          drink: Boolean(left.drink || right.drink),
+          price: Boolean(left.price || right.price),
+          submitted: Boolean(left.submitted || right.submitted),
+        },
+      ];
+    }),
   );
 }
 
@@ -584,6 +626,7 @@ function emptyGame() {
     resultPicked: { drink: false, price: false },
     priceShares: {},
     personalSteps: emptyPersonalSteps(),
+    appeals: emptyAppeals(),
     roulette: [],
     spin: emptySpin(),
     boardReady: false,
@@ -709,6 +752,7 @@ function loadGame() {
       resultPicked: { drink: false, price: false, ...parsed.resultPicked },
       priceShares: { ...parsed.priceShares },
       personalSteps: { ...emptyPersonalSteps(), ...parsed.personalSteps },
+      appeals: sanitizeAppeals(parsed.appeals),
       roulette: sanitizeRoulette(parsed.roulette),
       spin: parsed.spin,
       boardReady: Boolean(parsed.boardReady),
@@ -893,6 +937,7 @@ function gameSignature(state) {
     resultPicked: state.resultPicked,
     priceShares: state.priceShares,
     personalSteps: state.personalSteps,
+    appeals: state.appeals,
     roulette: state.roulette,
     spin: state.spin,
     boardReady: Boolean(state.boardReady),
@@ -1046,7 +1091,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=128`;
+  const src = `assets/gift-${frame}.png?v=129`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1605,6 +1650,7 @@ function applyIncomingGameReset(incoming) {
     gameState.priceShares = {};
     gameState.resultPicked = { drink: false, price: false };
     gameState.boardReady = false;
+    gameState.appeals = emptyAppeals();
     gameState.roulette = [];
     gameState.spin = emptySpin();
     resetPlayUi();
@@ -2813,19 +2859,60 @@ function celebrateMarkup() {
   `;
 }
 
+function currentAppeal() {
+  if (!currentAccount) {
+    return { drink: false, price: false, submitted: false };
+  }
+
+  if (!gameState.appeals) {
+    gameState.appeals = emptyAppeals();
+  }
+
+  if (!gameState.appeals[currentAccount.id]) {
+    gameState.appeals[currentAccount.id] = { drink: false, price: false, submitted: false };
+  }
+
+  return gameState.appeals[currentAccount.id];
+}
+
+function submitAppeal() {
+  const appeal = currentAppeal();
+  if (!appeal || appeal.submitted) {
+    return;
+  }
+
+  const form = document.querySelector("form[data-form='appeal']");
+  const drink = Boolean(form?.querySelector('input[name="appealDrink"]')?.checked);
+  const price = Boolean(form?.querySelector('input[name="appealPrice"]')?.checked);
+  if (!drink && !price) {
+    return;
+  }
+
+  appeal.drink = drink;
+  appeal.price = price;
+  appeal.submitted = true;
+  saveGame({ immediate: true });
+  form?.querySelector(".appeal-box__submit")?.remove();
+}
+
 function appealMarkup() {
+  const appeal = currentAppeal();
+  const submit = appeal.submitted
+    ? ""
+    : `<button class="btn-primary appeal-box__submit" type="button" data-action="submit-appeal">이의신청하기</button>`;
+
   return `
     <form class="appeal-box" data-form="appeal">
       <div class="appeal-box__row">
         <label class="appeal-box__check">
-          <input type="checkbox" name="appealDrink">
+          <input type="checkbox" name="appealDrink"${appeal.drink ? " checked" : ""}>
           <span>음료</span>
         </label>
         <label class="appeal-box__check">
-          <input type="checkbox" name="appealPrice">
+          <input type="checkbox" name="appealPrice"${appeal.price ? " checked" : ""}>
           <span>금액</span>
         </label>
-        <button class="btn-primary appeal-box__submit" type="button">이의신청하기</button>
+        ${submit}
       </div>
       <p class="appeal-box__hint">과반수 이상일 경우, 다시 돌립니다!</p>
     </form>
@@ -3876,6 +3963,11 @@ function handlePlayClick(event) {
     return;
   }
 
+  if (button.dataset.action === "submit-appeal") {
+    submitAppeal();
+    return;
+  }
+
   if (button.dataset.action === "go-main") {
     goToMainMenu();
     return;
@@ -4027,6 +4119,7 @@ function normalizeRemoteState(raw) {
       resultPicked: { drink: false, price: false, ...game.resultPicked },
       priceShares: { ...game.priceShares },
       personalSteps: { ...emptyPersonalSteps(), ...game.personalSteps },
+      appeals: sanitizeAppeals(game.appeals),
     },
     gameUpdatedAt: Number(parsed.gameUpdatedAt || 0),
   };
