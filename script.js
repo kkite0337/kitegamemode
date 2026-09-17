@@ -464,6 +464,7 @@ const PHASE_RANK = {
   "drink-reveal": 5,
   "drink-board": 6,
   "price-reveal": 7,
+  "price-result": 8,
 };
 
 function pickPhase(local, remote) {
@@ -481,6 +482,7 @@ function isLateGamePhase(phase) {
     phase === "drink-reveal" ||
     phase === "drink-board" ||
     phase === "price-reveal" ||
+    phase === "price-result" ||
     phase === "menu-reveal" ||
     phase === "menu-spin" ||
     phase === "menu-payout"
@@ -1044,7 +1046,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=125`;
+  const src = `assets/gift-${frame}.png?v=126`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2530,10 +2532,13 @@ function currentPriceShare() {
   return Math.min(99999, Number(gameState.priceShares[currentAccount.id] || 0));
 }
 
+function priceRankFor(id) {
+  const mine = Number(gameState.priceShares[id] || 0);
+  return gamePlayers().filter((other) => Number(gameState.priceShares[other] || 0) > mine).length + 1;
+}
+
 function currentPriceRank() {
-  const mine = Number(gameState.priceShares[currentAccount?.id] || 0);
-  const higher = gamePlayers().filter((id) => Number(gameState.priceShares[id] || 0) > mine).length;
-  return higher + 1;
+  return currentAccount ? priceRankFor(currentAccount.id) : 1;
 }
 
 function personalStep() {
@@ -2794,44 +2799,50 @@ function playFanfare() {
 
 function celebrateMarkup() {
   const amount = `${currentPriceShare().toLocaleString("ko-KR")}원`;
+  const next =
+    currentAccount?.role === "admin"
+      ? `<button class="btn-primary next-btn" type="button" data-action="go-payout">넘어가기</button>`
+      : "";
   return `
     <div class="celebrate-screen">
       <p class="celebrate-title">축하합니다!</p>
-      <p class="celebrate-lead"><span class="price-accent">${escapeHtml(amount)}</span>이 당첨되셨습니다</p>
-      <button class="btn-primary next-btn" type="button" data-action="go-payout">넘어가기</button>
-    </div>
-  `;
-}
-
-function payoutMarkup() {
-  return `
-    <div class="payout-screen">
-      <button class="account-copy" type="button" data-action="copy-account">${escapeHtml(accountLabel())}</button>
-      <p class="payout-copy" id="copyNotice" hidden>복사되었습니다</p>
-      <p class="payout-label">음료</p>
-      <p class="payout-value">${escapeHtml(assignedDrinkName())}</p>
-      <p class="payout-label">지불할 가격</p>
-      <p class="payout-value price-accent">${escapeHtml(`${currentPriceShare().toLocaleString("ko-KR")}원`)}</p>
-      <button class="btn-primary next-btn" type="button" data-action="finish-payout">넘어가기</button>
+      <p class="celebrate-lead">당신은 <span class="drink-accent">${escapeHtml(String(currentPriceRank()))}위</span> 입니다.</p>
+      <p class="celebrate-lead"><span class="price-accent">${escapeHtml(amount)}</span>이 당첨되셨습니다.</p>
+      ${next}
     </div>
   `;
 }
 
 function resultTableMarkup() {
-  const rows = playerAccounts().map((account) => {
-    const profile = profiles[account.id] || { name: "" };
-    const giverId = gameState.assignment[account.id];
-    const drinkName = giverId ? gameState.drinks[giverId]?.name || "" : "";
-    const pay = Number(gameState.priceShares[account.id] || 0);
+  const rows = [...playerAccounts()]
+    .sort((left, right) => {
+      const payGap = Number(gameState.priceShares[right.id] || 0) - Number(gameState.priceShares[left.id] || 0);
+      if (payGap) {
+        return payGap;
+      }
+      return priceRankFor(left.id) - priceRankFor(right.id);
+    })
+    .map((account) => {
+      const profile = profiles[account.id] || { name: "" };
+      const giverId = gameState.assignment[account.id];
+      const drinkName = giverId ? gameState.drinks[giverId]?.name || "" : "";
+      const pay = Number(gameState.priceShares[account.id] || 0);
 
-    return `
-      <tr>
-        <td>${escapeHtml(profile.name || account.id)}</td>
-        <td>${escapeHtml(drinkName || "-")}</td>
-        <td>${escapeHtml(`${pay.toLocaleString("ko-KR")}원`)}</td>
-      </tr>
-    `;
-  }).join("");
+      return `
+        <tr>
+          <td>${escapeHtml(String(priceRankFor(account.id)))}</td>
+          <td>${escapeHtml(profile.name || account.id)}</td>
+          <td>${escapeHtml(drinkName || "-")}</td>
+          <td>${escapeHtml(`${pay.toLocaleString("ko-KR")}원`)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const next =
+    currentAccount?.role === "admin"
+      ? `<button class="btn-primary" type="button" data-action="go-main">메인으로</button>`
+      : "";
 
   return `
     <div class="result-screen">
@@ -2839,15 +2850,16 @@ function resultTableMarkup() {
         <table class="result-table">
           <thead>
             <tr>
+              <th>순위</th>
               <th>이름</th>
-              <th>음료</th>
-              <th>지불 금액</th>
+              <th>음료명</th>
+              <th>지불금액</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <button class="btn-primary" type="button" data-action="go-main">메인으로</button>
+      ${next}
     </div>
   `;
 }
@@ -2955,7 +2967,7 @@ async function runPriceTalk(container, token) {
   nextLine.setAttribute("data-price-next", "");
   const nextDone = await typeChunks(
     nextLine,
-    [{ text: "이제 얼마인지 알려드리겠습니다.", cls: "" }],
+    [{ text: "이제, 당신이 지불할 금액이 얼마인지 알려드리겠습니다.", cls: "" }],
     token,
   );
   if (!nextDone) {
@@ -3014,7 +3026,7 @@ async function runPriceTalk(container, token) {
     rankAccent.classList.add("is-pop");
   }
 
-  await delay(3000);
+  await delay(6000);
   if (token !== priceTalkToken) {
     return;
   }
@@ -3181,7 +3193,7 @@ function renderUserPlay() {
     return;
   }
 
-  if (gameState.phase !== "price-reveal") {
+  if (gameState.phase !== "price-reveal" && gameState.phase !== "price-result") {
     clearPriceTalk(userPlay);
   }
 
@@ -3203,14 +3215,14 @@ function renderUserPlay() {
     return;
   }
 
+  if (gameState.phase === "price-result") {
+    userPlay.innerHTML = resultTableMarkup();
+    return;
+  }
+
   if (gameState.phase === "price-reveal") {
     if (personalStep() === "celebrate") {
       renderCelebrate(userPlay);
-      return;
-    }
-
-    if (personalStep() === "payout") {
-      userPlay.innerHTML = payoutMarkup();
       return;
     }
 
@@ -3248,7 +3260,7 @@ function playerPickMarkup() {
 }
 
 function renderAdminPlay() {
-  if (gameState.phase !== "price-reveal") {
+  if (gameState.phase !== "price-reveal" && gameState.phase !== "price-result") {
     clearPriceTalk(adminPlay);
   }
 
@@ -3345,19 +3357,14 @@ function renderAdminPlay() {
     return;
   }
 
-  if (gameState.phase === "price-reveal") {
-    if (personalStep() === "done") {
-      adminPlay.innerHTML = resultTableMarkup();
-      return;
-    }
+  if (gameState.phase === "price-result") {
+    adminPlay.innerHTML = resultTableMarkup();
+    return;
+  }
 
+  if (gameState.phase === "price-reveal") {
     if (personalStep() === "celebrate") {
       renderCelebrate(adminPlay);
-      return;
-    }
-
-    if (personalStep() === "payout") {
-      adminPlay.innerHTML = payoutMarkup();
       return;
     }
 
@@ -3843,7 +3850,8 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "go-payout") {
-    setPersonalStep("payout");
+    gameState.phase = "price-result";
+    saveGame({ immediate: true });
     refreshVisible();
     return;
   }

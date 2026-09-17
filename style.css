@@ -378,6 +378,10 @@ body.is-admin .app {
   line-height: 1.6;
 }
 
+.celebrate-lead + .celebrate-lead {
+  margin-top: 10px;
+}
+
 .account-copy {
   margin: 0 0 8px;
   padding: 0;
