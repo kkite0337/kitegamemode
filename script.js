@@ -4,6 +4,7 @@ const PROFILE_KEY = "gift-draw-profiles";
 const PROFILE_RESET_KEY = "gift-draw-profile-reset";
 const GAME_KEY = "gift-draw-game";
 const GAME_UPDATED_KEY = "gift-draw-game-updated";
+const GAME_RESET_KEY = "gift-draw-game-reset";
 const RESET_CHANNEL = "gift-draw-reset-channel";
 
 function playAccounts() {
@@ -41,7 +42,7 @@ function isEmptyDrink(drink) {
   return !item.submitted && !item.name && !item.price;
 }
 
-function drinkIsStale(drink, resetAt = currentResetAt()) {
+function drinkIsStale(drink, resetAt = currentGameResetAt()) {
   const item = { ...emptyDrink(), ...drink };
   if (isEmptyDrink(item)) {
     return true;
@@ -51,7 +52,7 @@ function drinkIsStale(drink, resetAt = currentResetAt()) {
 }
 
 function pickRicherDrink(first, second) {
-  const resetAt = currentResetAt();
+  const resetAt = currentGameResetAt();
   const left = { ...emptyDrink(), ...first };
   const right = { ...emptyDrink(), ...second };
   const leftStale = drinkIsStale(left, resetAt);
@@ -77,7 +78,7 @@ function pickRicherDrink(first, second) {
 }
 
 function mergeDrinkMaps(first, second) {
-  const resetAt = currentResetAt();
+  const resetAt = currentGameResetAt();
   return Object.fromEntries(
     participantIds().map((id) => {
       const local = first?.[id];
@@ -95,7 +96,7 @@ function mergeDrinkMaps(first, second) {
   );
 }
 
-function sanitizeDrinks(drinks, resetAt = currentResetAt()) {
+function sanitizeDrinks(drinks, resetAt = currentGameResetAt()) {
   return Object.fromEntries(
     participantIds().map((id) => {
       const drink = drinks?.[id];
@@ -360,7 +361,7 @@ function isEmptyMenu(menu) {
   return !item.submitted && !item.picks.length;
 }
 
-function menuIsStale(menu, resetAt = currentResetAt()) {
+function menuIsStale(menu, resetAt = currentGameResetAt()) {
   const item = { ...emptyMenu(), ...menu, picks: normalizeMenuPicks(menu?.picks) };
   if (isEmptyMenu(item)) {
     return true;
@@ -370,7 +371,7 @@ function menuIsStale(menu, resetAt = currentResetAt()) {
 }
 
 function pickRicherMenu(first, second) {
-  const resetAt = currentResetAt();
+  const resetAt = currentGameResetAt();
   const left = { ...emptyMenu(), ...first, picks: normalizeMenuPicks(first?.picks) };
   const right = { ...emptyMenu(), ...second, picks: normalizeMenuPicks(second?.picks) };
   const leftStale = menuIsStale(left, resetAt);
@@ -391,7 +392,7 @@ function pickRicherMenu(first, second) {
 }
 
 function mergeMenuMaps(first, second) {
-  const resetAt = currentResetAt();
+  const resetAt = currentGameResetAt();
   return Object.fromEntries(
     participantIds().map((id) => {
       const local = first?.[id];
@@ -409,7 +410,7 @@ function mergeMenuMaps(first, second) {
   );
 }
 
-function sanitizeMenus(menus, resetAt = currentResetAt()) {
+function sanitizeMenus(menus, resetAt = currentGameResetAt()) {
   return Object.fromEntries(
     participantIds().map((id) => {
       const menu = menus?.[id];
@@ -418,7 +419,7 @@ function sanitizeMenus(menus, resetAt = currentResetAt()) {
   );
 }
 
-function sanitizeGameState(game, resetAt = currentResetAt()) {
+function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   const drinks = sanitizeDrinks(game?.drinks, resetAt);
   const menus = sanitizeMenus(game?.menus, resetAt);
   const next = { ...emptyGame(), ...game, drinks, menus };
@@ -531,11 +532,14 @@ function mergeGameState(local, remote, preferRemote = false) {
         drink: Boolean(primary.resultPicked?.drink),
         price: Boolean(primary.resultPicked?.price),
       },
-      personalSteps: mergePersonalSteps(local.personalSteps, remote.personalSteps),
+      personalSteps:
+        primary.phase === "idle" || primary.phase === "pick" || primary.phase === "entry" || primary.phase === "play"
+          ? { ...emptyPersonalSteps(), ...primary.personalSteps }
+          : mergePersonalSteps(local.personalSteps, remote.personalSteps),
       roulette: pickRoulette(primary.roulette, secondary.roulette),
       spin: pickSpin(primary.spin, secondary.spin),
     },
-    currentResetAt(),
+    currentGameResetAt(),
   );
 }
 
@@ -1028,7 +1032,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=118`;
+  const src = `assets/gift-${frame}.png?v=119`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1531,6 +1535,50 @@ function showPage(page) {
 
 function currentResetAt() {
   return Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
+}
+
+function currentGameResetAt() {
+  return Math.max(
+    Number(localStorage.getItem(PROFILE_RESET_KEY) || 0),
+    Number(localStorage.getItem(GAME_RESET_KEY) || 0),
+  );
+}
+
+function setGameResetAt(resetAt) {
+  const next = Math.max(Number(localStorage.getItem(GAME_RESET_KEY) || 0), Number(resetAt) || 0);
+  localStorage.setItem(GAME_RESET_KEY, String(next));
+  return next;
+}
+
+function bumpGameRound() {
+  return setGameResetAt(Date.now());
+}
+
+function applyIncomingGameReset(incoming) {
+  const previous = Number(localStorage.getItem(GAME_RESET_KEY) || 0);
+  const incomingReset = Math.max(
+    Number(incoming?.gameResetAt || 0),
+    Number(incoming?.game?.gameResetAt || 0),
+  );
+  if (incomingReset > previous) {
+    setGameResetAt(incomingReset);
+    gameState.drinks = emptyDrinks();
+    gameState.menus = emptyMenus();
+    gameState.personalSteps = emptyPersonalSteps();
+    gameState.opened = emptyOpened();
+    gameState.assignment = {};
+    gameState.priceShares = {};
+    gameState.resultPicked = { drink: false, price: false };
+    gameState.boardReady = false;
+    gameState.roulette = [];
+    gameState.spin = emptySpin();
+    if (gameState.game === "drink" || gameState.game === "game2") {
+      gameState.phase = "entry";
+    }
+  } else if (incomingReset) {
+    setGameResetAt(incomingReset);
+  }
+  return incomingReset;
 }
 
 function sessionInvalidatedByReset(account) {
@@ -3188,6 +3236,7 @@ function beginPlayerPick(gameId) {
     return;
   }
 
+  const resetAt = bumpGameRound();
   gameState = emptyGame();
   gameState.pendingGame = pending;
   gameState.phase = "pick";
@@ -3202,11 +3251,13 @@ function beginPlayerPick(gameId) {
   clearMenuReveal(adminPlay);
   clearMenuSpin(userPlay);
   clearMenuSpin(adminPlay);
-  saveGame();
+  publishMqttGameRound(resetAt);
+  saveGame({ immediate: true });
   refreshVisible();
 }
 
 function goToMainMenu() {
+  const resetAt = bumpGameRound();
   gameState = emptyGame();
   userPlay.dataset.fanfare = "";
   userPlay.dataset.priceTalk = "";
@@ -3219,6 +3270,7 @@ function goToMainMenu() {
   clearMenuSpin(userPlay);
   clearMenuSpin(adminPlay);
   adminView = "main";
+  publishMqttGameRound(resetAt);
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -3239,6 +3291,7 @@ function confirmPlayerPick() {
   }
 
   const gameId = gameState.pendingGame;
+  const resetAt = bumpGameRound();
   gameState = emptyGame();
   gameState.game = gameId;
   gameState.pendingGame = "";
@@ -3247,6 +3300,7 @@ function confirmPlayerPick() {
   if (gameId === "stop") {
     stopSession = Date.now();
   }
+  publishMqttGameRound(resetAt);
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -3793,6 +3847,7 @@ function emptyRemoteState() {
     resetAt: 0,
     profiles: {},
     gameUpdatedAt: 0,
+    gameResetAt: 0,
   };
 }
 
@@ -3802,6 +3857,7 @@ function normalizeRemoteState(raw) {
   const game = hasGame ? parsed.game : {};
   return {
     resetAt: Number(parsed.resetAt || 0),
+    gameResetAt: Math.max(Number(parsed.gameResetAt || 0), Number(game.gameResetAt || 0)),
     profiles: parsed.profiles && typeof parsed.profiles === "object" ? parsed.profiles : {},
     hasGame,
     game: {
@@ -3859,6 +3915,9 @@ function applyRemoteState(remote, options = {}) {
   const incoming = normalizeRemoteState(remote);
   const localReset = currentResetAt();
   const remoteReset = incoming.resetAt;
+  const previousGameReset = Number(localStorage.getItem(GAME_RESET_KEY) || 0);
+  const incomingRound = applyIncomingGameReset(incoming);
+  const roundAdvanced = incomingRound > previousGameReset;
 
   if (remoteReset > localReset) {
     localStorage.setItem(PROFILE_RESET_KEY, String(remoteReset));
@@ -3866,7 +3925,7 @@ function applyRemoteState(remote, options = {}) {
     replaceProfiles(applyResetProfiles(remoteReset, incoming.profiles));
     persistProfilesLocal();
     if (incoming.hasGame && (incoming.gameUpdatedAt || 0) > remoteReset) {
-      gameState = sanitizeGameState(incoming.game, remoteReset);
+      gameState = sanitizeGameState(incoming.game, currentGameResetAt());
       gameUpdatedAt = incoming.gameUpdatedAt;
     } else {
       gameState = emptyGame();
@@ -3913,9 +3972,12 @@ function applyRemoteState(remote, options = {}) {
   }
 
   if (incoming.hasGame) {
-    const preferRemote = (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
+    const preferRemote =
+      roundAdvanced ||
+      (incoming.gameUpdatedAt || 0) > gameUpdatedAt ||
+      (incomingRound > 0 && (incoming.gameUpdatedAt || 0) >= gameUpdatedAt);
     const next = mergeGameState(gameState, incoming.game, preferRemote);
-    if (isEditingDrink() && currentAccount) {
+    if (!roundAdvanced && isEditingDrink() && currentAccount) {
       next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
       const nameInput = document.getElementById("drinkName");
       const priceInput = document.getElementById("drinkPrice");
@@ -3928,8 +3990,15 @@ function applyRemoteState(remote, options = {}) {
     }
 
     if (gameSignature(next) !== lastGameSignature) {
-      gameState = sanitizeGameState(next, effectiveReset);
-      gameUpdatedAt = Math.max(gameUpdatedAt, incoming.gameUpdatedAt || 0);
+      gameState = sanitizeGameState(next, currentGameResetAt());
+      gameUpdatedAt = roundAdvanced
+        ? Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt())
+        : Math.max(gameUpdatedAt, incoming.gameUpdatedAt || 0);
+      persistGameLocal();
+      changed = true;
+    } else if (roundAdvanced) {
+      gameState = sanitizeGameState(next, currentGameResetAt());
+      gameUpdatedAt = Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt());
       persistGameLocal();
       changed = true;
     }
@@ -3943,6 +4012,7 @@ function buildRemotePayload(base) {
   const useLocalGame = gameUpdatedAt >= remote.gameUpdatedAt;
   return {
     resetAt: Math.max(currentResetAt(), remote.resetAt),
+    gameResetAt: Math.max(currentGameResetAt(), Number(remote.gameResetAt || 0)),
     profiles: mergeProfileMaps(profiles, remote.profiles),
     game: useLocalGame ? gameState : remote.game,
     gameUpdatedAt: useLocalGame ? gameUpdatedAt : remote.gameUpdatedAt,
@@ -3952,6 +4022,7 @@ function buildRemotePayload(base) {
 function packedRemoteState(state, slimPhotos) {
   return {
     resetAt: state.resetAt,
+    gameResetAt: Number(state.gameResetAt || 0),
     profiles: Object.fromEntries(
       userIds().map((id) => {
         const item = state.profiles[id] || emptyUserProfile(state.resetAt);
@@ -4070,6 +4141,7 @@ function currentSyncPayload(withPhotos = false) {
   return {
     type: "state",
     resetAt: currentResetAt(),
+    gameResetAt: currentGameResetAt(),
     profiles: packedProfiles(withPhotos),
     game,
     gameUpdatedAt,
@@ -4489,6 +4561,7 @@ function publishMqttDrink(id) {
 
   publishMqttJson(mqttTopic("drink", id), {
     resetAt: currentResetAt(),
+    gameResetAt: currentGameResetAt(),
     drink,
   });
 }
@@ -4499,10 +4572,21 @@ function publishMqttGame() {
   publishMqttJson(mqttTopic("game"), {
     game,
     gameUpdatedAt,
+    gameResetAt: currentGameResetAt(),
   });
   if (currentAccount) {
     publishMqttDrink(currentAccount.id);
   }
+}
+
+function publishMqttGameRound(resetAt) {
+  participantIds().forEach((id) => {
+    publishMqttJson(mqttTopic("drink", id), {
+      resetAt: currentResetAt(),
+      gameResetAt: resetAt,
+      drink: emptyDrink(),
+    });
+  });
 }
 
 function publishMqttReset(resetAt) {
@@ -4607,13 +4691,23 @@ function handleMqttMessage(topic, data) {
     }
 
     const drink = data.drink || data;
-    const resetAt = Math.max(currentResetAt(), Number(data.resetAt || 0));
+    const incomingReset = Number(data.gameResetAt || 0);
+    applyIncomingGameReset({ gameResetAt: incomingReset });
+    const resetAt = currentGameResetAt();
     if (drinkIsStale(drink, resetAt)) {
+      const before = gameSignature(gameState);
+      gameState.drinks[id] = emptyDrink();
+      gameState.drinks = sanitizeDrinks(gameState.drinks, resetAt);
+      if (gameSignature(gameState) !== before) {
+        persistGameLocal();
+        refreshVisible();
+      }
       return;
     }
 
     const result = applyRemoteState({
-      resetAt,
+      resetAt: Number(data.resetAt || 0),
+      gameResetAt: incomingReset,
       profiles: {},
       game: {
         ...gameState,
@@ -4622,7 +4716,7 @@ function handleMqttMessage(topic, data) {
           [id]: drink,
         },
       },
-      gameUpdatedAt: Math.max(gameUpdatedAt, Number(drink.updatedAt || 0)),
+      gameUpdatedAt: Number(drink.updatedAt || 0),
     });
     if (shouldRefreshAfterRemote(result)) {
       refreshVisible();
@@ -4633,6 +4727,7 @@ function handleMqttMessage(topic, data) {
   if (topic.endsWith("/game")) {
     const result = applyRemoteState({
       resetAt: currentResetAt(),
+      gameResetAt: Number(data.gameResetAt || data.game?.gameResetAt || 0),
       profiles: {},
       game: data.game || data,
       gameUpdatedAt: Number(data.gameUpdatedAt || 0),
