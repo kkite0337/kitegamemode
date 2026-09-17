@@ -433,6 +433,7 @@ function sanitizeGameState(game, resetAt = currentResetAt()) {
     next.personalSteps = emptyPersonalSteps();
     next.roulette = [];
     next.spin = emptySpin();
+    next.boardReady = false;
     if (next.phase !== "idle" && next.phase !== "pick" && next.phase !== "entry" && next.phase !== "play") {
       next.game = next.pendingGame || "";
       next.phase = next.pendingGame ? "pick" : "idle";
@@ -441,6 +442,12 @@ function sanitizeGameState(game, resetAt = currentResetAt()) {
     next.roulette = sanitizeRoulette(next.roulette);
     next.spin = sanitizeSpin(next.spin, next.roulette);
   }
+
+  next.boardReady = Boolean(next.boardReady);
+  if (next.phase === "drink-board" && !next.boardReady) {
+    next.phase = "drink-reveal";
+  }
+
   return next;
 }
 
@@ -514,6 +521,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       pendingGame: primary.pendingGame || "",
       players: Array.isArray(primary.players) ? primary.players : [],
       phase: primary.phase || "idle",
+      boardReady: Boolean(primary.boardReady),
       drinks,
       menus,
       opened: mergeOpenedMaps(local.opened, remote.opened),
@@ -556,6 +564,7 @@ function emptyGame() {
     personalSteps: emptyPersonalSteps(),
     roulette: [],
     spin: emptySpin(),
+    boardReady: false,
   };
 }
 
@@ -680,6 +689,7 @@ function loadGame() {
       personalSteps: { ...emptyPersonalSteps(), ...parsed.personalSteps },
       roulette: sanitizeRoulette(parsed.roulette),
       spin: parsed.spin,
+      boardReady: Boolean(parsed.boardReady),
     });
   } catch {
     return emptyGame();
@@ -867,6 +877,7 @@ function gameSignature(state) {
     personalSteps: state.personalSteps,
     roulette: state.roulette,
     spin: state.spin,
+    boardReady: Boolean(state.boardReady),
   });
 }
 
@@ -1017,7 +1028,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=117`;
+  const src = `assets/gift-${frame}.png?v=118`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2535,7 +2546,12 @@ function clearDrinkTalk(container) {
 }
 
 function isDrinkTalkBusy() {
-  return userPlay?.dataset.drinkTalk === "running" || adminPlay?.dataset.drinkTalk === "running";
+  return (
+    userPlay?.dataset.drinkTalk === "running" ||
+    adminPlay?.dataset.drinkTalk === "running" ||
+    userPlay?.dataset.drinkTalk === "done" ||
+    adminPlay?.dataset.drinkTalk === "done"
+  );
 }
 
 function isAdminDrinkBoard(container) {
@@ -2638,7 +2654,7 @@ async function runDrinkTalk(container, token) {
 }
 
 function renderDrinkTalk(container) {
-  if (gameState.phase === "drink-board") {
+  if (gameState.phase === "drink-board" && gameState.boardReady) {
     showDrinkBoard(container);
     return;
   }
@@ -2648,7 +2664,9 @@ function renderDrinkTalk(container) {
   }
 
   if (container.dataset.drinkTalk === "done") {
-    container.innerHTML = drinkTalkFinishedMarkup(isAdminDrinkBoard(container));
+    if (!container.querySelector(".drink-celebrate")) {
+      container.innerHTML = drinkTalkFinishedMarkup(isAdminDrinkBoard(container));
+    }
     return;
   }
 
@@ -3377,6 +3395,7 @@ function pickResult(kind) {
   assignDrinks();
   if (kind === "drink") {
     gameState.resultPicked.drink = true;
+    gameState.boardReady = false;
     gameState.phase = "drink-reveal";
   } else {
     assignPriceShares();
@@ -3605,6 +3624,7 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "go-drink-board") {
+    gameState.boardReady = true;
     gameState.phase = "drink-board";
     saveGame({ immediate: true });
     refreshVisible();
@@ -4790,7 +4810,7 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (isDrinkTalkBusy() && (gameState.phase === "choose" || gameState.phase === "drink-reveal")) {
+  if (isDrinkTalkBusy() && (gameState.phase === "choose" || gameState.phase === "drink-reveal") && !gameState.boardReady) {
     return false;
   }
 
