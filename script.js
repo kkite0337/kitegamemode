@@ -1017,7 +1017,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=113`;
+  const src = `assets/gift-${frame}.png?v=114`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2539,7 +2539,7 @@ async function runDrinkTalk(container, token) {
 
   const introDone = await typeChunks(
     intro,
-    [{ text: "당신이 마실 음료를 알려드리겠습니다.", cls: "" }],
+    [{ text: "당신이 마실 음료명을 알려드리겠습니다.", cls: "" }],
     token,
     () => drinkTalkToken,
   );
@@ -2547,7 +2547,7 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
-  await delay(800);
+  await delay(3000);
   if (token !== drinkTalkToken) {
     return;
   }
