@@ -1046,7 +1046,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=126`;
+  const src = `assets/gift-${frame}.png?v=127`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2967,7 +2967,7 @@ async function runPriceTalk(container, token) {
   nextLine.setAttribute("data-price-next", "");
   const nextDone = await typeChunks(
     nextLine,
-    [{ text: "이제, 당신이 지불할 금액이 얼마인지 알려드리겠습니다.", cls: "" }],
+    [{ text: "당신이 지불할 금액을 알려드리겠습니다.", cls: "" }],
     token,
   );
   if (!nextDone) {
