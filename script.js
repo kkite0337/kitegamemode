@@ -1048,7 +1048,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=121`;
+  const src = `assets/gift-${frame}.png?v=122`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2839,20 +2839,38 @@ async function revealPriceDigits(container, token) {
   const slots = [...board.querySelectorAll(".digit-slot")];
 
   for (let index = slots.length - 1; index >= 0; index -= 1) {
+    const slot = slots[index];
+    slot.classList.add("is-spinning");
+
+    for (let tick = 0; tick < 8; tick += 1) {
+      if (token !== priceTalkToken) {
+        return;
+      }
+
+      slot.textContent = String(Math.floor(Math.random() * 10));
+      slot.classList.add("is-pop");
+      await delay(160 + tick * 30);
+      if (token !== priceTalkToken) {
+        return;
+      }
+
+      slot.classList.remove("is-pop");
+    }
+
     if (token !== priceTalkToken) {
       return;
     }
 
-    slots[index].textContent = digits[index];
-    slots[index].classList.add("is-pop");
-    await delay(420);
+    slot.textContent = digits[index];
+    slot.classList.add("is-pop");
+    await delay(900);
     if (token !== priceTalkToken) {
       return;
     }
 
-    slots[index].classList.remove("is-pop");
-    slots[index].classList.add("is-filled");
-    await delay(140);
+    slot.classList.remove("is-pop", "is-spinning");
+    slot.classList.add("is-filled");
+    await delay(450);
   }
 }
 
@@ -2896,6 +2914,42 @@ async function runPriceTalk(container, token) {
   }
 
   await delay(3000);
+  if (token !== priceTalkToken) {
+    return;
+  }
+
+  const talk = container.querySelector(".ai-talk");
+  if (!talk) {
+    return;
+  }
+
+  lead.replaceChildren();
+  total.replaceChildren();
+  lead.removeAttribute("data-price-lead");
+  total.remove();
+
+  const nextLine = lead;
+  nextLine.setAttribute("data-price-next", "");
+  const nextDone = await typeChunks(
+    nextLine,
+    [{ text: "이제 얼마인지 알려드리겠습니다.", cls: "" }],
+    token,
+  );
+  if (!nextDone) {
+    return;
+  }
+
+  await delay(800);
+  if (token !== priceTalkToken) {
+    return;
+  }
+
+  await revealPriceDigits(talk, token);
+  if (token !== priceTalkToken) {
+    return;
+  }
+
+  await delay(600);
   if (token !== priceTalkToken) {
     return;
   }
