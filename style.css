@@ -322,6 +322,10 @@ body.is-admin .app {
   margin-top: 28px;
 }
 
+.digit-board + .ai-talk__line {
+  margin-top: 24px;
+}
+
 .digit-slot {
   display: grid;
   place-items: center;

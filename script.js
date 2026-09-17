@@ -1048,7 +1048,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=122`;
+  const src = `assets/gift-${frame}.png?v=123`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2508,6 +2508,12 @@ function currentPriceShare() {
   return Math.min(99999, Number(gameState.priceShares[currentAccount.id] || 0));
 }
 
+function currentPriceRank() {
+  const mine = Number(gameState.priceShares[currentAccount?.id] || 0);
+  const higher = gamePlayers().filter((id) => Number(gameState.priceShares[id] || 0) > mine).length;
+  return higher + 1;
+}
+
 function personalStep() {
   return gameState.personalSteps[currentAccount.id] || "talk";
 }
@@ -2949,7 +2955,49 @@ async function runPriceTalk(container, token) {
     return;
   }
 
-  await delay(600);
+  await delay(800);
+  if (token !== priceTalkToken) {
+    return;
+  }
+
+  const rankLead = document.createElement("p");
+  rankLead.className = "ai-talk__line";
+  const rankLine = document.createElement("p");
+  rankLine.className = "ai-talk__line";
+  talk.append(rankLead, rankLine);
+
+  const rankLeadDone = await typeChunks(
+    rankLead,
+    [{ text: "당신의 금액 기여도는", cls: "" }],
+    token,
+  );
+  if (!rankLeadDone) {
+    return;
+  }
+
+  await delay(2000);
+  if (token !== priceTalkToken) {
+    return;
+  }
+
+  const rankDone = await typeChunks(
+    rankLine,
+    [
+      { text: `${currentPriceRank()}위`, cls: "drink-accent price-total-accent" },
+      { text: " 입니다.", cls: "" },
+    ],
+    token,
+  );
+  if (!rankDone) {
+    return;
+  }
+
+  const rankAccent = rankLine.querySelector(".price-total-accent");
+  if (rankAccent) {
+    rankAccent.classList.add("is-pop");
+  }
+
+  await delay(3000);
   if (token !== priceTalkToken) {
     return;
   }
