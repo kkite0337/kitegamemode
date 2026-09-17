@@ -455,7 +455,8 @@ const PHASE_RANK = {
   "menu-spin": 6,
   "menu-payout": 7,
   "drink-reveal": 5,
-  "price-reveal": 6,
+  "drink-board": 6,
+  "price-reveal": 7,
 };
 
 function pickPhase(local, remote) {
@@ -1016,7 +1017,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=112`;
+  const src = `assets/gift-${frame}.png?v=113`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2458,12 +2459,12 @@ function assignedGiverNickname() {
   return profile?.nickname || profile?.name || giverId || "누군가";
 }
 
-function drinkTalkNextMarkup(forAdmin, hidden = false) {
+function drinkTalkNextMarkup(forAdmin) {
   if (!forAdmin) {
     return "";
   }
 
-  return `<button class="btn-primary next-btn" type="button" data-action="go-price"${hidden ? " hidden" : ""}>넘어가기</button>`;
+  return `<button class="btn-primary next-btn" type="button" data-action="go-price">넘어가기</button>`;
 }
 
 function drinkAssignmentTableMarkup(forAdmin) {
@@ -2519,6 +2520,14 @@ function clearDrinkTalk(container) {
 
 function isDrinkTalkBusy() {
   return userPlay?.dataset.drinkTalk === "running" || adminPlay?.dataset.drinkTalk === "running";
+}
+
+function isAdminDrinkBoard(container) {
+  return container === adminPlay && currentAccount?.role === "admin";
+}
+
+function showDrinkBoard(container) {
+  container.innerHTML = drinkAssignmentTableMarkup(isAdminDrinkBoard(container));
 }
 
 async function runDrinkTalk(container, token) {
@@ -2594,18 +2603,26 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
-  container.dataset.drinkTalk = "done";
-  container.innerHTML = drinkAssignmentTableMarkup(container === adminPlay);
+  if (gameState.phase !== "price-reveal") {
+    gameState.phase = "drink-board";
+    saveGame({ immediate: true });
+  }
+
+  refreshVisible();
 }
 
 function renderDrinkTalk(container) {
-  const forAdmin = container === adminPlay;
+  if (gameState.phase === "drink-board") {
+    showDrinkBoard(container);
+    return;
+  }
+
   if (container.dataset.drinkTalk === "running") {
     return;
   }
 
   if (container.dataset.drinkTalk === "done") {
-    container.innerHTML = drinkAssignmentTableMarkup(forAdmin);
+    showDrinkBoard(container);
     return;
   }
 
@@ -2949,7 +2966,7 @@ function renderUserPlay() {
     return;
   }
 
-  if (gameState.phase === "choose" || gameState.phase === "drink-reveal") {
+  if (gameState.phase === "choose" || gameState.phase === "drink-reveal" || gameState.phase === "drink-board") {
     renderDrinkTalk(userPlay);
     return;
   }
@@ -3091,7 +3108,7 @@ function renderAdminPlay() {
     return;
   }
 
-  if (gameState.phase === "choose" || gameState.phase === "drink-reveal") {
+  if (gameState.phase === "choose" || gameState.phase === "drink-reveal" || gameState.phase === "drink-board") {
     renderDrinkTalk(adminPlay);
     return;
   }
@@ -4738,7 +4755,7 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (isDrinkTalkBusy()) {
+  if (isDrinkTalkBusy() && (gameState.phase === "choose" || gameState.phase === "drink-reveal")) {
     return false;
   }
 
