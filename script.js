@@ -1091,7 +1091,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=130`;
+  const src = `assets/gift-${frame}.png?v=131`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2892,7 +2892,9 @@ function submitAppeal() {
   appeal.price = price;
   appeal.submitted = true;
   saveGame({ immediate: true });
+  publishMqttAppeal(currentAccount.id);
   form?.querySelector(".appeal-box__submit")?.remove();
+  updateAppealTallyView();
 }
 
 function appealVoteCount(kind) {
@@ -2939,10 +2941,25 @@ function appealTallyMarkup() {
   `;
 }
 
+function updateAppealTallyView() {
+  const current = document.querySelector(".appeal-tally");
+  if (!current) {
+    return;
+  }
+
+  const next = document.createElement("div");
+  next.innerHTML = appealTallyMarkup();
+  const replacement = next.querySelector(".appeal-tally");
+  if (replacement) {
+    current.replaceWith(replacement);
+  }
+}
+
 function refreshAppeals() {
   gameState = mergeGameState(gameState, loadGame());
   persistGameLocal();
   publishMqttHello();
+  publishMqttKnownAppeals();
   publishMqttGame();
   refreshVisible();
 }
@@ -4873,6 +4890,23 @@ function publishMqttDrink(id) {
   });
 }
 
+function publishMqttAppeal(id) {
+  const appeal = gameState.appeals?.[id] || { drink: false, price: false, submitted: false };
+  publishMqttJson(mqttTopic("appeal", id), {
+    resetAt: currentResetAt(),
+    gameResetAt: currentGameResetAt(),
+    appeal,
+  });
+}
+
+function publishMqttKnownAppeals() {
+  participantIds().forEach((id) => {
+    if (gameState.appeals?.[id]?.submitted) {
+      publishMqttAppeal(id);
+    }
+  });
+}
+
 function publishMqttGame() {
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
@@ -4883,6 +4917,9 @@ function publishMqttGame() {
   });
   if (currentAccount) {
     publishMqttDrink(currentAccount.id);
+    if (gameState.appeals?.[currentAccount.id]?.submitted) {
+      publishMqttAppeal(currentAccount.id);
+    }
   }
 }
 
@@ -4892,6 +4929,11 @@ function publishMqttGameRound(resetAt) {
       resetAt: currentResetAt(),
       gameResetAt: resetAt,
       drink: emptyDrink(),
+    });
+    publishMqttJson(mqttTopic("appeal", id), {
+      resetAt: currentResetAt(),
+      gameResetAt: resetAt,
+      appeal: { drink: false, price: false, submitted: false },
     });
   });
 }
@@ -4905,6 +4947,11 @@ function publishMqttReset(resetAt) {
     publishMqttJson(mqttTopic("drink", id), {
       resetAt,
       drink: emptyDrink(),
+    });
+    publishMqttJson(mqttTopic("appeal", id), {
+      resetAt,
+      gameResetAt: resetAt,
+      appeal: { drink: false, price: false, submitted: false },
     });
   });
   publishMqttJson(mqttTopic("reset"), { resetAt });
@@ -4931,6 +4978,7 @@ function handleMqttMessage(topic, data) {
 
     publishMqttRoster();
     publishMqttKnownUsers();
+    publishMqttKnownAppeals();
     publishMqttGame();
     return;
   }
@@ -4986,6 +5034,46 @@ function handleMqttMessage(topic, data) {
     }
 
     if (shouldRefreshAfterRemote(result)) {
+      refreshVisible();
+    }
+    return;
+  }
+
+  if (topic.includes("/appeal/")) {
+    const id = topic.slice(topic.lastIndexOf("/") + 1);
+    if (!participantIds().includes(id)) {
+      return;
+    }
+
+    const incomingReset = Number(data.gameResetAt || 0);
+    if (incomingReset && incomingReset < currentGameResetAt()) {
+      return;
+    }
+
+    applyIncomingGameReset({ gameResetAt: incomingReset });
+    if (!gameState.appeals) {
+      gameState.appeals = emptyAppeals();
+    }
+
+    const incoming = {
+      drink: false,
+      price: false,
+      submitted: false,
+      ...(data.appeal || data),
+    };
+    const merged = mergeAppealMaps(gameState.appeals, { [id]: incoming });
+    if (JSON.stringify(merged) === JSON.stringify(sanitizeAppeals(gameState.appeals))) {
+      return;
+    }
+
+    gameState.appeals = merged;
+    persistGameLocal();
+    if (isFillingAppeal()) {
+      updateAppealTallyView();
+      return;
+    }
+
+    if (shouldRefreshAfterRemote({ changed: true, reset: false })) {
       refreshVisible();
     }
     return;
@@ -5080,6 +5168,7 @@ function startMqttSync(url) {
     const topics = [
       `${root}/+/user/+`,
       `${root}/+/drink/+`,
+      `${root}/+/appeal/+`,
       `${root}/+/game`,
       `${root}/+/reset`,
       `${root}/+/roster`,
@@ -5092,6 +5181,7 @@ function startMqttSync(url) {
       SYNC_MQTT_LEGACY_PREFIXES.forEach((prefix) => {
         mqttClient.subscribe(`${prefix}/user/+`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/drink/+`, { qos: 0 });
+        mqttClient.subscribe(`${prefix}/appeal/+`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/game`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/reset`, { qos: 0 });
       });
@@ -5102,6 +5192,7 @@ function startMqttSync(url) {
       publishMqttOwn();
       publishMqttRoster();
       publishMqttKnownUsers();
+      publishMqttKnownAppeals();
       publishMqttGame();
     };
     shareKnown();
@@ -5226,7 +5317,12 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (isFillingDrinkForm() || isEditingDrink() || isEditingMenu() || isFillingAppeal()) {
+  if (isFillingDrinkForm() || isEditingDrink() || isEditingMenu()) {
+    return false;
+  }
+
+  if (isFillingAppeal()) {
+    updateAppealTallyView();
     return false;
   }
 
