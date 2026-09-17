@@ -1016,7 +1016,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=110`;
+  const src = `assets/gift-${frame}.png?v=111`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1885,7 +1885,7 @@ function giftMarkup(kind) {
       }
       <button class="btn-text refresh-btn" type="button" data-action="refresh">새로고침</button>
       ${
-        kind === "drink" && !gameState.resultPicked.price
+        kind === "drink" && !gameState.resultPicked.price && currentAccount?.role === "admin"
           ? `<button class="btn-primary next-btn" type="button" data-action="go-price">넘어가기</button>`
           : ""
       }
@@ -2458,14 +2458,22 @@ function assignedGiverNickname() {
   return profile?.nickname || profile?.name || giverId || "누군가";
 }
 
-function drinkTalkDoneMarkup() {
+function drinkTalkNextMarkup(forAdmin, hidden = false) {
+  if (!forAdmin) {
+    return "";
+  }
+
+  return `<button class="btn-primary next-btn" type="button" data-action="go-price"${hidden ? " hidden" : ""}>넘어가기</button>`;
+}
+
+function drinkTalkDoneMarkup(forAdmin) {
   const nick = assignedGiverNickname();
   const drinkName = assignedDrinkName();
   return `
     <div class="ai-talk ai-talk--drink">
       <p class="ai-talk__line">당신이 마실 음료를 알려드리겠습니다.</p>
       <p class="ai-talk__line">당신이 마실 음료는, <span class="price-accent">${escapeHtml(nick)}</span>님이 작성해주신 <span class="price-accent">${escapeHtml(drinkName)}</span> 메뉴 입니다!</p>
-      <button class="btn-primary next-btn" type="button" data-action="go-price">넘어가기</button>
+      ${drinkTalkNextMarkup(forAdmin)}
     </div>
   `;
 }
@@ -2564,12 +2572,13 @@ async function runDrinkTalk(container, token) {
 }
 
 function renderDrinkTalk(container) {
+  const forAdmin = container === adminPlay;
   if (container.dataset.drinkTalk === "running") {
     return;
   }
 
   if (container.dataset.drinkTalk === "done") {
-    container.innerHTML = drinkTalkDoneMarkup();
+    container.innerHTML = drinkTalkDoneMarkup(forAdmin);
     return;
   }
 
@@ -2578,7 +2587,7 @@ function renderDrinkTalk(container) {
     <div class="ai-talk ai-talk--drink">
       <p class="ai-talk__line" data-drink-intro></p>
       <p class="ai-talk__line" data-drink-result></p>
-      <button class="btn-primary next-btn" type="button" data-action="go-price" hidden>넘어가기</button>
+      ${drinkTalkNextMarkup(forAdmin, true)}
     </div>
   `;
 
