@@ -750,6 +750,7 @@ let lastProfileResetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
 let gameUpdatedAt = Number(localStorage.getItem(GAME_UPDATED_KEY) || 0);
 let stopSession = 0;
 let remotePushTimer = 0;
+let drinkDraftTimer = 0;
 let remotePushing = false;
 let remotePushQueued = false;
 let syncPeer = null;
@@ -1043,7 +1044,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=124`;
+  const src = `assets/gift-${frame}.png?v=125`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3924,9 +3925,12 @@ function saveDrinkDraft(event) {
   }
   drink.updatedAt = Date.now();
   persistGameLocal();
-  if (currentAccount) {
-    publishMqttDrink(currentAccount.id);
-  }
+  clearTimeout(drinkDraftTimer);
+  drinkDraftTimer = setTimeout(() => {
+    if (currentAccount && !currentDrink()?.submitted) {
+      publishMqttDrink(currentAccount.id);
+    }
+  }, 500);
 }
 
 function saveMenuDraft(event) {
@@ -4094,7 +4098,7 @@ function applyRemoteState(remote, options = {}) {
   if (incoming.hasGame) {
     const preferRemote = roundAdvanced || (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
     const next = mergeGameState(gameState, incoming.game, preferRemote);
-    if (!roundAdvanced && isEditingDrink() && currentAccount) {
+    if (!roundAdvanced && isFillingDrinkForm() && currentAccount) {
       next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
       const nameInput = document.getElementById("drinkName");
       const priceInput = document.getElementById("drinkPrice");
@@ -4104,6 +4108,7 @@ function applyRemoteState(remote, options = {}) {
       if (priceInput) {
         next.drinks[currentAccount.id].price = priceInput.value;
       }
+      next.drinks[currentAccount.id].submitted = false;
     }
 
     if (gameSignature(next) !== lastGameSignature) {
@@ -4817,7 +4822,9 @@ function handleMqttMessage(topic, data) {
       gameState.drinks = sanitizeDrinks(gameState.drinks, resetAt);
       if (gameSignature(gameState) !== before) {
         persistGameLocal();
-        refreshVisible();
+        if (shouldRefreshAfterRemote({ changed: true, reset: false })) {
+          refreshVisible();
+        }
       }
       return;
     }
@@ -5002,6 +5009,18 @@ function isEditingDrink() {
   );
 }
 
+function isFillingDrinkForm() {
+  if (gameState.game !== "drink" || currentDrink()?.submitted) {
+    return false;
+  }
+
+  if (gameState.phase !== "entry" && gameState.phase !== "review") {
+    return false;
+  }
+
+  return Boolean(document.getElementById("drinkName") || document.getElementById("drinkPrice"));
+}
+
 function isEditingRegister() {
   return Boolean(
     document.activeElement &&
@@ -5014,11 +5033,7 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (userMain && !userMain.hidden && isInCurrentGame()) {
-    return true;
-  }
-
-  if (isEditingDrink() || isEditingMenu()) {
+  if (isFillingDrinkForm() || isEditingDrink() || isEditingMenu()) {
     return false;
   }
 
@@ -5039,16 +5054,6 @@ function shouldRefreshAfterRemote(result) {
     if (userPlay?.dataset.menuSpin === key || adminPlay?.dataset.menuSpin === key) {
       return false;
     }
-  }
-
-  if (
-    gameState.game === "drink" &&
-    currentAccount.role !== "admin" &&
-    !currentDrink().submitted &&
-    document.getElementById("drinkName") &&
-    (gameState.phase === "entry" || gameState.phase === "review" || gameState.phase === "choose")
-  ) {
-    return false;
   }
 
   if (gameState.game === "game2" && !currentMenu().submitted && document.querySelector("form[data-form='menu']")) {
@@ -5133,9 +5138,7 @@ function syncGameFromStorage() {
     return;
   }
 
-  const typingDrink =
-    document.activeElement &&
-    (document.activeElement.id === "drinkName" || document.activeElement.id === "drinkPrice");
+  const typingDrink = isFillingDrinkForm() || isEditingDrink();
   if (typingDrink && next.phase === gameState.phase && next.game === gameState.game) {
     return;
   }
