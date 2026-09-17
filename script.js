@@ -1091,7 +1091,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=131`;
+  const src = `assets/gift-${frame}.png?v=132`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2907,20 +2907,34 @@ function appealMajorityNeed() {
 
 function appealTallyMarkup() {
   const need = appealMajorityNeed();
+  const drinkVotes = appealVoteCount("drink");
+  const priceVotes = appealVoteCount("price");
+  const drinkRedo = drinkVotes >= need && need > 0;
+  const priceRedo = priceVotes >= need && need > 0;
   const rows = [
-    { label: "음료", votes: appealVoteCount("drink") },
-    { label: "금액", votes: appealVoteCount("price") },
+    { label: "음료", votes: drinkVotes, redo: drinkRedo },
+    { label: "금액", votes: priceVotes, redo: priceRedo },
   ]
     .map(
       (row) => `
         <tr>
           <td>${escapeHtml(row.label)}</td>
           <td>${escapeHtml(`${row.votes}표`)}</td>
-          <td>${row.votes >= need && need > 0 ? "재투표" : "유지"}</td>
+          <td>${row.redo ? "재투표" : "유지"}</td>
         </tr>
       `,
     )
     .join("");
+
+  const adminRedo =
+    currentAccount?.role === "admin" && (drinkRedo || priceRedo)
+      ? `
+        <div class="appeal-redo">
+          ${drinkRedo ? `<button class="btn-primary" type="button" data-action="redo-drink">음료 재투표</button>` : ""}
+          ${priceRedo ? `<button class="btn-primary" type="button" data-action="redo-price">금액 재투표</button>` : ""}
+        </div>
+      `
+      : "";
 
   return `
     <div class="appeal-tally">
@@ -2937,6 +2951,7 @@ function appealTallyMarkup() {
           <tbody>${rows}</tbody>
         </table>
       </div>
+      ${adminRedo}
     </div>
   `;
 }

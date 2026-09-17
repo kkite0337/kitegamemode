@@ -491,6 +491,18 @@ body.is-admin .app {
   margin: 0;
 }
 
+.appeal-redo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.appeal-redo .btn-primary {
+  width: min(200px, 100%);
+}
+
 .result-table {
   width: 100%;
   border-collapse: collapse;
