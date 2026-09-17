@@ -731,6 +731,7 @@ let syncWs = null;
 let syncWsRestart = 0;
 let mqttClient = null;
 let priceTalkToken = 0;
+let drinkTalkToken = 0;
 let menuTalkToken = 0;
 let menuSpinFrame = 0;
 
@@ -832,8 +833,10 @@ function resetUserProfiles() {
   persistGameLocal();
   userPlay.dataset.fanfare = "";
   userPlay.dataset.priceTalk = "";
+  userPlay.dataset.drinkTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  adminPlay.dataset.drinkTalk = "";
   notifyProfilesReset();
   publishMqttReset(resetAt);
   scheduleRemotePush(true);
@@ -1013,7 +1016,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=108`;
+  const src = `assets/gift-${frame}.png?v=109`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2449,6 +2452,139 @@ function assignedDrinkName() {
   return assignedDrink()?.name || "아직 없음";
 }
 
+function assignedGiverNickname() {
+  const giverId = currentAccount ? gameState.assignment[currentAccount.id] : "";
+  const profile = giverId ? profiles[giverId] : null;
+  return profile?.nickname || profile?.name || giverId || "누군가";
+}
+
+function drinkTalkDoneMarkup() {
+  const nick = assignedGiverNickname();
+  const drinkName = assignedDrinkName();
+  return `
+    <div class="ai-talk ai-talk--drink">
+      <p class="ai-talk__line">당신이 마실 음료를 알려드리겠습니다.</p>
+      <p class="ai-talk__line">당신이 마실 음료는, <span class="price-accent">${escapeHtml(nick)}</span>님이 작성해주신 <span class="price-accent">${escapeHtml(drinkName)}</span> 메뉴 입니다!</p>
+      <button class="btn-primary next-btn" type="button" data-action="go-price">넘어가기</button>
+    </div>
+  `;
+}
+
+function stopDrinkTalk() {
+  drinkTalkToken += 1;
+}
+
+function clearDrinkTalk(container) {
+  if (!container?.dataset.drinkTalk) {
+    return;
+  }
+
+  stopDrinkTalk();
+  delete container.dataset.drinkTalk;
+}
+
+function isDrinkTalkBusy() {
+  return userPlay?.dataset.drinkTalk === "running" || adminPlay?.dataset.drinkTalk === "running";
+}
+
+async function runDrinkTalk(container, token) {
+  const intro = container.querySelector("[data-drink-intro]");
+  const result = container.querySelector("[data-drink-result]");
+  const nextBtn = container.querySelector("[data-action='go-price']");
+  if (!intro || !result) {
+    return;
+  }
+
+  const introDone = await typeChunks(
+    intro,
+    [{ text: "당신이 마실 음료를 알려드리겠습니다.", cls: "" }],
+    token,
+    () => drinkTalkToken,
+  );
+  if (!introDone) {
+    return;
+  }
+
+  await delay(800);
+  if (token !== drinkTalkToken) {
+    return;
+  }
+
+  const leadDone = await typeChunks(
+    result,
+    [{ text: "당신이 마실 음료는,", cls: "" }],
+    token,
+    () => drinkTalkToken,
+  );
+  if (!leadDone) {
+    return;
+  }
+
+  await delay(700);
+  if (token !== drinkTalkToken) {
+    return;
+  }
+
+  const nickDone = await typeChunks(
+    result,
+    [
+      { text: ` ${assignedGiverNickname()}`, cls: "price-accent" },
+      { text: "님이 작성해주신", cls: "" },
+    ],
+    token,
+    () => drinkTalkToken,
+  );
+  if (!nickDone) {
+    return;
+  }
+
+  await delay(450);
+  if (token !== drinkTalkToken) {
+    return;
+  }
+
+  const nameDone = await typeChunks(
+    result,
+    [
+      { text: ` ${assignedDrinkName()}`, cls: "price-accent" },
+      { text: " 메뉴 입니다!", cls: "" },
+    ],
+    token,
+    () => drinkTalkToken,
+  );
+  if (!nameDone) {
+    return;
+  }
+
+  if (nextBtn) {
+    nextBtn.hidden = false;
+  }
+
+  container.dataset.drinkTalk = "done";
+}
+
+function renderDrinkTalk(container) {
+  if (container.dataset.drinkTalk === "running") {
+    return;
+  }
+
+  if (container.dataset.drinkTalk === "done") {
+    container.innerHTML = drinkTalkDoneMarkup();
+    return;
+  }
+
+  container.dataset.drinkTalk = "running";
+  container.innerHTML = `
+    <div class="ai-talk ai-talk--drink">
+      <p class="ai-talk__line" data-drink-intro></p>
+      <p class="ai-talk__line" data-drink-result></p>
+      <button class="btn-primary next-btn" type="button" data-action="go-price" hidden>넘어가기</button>
+    </div>
+  `;
+
+  runDrinkTalk(container, ++drinkTalkToken);
+}
+
 function playFanfare() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) {
@@ -2765,6 +2901,10 @@ function renderUserPlay() {
     clearPriceTalk(userPlay);
   }
 
+  if (gameState.phase !== "choose" && gameState.phase !== "drink-reveal") {
+    clearDrinkTalk(userPlay);
+  }
+
   const drink = currentDrink();
 
   if (gameState.phase === "entry" || gameState.phase === "review") {
@@ -2775,7 +2915,7 @@ function renderUserPlay() {
   }
 
   if (gameState.phase === "choose" || gameState.phase === "drink-reveal") {
-    userPlay.innerHTML = giftMarkup("drink");
+    renderDrinkTalk(userPlay);
     return;
   }
 
@@ -2826,6 +2966,10 @@ function playerPickMarkup() {
 function renderAdminPlay() {
   if (gameState.phase !== "price-reveal") {
     clearPriceTalk(adminPlay);
+  }
+
+  if (gameState.phase !== "choose" && gameState.phase !== "drink-reveal") {
+    clearDrinkTalk(adminPlay);
   }
 
   if (gameState.phase === "pick") {
@@ -2913,7 +3057,7 @@ function renderAdminPlay() {
   }
 
   if (gameState.phase === "choose" || gameState.phase === "drink-reveal") {
-    adminPlay.innerHTML = giftMarkup("drink");
+    renderDrinkTalk(adminPlay);
     return;
   }
 
@@ -2952,8 +3096,10 @@ function beginPlayerPick(gameId) {
   gameState.players = participantIds().filter((id) => profiles[id]?.submitted);
   userPlay.dataset.fanfare = "";
   userPlay.dataset.priceTalk = "";
+  userPlay.dataset.drinkTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  adminPlay.dataset.drinkTalk = "";
   clearMenuReveal(userPlay);
   clearMenuReveal(adminPlay);
   clearMenuSpin(userPlay);
@@ -2966,8 +3112,10 @@ function goToMainMenu() {
   gameState = emptyGame();
   userPlay.dataset.fanfare = "";
   userPlay.dataset.priceTalk = "";
+  userPlay.dataset.drinkTalk = "";
   adminPlay.dataset.fanfare = "";
   adminPlay.dataset.priceTalk = "";
+  adminPlay.dataset.drinkTalk = "";
   clearMenuReveal(userPlay);
   clearMenuReveal(adminPlay);
   clearMenuSpin(userPlay);
@@ -4567,6 +4715,10 @@ function shouldRefreshAfterRemote(result) {
   }
 
   if (isEditingDrink() || isEditingMenu()) {
+    return false;
+  }
+
+  if (isDrinkTalkBusy()) {
     return false;
   }
 
