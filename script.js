@@ -862,12 +862,7 @@ function resetUserProfiles() {
   gameState = emptyGame();
   gameUpdatedAt = resetAt;
   persistGameLocal();
-  userPlay.dataset.fanfare = "";
-  userPlay.dataset.priceTalk = "";
-  userPlay.dataset.drinkTalk = "";
-  adminPlay.dataset.fanfare = "";
-  adminPlay.dataset.priceTalk = "";
-  adminPlay.dataset.drinkTalk = "";
+  resetPlayUi();
   notifyProfilesReset();
   publishMqttReset(resetAt);
   scheduleRemotePush(true);
@@ -1048,7 +1043,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=123`;
+  const src = `assets/gift-${frame}.png?v=124`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1570,6 +1565,27 @@ function bumpGameRound() {
   return setGameResetAt(Date.now());
 }
 
+function resetPlayUi() {
+  stopPriceTalk();
+  stopDrinkTalk();
+  stopMenuReveal();
+  cancelMenuSpin();
+  if (userPlay) {
+    userPlay.dataset.fanfare = "";
+    userPlay.dataset.priceTalk = "";
+    userPlay.dataset.drinkTalk = "";
+    delete userPlay.dataset.menuReveal;
+    delete userPlay.dataset.menuSpin;
+  }
+  if (adminPlay) {
+    adminPlay.dataset.fanfare = "";
+    adminPlay.dataset.priceTalk = "";
+    adminPlay.dataset.drinkTalk = "";
+    delete adminPlay.dataset.menuReveal;
+    delete adminPlay.dataset.menuSpin;
+  }
+}
+
 function applyIncomingGameReset(incoming) {
   const previous = Number(localStorage.getItem(GAME_RESET_KEY) || 0);
   const incomingReset = Math.max(
@@ -1588,6 +1604,11 @@ function applyIncomingGameReset(incoming) {
     gameState.boardReady = false;
     gameState.roulette = [];
     gameState.spin = emptySpin();
+    resetPlayUi();
+    if (isLateGamePhase(gameState.phase)) {
+      gameState.game = gameState.pendingGame || "";
+      gameState.phase = gameState.pendingGame ? "pick" : "idle";
+    }
   } else if (incomingReset) {
     setGameResetAt(incomingReset);
   }
@@ -2613,12 +2634,7 @@ function clearDrinkTalk(container) {
 }
 
 function isDrinkTalkBusy() {
-  return (
-    userPlay?.dataset.drinkTalk === "running" ||
-    adminPlay?.dataset.drinkTalk === "running" ||
-    userPlay?.dataset.drinkTalk === "done" ||
-    adminPlay?.dataset.drinkTalk === "done"
-  );
+  return userPlay?.dataset.drinkTalk === "running" || adminPlay?.dataset.drinkTalk === "running";
 }
 
 function isAdminDrinkBoard(container) {
@@ -3362,35 +3378,19 @@ function beginPlayerPick(gameId) {
   gameState.pendingGame = pending;
   gameState.phase = "pick";
   gameState.players = participantIds().filter((id) => profiles[id]?.submitted);
-  userPlay.dataset.fanfare = "";
-  userPlay.dataset.priceTalk = "";
-  userPlay.dataset.drinkTalk = "";
-  adminPlay.dataset.fanfare = "";
-  adminPlay.dataset.priceTalk = "";
-  adminPlay.dataset.drinkTalk = "";
-  clearMenuReveal(userPlay);
-  clearMenuReveal(adminPlay);
-  clearMenuSpin(userPlay);
-  clearMenuSpin(adminPlay);
+  resetPlayUi();
   saveGame({ immediate: true });
   publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
 function goToMainMenu() {
+  const resetAt = bumpGameRound();
   gameState = emptyGame();
-  userPlay.dataset.fanfare = "";
-  userPlay.dataset.priceTalk = "";
-  userPlay.dataset.drinkTalk = "";
-  adminPlay.dataset.fanfare = "";
-  adminPlay.dataset.priceTalk = "";
-  adminPlay.dataset.drinkTalk = "";
-  clearMenuReveal(userPlay);
-  clearMenuReveal(adminPlay);
-  clearMenuSpin(userPlay);
-  clearMenuSpin(adminPlay);
+  resetPlayUi();
   adminView = "main";
   saveGame({ immediate: true });
+  publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
@@ -3419,6 +3419,7 @@ function confirmPlayerPick() {
   if (gameId === "stop") {
     stopSession = Date.now();
   }
+  resetPlayUi();
   saveGame({ immediate: true });
   publishMqttGameRound(resetAt);
   refreshVisible();
