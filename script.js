@@ -1017,7 +1017,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=116`;
+  const src = `assets/gift-${frame}.png?v=117`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2476,7 +2476,8 @@ function drinkTalkFinishedMarkup(forAdmin) {
       <p class="ai-talk__line">당신이 마실 음료명을 알려드리겠습니다.</p>
       <p class="ai-talk__line">당신이 마실 음료는,</p>
       <p class="ai-talk__line"><span class="drink-accent">${escapeHtml(nick)}</span>님이 작성해주신</p>
-      <p class="ai-talk__line"><span class="drink-accent">${escapeHtml(drinkName)}</span> 메뉴입니다!</p>
+      <p class="ai-talk__line"><span class="drink-accent">${escapeHtml(drinkName)}</span> 입니다.</p>
+      <p class="celebrate-title drink-celebrate">축하합니다!</p>
       ${drinkTalkNextMarkup(forAdmin, "go-drink-board")}
     </div>
   `;
@@ -2579,7 +2580,7 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
-  await delay(700);
+  await delay(1500);
   if (token !== drinkTalkToken) {
     return;
   }
@@ -2597,7 +2598,7 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
-  await delay(450);
+  await delay(1500);
   if (token !== drinkTalkToken) {
     return;
   }
@@ -2606,7 +2607,7 @@ async function runDrinkTalk(container, token) {
     drinkLine,
     [
       { text: assignedDrinkName(), cls: "drink-accent" },
-      { text: " 메뉴입니다!", cls: "" },
+      { text: " 입니다.", cls: "" },
     ],
     token,
     () => drinkTalkToken,
@@ -2615,9 +2616,18 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
+  await delay(400);
+  if (token !== drinkTalkToken) {
+    return;
+  }
+
   const talk = container.querySelector(".ai-talk--drink");
   if (talk && !talk.querySelector(".menu-confetti")) {
     talk.insertAdjacentHTML("afterbegin", menuConfettiMarkup());
+  }
+
+  if (talk && !talk.querySelector(".drink-celebrate")) {
+    talk.insertAdjacentHTML("beforeend", `<p class="celebrate-title drink-celebrate">축하합니다!</p>`);
   }
 
   if (isAdminDrinkBoard(container) && talk && !talk.querySelector("[data-action='go-drink-board']")) {

@@ -276,6 +276,11 @@ body.is-admin .app {
   margin-top: 28px;
 }
 
+.drink-celebrate {
+  margin: 28px 0 0;
+  animation: fade-in 0.4s ease;
+}
+
 .price-accent {
   color: #dc2626;
 }
