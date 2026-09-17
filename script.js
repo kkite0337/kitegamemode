@@ -1017,7 +1017,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=115`;
+  const src = `assets/gift-${frame}.png?v=116`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2459,12 +2459,27 @@ function assignedGiverNickname() {
   return profile?.nickname || profile?.name || giverId || "누군가";
 }
 
-function drinkTalkNextMarkup(forAdmin) {
+function drinkTalkNextMarkup(forAdmin, action = "go-price") {
   if (!forAdmin) {
     return "";
   }
 
-  return `<button class="btn-primary next-btn" type="button" data-action="go-price">넘어가기</button>`;
+  return `<button class="btn-primary next-btn" type="button" data-action="${escapeAttr(action)}">넘어가기</button>`;
+}
+
+function drinkTalkFinishedMarkup(forAdmin) {
+  const nick = assignedGiverNickname();
+  const drinkName = assignedDrinkName();
+  return `
+    <div class="ai-talk ai-talk--drink">
+      ${menuConfettiMarkup()}
+      <p class="ai-talk__line">당신이 마실 음료명을 알려드리겠습니다.</p>
+      <p class="ai-talk__line">당신이 마실 음료는,</p>
+      <p class="ai-talk__line"><span class="drink-accent">${escapeHtml(nick)}</span>님이 작성해주신</p>
+      <p class="ai-talk__line"><span class="drink-accent">${escapeHtml(drinkName)}</span> 메뉴입니다!</p>
+      ${drinkTalkNextMarkup(forAdmin, "go-drink-board")}
+    </div>
+  `;
 }
 
 function drinkAssignmentTableMarkup(forAdmin) {
@@ -2591,7 +2606,7 @@ async function runDrinkTalk(container, token) {
     drinkLine,
     [
       { text: assignedDrinkName(), cls: "drink-accent" },
-      { text: " 입니다.", cls: "" },
+      { text: " 메뉴입니다!", cls: "" },
     ],
     token,
     () => drinkTalkToken,
@@ -2600,17 +2615,16 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
-  await delay(900);
-  if (token !== drinkTalkToken) {
-    return;
+  const talk = container.querySelector(".ai-talk--drink");
+  if (talk && !talk.querySelector(".menu-confetti")) {
+    talk.insertAdjacentHTML("afterbegin", menuConfettiMarkup());
   }
 
-  if (gameState.phase !== "price-reveal") {
-    gameState.phase = "drink-board";
-    saveGame({ immediate: true });
+  if (isAdminDrinkBoard(container) && talk && !talk.querySelector("[data-action='go-drink-board']")) {
+    talk.insertAdjacentHTML("beforeend", drinkTalkNextMarkup(true, "go-drink-board"));
   }
 
-  refreshVisible();
+  container.dataset.drinkTalk = "done";
 }
 
 function renderDrinkTalk(container) {
@@ -2624,7 +2638,7 @@ function renderDrinkTalk(container) {
   }
 
   if (container.dataset.drinkTalk === "done") {
-    showDrinkBoard(container);
+    container.innerHTML = drinkTalkFinishedMarkup(isAdminDrinkBoard(container));
     return;
   }
 
@@ -3577,6 +3591,13 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "pick-drink") {
     pickResult("drink");
+    return;
+  }
+
+  if (button.dataset.action === "go-drink-board") {
+    gameState.phase = "drink-board";
+    saveGame({ immediate: true });
+    refreshVisible();
     return;
   }
 
