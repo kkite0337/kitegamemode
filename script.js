@@ -1016,7 +1016,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=111`;
+  const src = `assets/gift-${frame}.png?v=112`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2466,13 +2466,39 @@ function drinkTalkNextMarkup(forAdmin, hidden = false) {
   return `<button class="btn-primary next-btn" type="button" data-action="go-price"${hidden ? " hidden" : ""}>넘어가기</button>`;
 }
 
-function drinkTalkDoneMarkup(forAdmin) {
-  const nick = assignedGiverNickname();
-  const drinkName = assignedDrinkName();
+function drinkAssignmentTableMarkup(forAdmin) {
+  const rows = playerAccounts()
+    .map((account) => {
+      const profile = profiles[account.id] || emptyUserProfile();
+      const giverId = gameState.assignment[account.id];
+      const drinkName = giverId ? gameState.drinks[giverId]?.name || "" : "";
+      const giver = giverId ? profiles[giverId] || emptyUserProfile() : emptyUserProfile();
+      const giverNick = giver.nickname || giver.name || giverId || "-";
+
+      return `
+        <tr>
+          <td>${escapeHtml(profile.name || account.id)}</td>
+          <td>${escapeHtml(drinkName || "-")}</td>
+          <td>${escapeHtml(giverNick)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
   return `
-    <div class="ai-talk ai-talk--drink">
-      <p class="ai-talk__line">당신이 마실 음료를 알려드리겠습니다.</p>
-      <p class="ai-talk__line">당신이 마실 음료는, <span class="price-accent">${escapeHtml(nick)}</span>님이 작성해주신 <span class="price-accent">${escapeHtml(drinkName)}</span> 메뉴 입니다!</p>
+    <div class="result-screen">
+      <div class="result-table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>음료</th>
+              <th>음료를 지정해준 사용자</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
       ${drinkTalkNextMarkup(forAdmin)}
     </div>
   `;
@@ -2498,7 +2524,6 @@ function isDrinkTalkBusy() {
 async function runDrinkTalk(container, token) {
   const intro = container.querySelector("[data-drink-intro]");
   const result = container.querySelector("[data-drink-result]");
-  const nextBtn = container.querySelector("[data-action='go-price']");
   if (!intro || !result) {
     return;
   }
@@ -2564,11 +2589,13 @@ async function runDrinkTalk(container, token) {
     return;
   }
 
-  if (nextBtn) {
-    nextBtn.hidden = false;
+  await delay(900);
+  if (token !== drinkTalkToken) {
+    return;
   }
 
   container.dataset.drinkTalk = "done";
+  container.innerHTML = drinkAssignmentTableMarkup(container === adminPlay);
 }
 
 function renderDrinkTalk(container) {
@@ -2578,7 +2605,7 @@ function renderDrinkTalk(container) {
   }
 
   if (container.dataset.drinkTalk === "done") {
-    container.innerHTML = drinkTalkDoneMarkup(forAdmin);
+    container.innerHTML = drinkAssignmentTableMarkup(forAdmin);
     return;
   }
 
@@ -2587,7 +2614,6 @@ function renderDrinkTalk(container) {
     <div class="ai-talk ai-talk--drink">
       <p class="ai-talk__line" data-drink-intro></p>
       <p class="ai-talk__line" data-drink-result></p>
-      ${drinkTalkNextMarkup(forAdmin, true)}
     </div>
   `;
 
