@@ -446,6 +446,8 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
 
   next.boardReady = Boolean(next.boardReady);
   next.appeals = sanitizeAppeals(next.appeals);
+  next.appealClosed = Boolean(next.appealClosed);
+  next.revoteKind = next.revoteKind === "drink" || next.revoteKind === "price" || next.revoteKind === "full" ? next.revoteKind : "";
   if (next.phase === "drink-board" && !next.boardReady) {
     next.phase = "drink-reveal";
   }
@@ -556,7 +558,13 @@ function mergeGameState(local, remote, preferRemote = false) {
             price: Boolean(primary.resultPicked?.price),
           },
       personalSteps: restarting ? emptyPersonalSteps() : mergePersonalSteps(local.personalSteps, remote.personalSteps),
-      appeals: restarting ? emptyAppeals() : mergeAppealMaps(local.appeals, remote.appeals),
+      appeals: restarting
+        ? emptyAppeals()
+        : primary.appealClosed && !participantIds().some((id) => primary.appeals?.[id]?.submitted)
+          ? sanitizeAppeals(primary.appeals)
+          : mergeAppealMaps(local.appeals, remote.appeals),
+      appealClosed: Boolean(primary.appealClosed || secondary.appealClosed),
+      revoteKind: primary.revoteKind || secondary.revoteKind || "",
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
     },
@@ -627,6 +635,8 @@ function emptyGame() {
     priceShares: {},
     personalSteps: emptyPersonalSteps(),
     appeals: emptyAppeals(),
+    appealClosed: false,
+    revoteKind: "",
     roulette: [],
     spin: emptySpin(),
     boardReady: false,
@@ -753,6 +763,8 @@ function loadGame() {
       priceShares: { ...parsed.priceShares },
       personalSteps: { ...emptyPersonalSteps(), ...parsed.personalSteps },
       appeals: sanitizeAppeals(parsed.appeals),
+      appealClosed: Boolean(parsed.appealClosed),
+      revoteKind: parsed.revoteKind || "",
       roulette: sanitizeRoulette(parsed.roulette),
       spin: parsed.spin,
       boardReady: Boolean(parsed.boardReady),
@@ -938,6 +950,8 @@ function gameSignature(state) {
     priceShares: state.priceShares,
     personalSteps: state.personalSteps,
     appeals: state.appeals,
+    appealClosed: Boolean(state.appealClosed),
+    revoteKind: state.revoteKind || "",
     roulette: state.roulette,
     spin: state.spin,
     boardReady: Boolean(state.boardReady),
@@ -1091,7 +1105,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=132`;
+  const src = `assets/gift-${frame}.png?v=133`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2926,15 +2940,20 @@ function appealTallyMarkup() {
     )
     .join("");
 
-  const adminRedo =
-    currentAccount?.role === "admin" && (drinkRedo || priceRedo)
+  const adminRedo = currentAccount?.role !== "admin" || (!drinkRedo && !priceRedo)
+    ? ""
+    : drinkRedo && priceRedo
       ? `
+        <div class="appeal-redo">
+          <button class="btn-primary" type="button" data-action="redo-all">전체 재투표</button>
+        </div>
+      `
+      : `
         <div class="appeal-redo">
           ${drinkRedo ? `<button class="btn-primary" type="button" data-action="redo-drink">음료 재투표</button>` : ""}
           ${priceRedo ? `<button class="btn-primary" type="button" data-action="redo-price">금액 재투표</button>` : ""}
         </div>
-      `
-      : "";
+      `;
 
   return `
     <div class="appeal-tally">
@@ -3050,8 +3069,7 @@ function resultTableMarkup() {
         </table>
       </div>
       ${next}
-      ${appealMarkup()}
-      ${appealTallyMarkup()}
+      ${gameState.appealClosed ? "" : `${appealMarkup()}${appealTallyMarkup()}`}
     </div>
   `;
 }
@@ -3685,8 +3703,8 @@ function submitDrink() {
   refreshVisible();
 }
 
-function assignDrinks() {
-  if (Object.keys(gameState.assignment).length) {
+function assignDrinks(force = false) {
+  if (!force && Object.keys(gameState.assignment).length) {
     return;
   }
 
@@ -3748,8 +3766,8 @@ function randomSplitByTen(total, count) {
   return amounts;
 }
 
-function assignPriceShares() {
-  if (Object.keys(gameState.priceShares).length) {
+function assignPriceShares(force = false) {
+  if (!force && Object.keys(gameState.priceShares).length) {
     return;
   }
 
@@ -3763,6 +3781,67 @@ function assignPriceShares() {
   }
 
   gameState.priceShares = Object.fromEntries(ids.map((id, index) => [id, amounts[index]]));
+}
+
+function resetAppealsForRevote() {
+  gameState.appeals = emptyAppeals();
+  gameState.appealClosed = true;
+  participantIds().forEach((id) => publishMqttAppeal(id));
+}
+
+function redoDrinkRound() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
+  resetPlayUi();
+  resetAppealsForRevote();
+  gameState.revoteKind = "drink";
+  gameState.assignment = {};
+  gameState.opened = emptyOpened();
+  gameState.boardReady = false;
+  gameState.resultPicked.drink = true;
+  gameState.personalSteps = emptyPersonalSteps();
+  assignDrinks(true);
+  gameState.phase = "drink-reveal";
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function redoPriceRound() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
+  resetPlayUi();
+  resetAppealsForRevote();
+  gameState.revoteKind = "price";
+  gameState.priceShares = {};
+  gameState.personalSteps = emptyPersonalSteps();
+  gameState.resultPicked.price = true;
+  assignPriceShares(true);
+  gameState.phase = "price-reveal";
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function redoFullRound() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
+  const players = gamePlayers();
+  const resetAt = bumpGameRound();
+  resetPlayUi();
+  gameState = emptyGame();
+  gameState.game = "drink";
+  gameState.players = players;
+  gameState.phase = "entry";
+  gameState.appealClosed = true;
+  gameState.revoteKind = "full";
+  saveGame({ immediate: true });
+  publishMqttGameRound(resetAt);
+  refreshVisible();
 }
 
 function pickResult(kind) {
@@ -4006,6 +4085,13 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "pick-price" || button.dataset.action === "go-price") {
+    if (gameState.revoteKind === "drink") {
+      gameState.phase = "price-result";
+      saveGame({ immediate: true });
+      refreshVisible();
+      return;
+    }
+
     goToPriceCheck();
     return;
   }
@@ -4045,6 +4131,21 @@ function handlePlayClick(event) {
     gameState.phase = "price-result";
     saveGame({ immediate: true });
     refreshVisible();
+    return;
+  }
+
+  if (button.dataset.action === "redo-drink") {
+    redoDrinkRound();
+    return;
+  }
+
+  if (button.dataset.action === "redo-price") {
+    redoPriceRound();
+    return;
+  }
+
+  if (button.dataset.action === "redo-all") {
+    redoFullRound();
     return;
   }
 
@@ -5077,6 +5178,9 @@ function handleMqttMessage(topic, data) {
       ...(data.appeal || data),
     };
     const merged = mergeAppealMaps(gameState.appeals, { [id]: incoming });
+    if (!incoming.submitted && gameState.appealClosed) {
+      merged[id] = { drink: false, price: false, submitted: false };
+    }
     if (JSON.stringify(merged) === JSON.stringify(sanitizeAppeals(gameState.appeals))) {
       return;
     }
