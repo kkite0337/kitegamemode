@@ -1046,7 +1046,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=127`;
+  const src = `assets/gift-${frame}.png?v=128`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2813,6 +2813,25 @@ function celebrateMarkup() {
   `;
 }
 
+function appealMarkup() {
+  return `
+    <form class="appeal-box" data-form="appeal">
+      <div class="appeal-box__row">
+        <label class="appeal-box__check">
+          <input type="checkbox" name="appealDrink">
+          <span>음료</span>
+        </label>
+        <label class="appeal-box__check">
+          <input type="checkbox" name="appealPrice">
+          <span>금액</span>
+        </label>
+        <button class="btn-primary appeal-box__submit" type="button">이의신청하기</button>
+      </div>
+      <p class="appeal-box__hint">과반수 이상일 경우, 다시 돌립니다!</p>
+    </form>
+  `;
+}
+
 function resultTableMarkup() {
   const rows = [...playerAccounts()]
     .sort((left, right) => {
@@ -2860,6 +2879,7 @@ function resultTableMarkup() {
         </table>
       </div>
       ${next}
+      ${appealMarkup()}
     </div>
   `;
 }
@@ -3894,6 +3914,12 @@ function handlePlayClick(event) {
 }
 
 function handlePlaySubmit(event) {
+  const appealForm = event.target.closest("form[data-form='appeal']");
+  if (appealForm) {
+    event.preventDefault();
+    return;
+  }
+
   const menuForm = event.target.closest("form[data-form='menu']");
   if (menuForm) {
     event.preventDefault();
