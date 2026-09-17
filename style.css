@@ -479,6 +479,18 @@ body.is-admin .app {
   text-align: center;
 }
 
+.appeal-tally {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.appeal-tally .refresh-btn {
+  margin: 0;
+}
+
 .result-table {
   width: 100%;
   border-collapse: collapse;

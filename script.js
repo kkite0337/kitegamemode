@@ -1091,7 +1091,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=129`;
+  const src = `assets/gift-${frame}.png?v=130`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2895,6 +2895,58 @@ function submitAppeal() {
   form?.querySelector(".appeal-box__submit")?.remove();
 }
 
+function appealVoteCount(kind) {
+  return gamePlayers().filter((id) => gameState.appeals?.[id]?.submitted && gameState.appeals[id][kind]).length;
+}
+
+function appealMajorityNeed() {
+  return Math.floor(gamePlayers().length / 2) + 1;
+}
+
+function appealTallyMarkup() {
+  const need = appealMajorityNeed();
+  const rows = [
+    { label: "음료", votes: appealVoteCount("drink") },
+    { label: "금액", votes: appealVoteCount("price") },
+  ]
+    .map(
+      (row) => `
+        <tr>
+          <td>${escapeHtml(row.label)}</td>
+          <td>${escapeHtml(`${row.votes}표`)}</td>
+          <td>${row.votes >= need && need > 0 ? "재투표" : "유지"}</td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="appeal-tally">
+      <button class="btn-text refresh-btn" type="button" data-action="refresh-appeals">새로고침</button>
+      <div class="result-table-wrap">
+        <table class="result-table appeal-tally__table">
+          <thead>
+            <tr>
+              <th>음료/금액</th>
+              <th>몇 표</th>
+              <th>재투표/유지</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function refreshAppeals() {
+  gameState = mergeGameState(gameState, loadGame());
+  persistGameLocal();
+  publishMqttHello();
+  publishMqttGame();
+  refreshVisible();
+}
+
 function appealMarkup() {
   const appeal = currentAppeal();
   const submit = appeal.submitted
@@ -2967,6 +3019,7 @@ function resultTableMarkup() {
       </div>
       ${next}
       ${appealMarkup()}
+      ${appealTallyMarkup()}
     </div>
   `;
 }
@@ -3960,6 +4013,11 @@ function handlePlayClick(event) {
     gameState.phase = "price-result";
     saveGame({ immediate: true });
     refreshVisible();
+    return;
+  }
+
+  if (button.dataset.action === "refresh-appeals") {
+    refreshAppeals();
     return;
   }
 
@@ -5155,12 +5213,20 @@ function isEditingRegister() {
   );
 }
 
+function isFillingAppeal() {
+  return (
+    gameState.phase === "price-result" &&
+    !currentAppeal().submitted &&
+    Boolean(document.querySelector("form[data-form='appeal']"))
+  );
+}
+
 function shouldRefreshAfterRemote(result) {
   if (!currentAccount || !result.changed || isEditingRegister()) {
     return false;
   }
 
-  if (isFillingDrinkForm() || isEditingDrink() || isEditingMenu()) {
+  if (isFillingDrinkForm() || isEditingDrink() || isEditingMenu() || isFillingAppeal()) {
     return false;
   }
 
