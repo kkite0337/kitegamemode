@@ -1013,7 +1013,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=107`;
+  const src = `assets/gift-${frame}.png?v=108`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2767,14 +2767,14 @@ function renderUserPlay() {
 
   const drink = currentDrink();
 
-  if (gameState.phase === "entry" || gameState.phase === "review" || gameState.phase === "choose") {
+  if (gameState.phase === "entry" || gameState.phase === "review") {
     userPlay.innerHTML = drink.submitted
       ? waitMarkup("잠시만 기다려주세요.")
       : drinkFormMarkup(drink);
     return;
   }
 
-  if (gameState.phase === "drink-reveal") {
+  if (gameState.phase === "choose" || gameState.phase === "drink-reveal") {
     userPlay.innerHTML = giftMarkup("drink");
     return;
   }
@@ -2912,12 +2912,7 @@ function renderAdminPlay() {
     return;
   }
 
-  if (gameState.phase === "choose") {
-    adminPlay.innerHTML = resultButtonsMarkup();
-    return;
-  }
-
-  if (gameState.phase === "drink-reveal") {
+  if (gameState.phase === "choose" || gameState.phase === "drink-reveal") {
     adminPlay.innerHTML = giftMarkup("drink");
     return;
   }
@@ -3374,9 +3369,7 @@ function handlePlayClick(event) {
       return;
     }
 
-    gameState.phase = "choose";
-    saveGame({ immediate: true });
-    refreshVisible();
+    pickResult("drink");
     return;
   }
 
