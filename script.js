@@ -1048,7 +1048,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=120`;
+  const src = `assets/gift-${frame}.png?v=121`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2856,49 +2856,51 @@ async function revealPriceDigits(container, token) {
   }
 }
 
-async function runPriceTalk(container, line, token) {
+async function runPriceTalk(container, token) {
+  const lead = container.querySelector("[data-price-lead]");
+  const total = container.querySelector("[data-price-total]");
+  if (!lead || !total) {
+    return;
+  }
+
+  const leadDone = await typeChunks(
+    lead,
+    [{ text: "우리가 고른 메뉴들의 총 금액은", cls: "" }],
+    token,
+  );
+  if (!leadDone) {
+    return;
+  }
+
+  await delay(2000);
+  if (token !== priceTalkToken) {
+    return;
+  }
+
   const priceText = `${totalDrinkPrice().toLocaleString("ko-KR")}원`;
-  const firstDone = await typeChunks(
-    line,
+  const totalDone = await typeChunks(
+    total,
     [
-      { text: "우리가 고른 음료들의 총 가격은 ", cls: "" },
-      { text: priceText, cls: "price-accent" },
-      { text: "입니다.", cls: "" },
+      { text: priceText, cls: "drink-accent price-total-accent" },
+      { text: " 입니다.", cls: "" },
     ],
     token,
   );
-
-  if (!firstDone) {
+  if (!totalDone) {
     return;
   }
 
-  await delay(1400);
+  const accent = total.querySelector(".price-total-accent");
+  if (accent) {
+    accent.classList.add("is-pop");
+  }
+
+  await delay(3000);
   if (token !== priceTalkToken) {
     return;
   }
 
-  line.replaceChildren();
-
-  const secondDone = await typeChunks(
-    line,
-    [{ text: "이제 비용을 보여드리겠습니다.", cls: "" }],
-    token,
-  );
-
-  if (!secondDone) {
-    return;
-  }
-
-  await delay(700);
-  if (token !== priceTalkToken) {
-    return;
-  }
-
-  await revealPriceDigits(container, token);
-  if (token !== priceTalkToken) {
-    return;
-  }
-
+  container.dataset.priceTalk = "done";
   setPersonalStep("celebrate");
   refreshVisible();
 }
@@ -2918,15 +2920,19 @@ function renderPriceTalk(container) {
     return;
   }
 
+  if (container.dataset.priceTalk === "done") {
+    return;
+  }
+
   container.dataset.priceTalk = "running";
-  const token = ++priceTalkToken;
   container.innerHTML = `
-    <div class="ai-talk">
-      <p class="ai-talk__line"></p>
+    <div class="ai-talk ai-talk--drink">
+      <p class="ai-talk__line" data-price-lead></p>
+      <p class="ai-talk__line" data-price-total></p>
     </div>
   `;
 
-  runPriceTalk(container, container.querySelector(".ai-talk__line"), token);
+  runPriceTalk(container, ++priceTalkToken);
 }
 
 function clearPriceTalk(container) {

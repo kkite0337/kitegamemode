@@ -292,6 +292,28 @@ body.is-admin .app {
   letter-spacing: -0.04em;
 }
 
+.price-total-accent {
+  display: inline-block;
+}
+
+.price-total-accent.is-pop {
+  animation: amount-pop 0.45s ease;
+}
+
+@keyframes amount-pop {
+  0% {
+    transform: scale(0.72);
+  }
+
+  70% {
+    transform: scale(1.14);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 .digit-board {
   display: flex;
   justify-content: center;
