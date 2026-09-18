@@ -1203,7 +1203,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=140`;
+  const src = `assets/gift-${frame}.png?v=141`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1943,7 +1943,6 @@ function showUserView() {
 
   if (
     isGameActive() &&
-    isInCurrentGame() &&
     gameState.game === "game3" &&
     gameState.phase === "winner-run" &&
     isWinnerPlayer()
@@ -3452,7 +3451,7 @@ function stopWinnerTalk() {
 }
 
 function winnerBoxSrc(color) {
-  return `assets/winner-${color}.png?v=140`;
+  return `assets/winner-${color}.png?v=141`;
 }
 
 function winnerBoxesMarkup() {
