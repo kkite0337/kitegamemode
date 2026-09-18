@@ -1105,7 +1105,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=136`;
+  const src = `assets/gift-${frame}.png?v=137`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3291,6 +3291,10 @@ function otherGamePlayMarkup() {
   }
 
   if (gameState.game === "game3") {
+    const mainBtn =
+      currentAccount?.role === "admin"
+        ? `<button class="btn-primary" type="button" data-action="go-main">메인으로</button>`
+        : "";
     return `
       <div class="game-choices">
         ${MINI_GAME_CHOICES.map(
@@ -3300,6 +3304,7 @@ function otherGamePlayMarkup() {
             </button>
           `,
         ).join("")}
+        ${mainBtn}
       </div>
     `;
   }
