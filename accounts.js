@@ -48,3 +48,5 @@ const WINNER_MODE_CHOICES = [
   { id: "immediate", label: "바로당첨" },
   { id: "after", label: "진행후당첨" },
 ];
+
+const WINNER_BOX_COLORS = ["red", "yellow", "blue", "green"];

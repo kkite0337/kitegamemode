@@ -445,6 +445,13 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   }
 
   next.boardReady = Boolean(next.boardReady);
+  next.miniMenu = next.miniMenu === "winner" ? "winner" : "";
+  next.winnerMode = next.winnerMode === "immediate" || next.winnerMode === "after" ? next.winnerMode : "";
+  next.winnerPlayers = Array.isArray(next.winnerPlayers)
+    ? next.winnerPlayers.filter((id) => participantIds().includes(id))
+    : [];
+  next.winnerBoxes = sanitizeWinnerBoxes(next.winnerBoxes);
+  next.winnerPicks = sanitizeWinnerPicks(next.winnerPicks, next.winnerBoxes);
   next.appeals = sanitizeAppeals(next.appeals);
   next.appealClosed = Boolean(next.appealClosed);
   next.revoteKind = next.revoteKind === "drink" || next.revoteKind === "price" || next.revoteKind === "full" ? next.revoteKind : "";
@@ -460,6 +467,8 @@ const PHASE_RANK = {
   pick: 1,
   entry: 2,
   play: 2,
+  "winner-pick": 3,
+  "winner-run": 4,
   review: 3,
   choose: 4,
   "menu-reveal": 5,
@@ -568,6 +577,18 @@ function mergeGameState(local, remote, preferRemote = false) {
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
       miniMenu: restarting ? "" : primary.miniMenu || secondary.miniMenu || "",
+      winnerMode: restarting ? "" : primary.winnerMode || secondary.winnerMode || "",
+      winnerPlayers: restarting
+        ? []
+        : Array.isArray(primary.winnerPlayers)
+          ? primary.winnerPlayers
+          : secondary.winnerPlayers || [],
+      winnerBoxes: restarting
+        ? []
+        : (primary.winnerBoxes || []).length
+          ? primary.winnerBoxes
+          : secondary.winnerBoxes || [],
+      winnerPicks: restarting ? {} : mergeWinnerPicks(local.winnerPicks, remote.winnerPicks),
     },
     currentGameResetAt(),
   );
@@ -642,6 +663,10 @@ function emptyGame() {
     spin: emptySpin(),
     boardReady: false,
     miniMenu: "",
+    winnerMode: "",
+    winnerPlayers: [],
+    winnerBoxes: [],
+    winnerPicks: {},
   };
 }
 
@@ -649,6 +674,67 @@ function gamePlayers() {
   const selected = Array.isArray(gameState.players) ? gameState.players : [];
   const allowed = new Set(participantIds());
   return selected.filter((id) => allowed.has(id));
+}
+
+function winnerPlayers() {
+  const selected = Array.isArray(gameState.winnerPlayers) ? gameState.winnerPlayers : [];
+  const allowed = new Set(participantIds());
+  return selected.filter((id) => allowed.has(id));
+}
+
+function isWinnerPlayer(id = currentAccount?.id) {
+  return Boolean(id) && winnerPlayers().includes(id);
+}
+
+function sanitizeWinnerBoxes(boxes) {
+  if (!Array.isArray(boxes)) {
+    return [];
+  }
+
+  return boxes.map((box, index) => ({
+    id: String(box?.id ?? index),
+    color: WINNER_BOX_COLORS.includes(box?.color) ? box.color : WINNER_BOX_COLORS[index % WINNER_BOX_COLORS.length],
+  }));
+}
+
+function sanitizeWinnerPicks(picks, boxes = gameState?.winnerBoxes) {
+  const allowedPlayers = new Set(participantIds());
+  const allowedBoxes = new Set(sanitizeWinnerBoxes(boxes).map((box) => box.id));
+  const next = {};
+  Object.entries(picks || {}).forEach(([boxId, playerId]) => {
+    if (allowedBoxes.size && !allowedBoxes.has(String(boxId))) {
+      return;
+    }
+    if (allowedPlayers.has(playerId)) {
+      next[String(boxId)] = playerId;
+    }
+  });
+  return next;
+}
+
+function mergeWinnerPicks(first, second) {
+  return { ...(first || {}), ...(second || {}), ...sanitizeWinnerPicks({ ...(first || {}), ...(second || {}) }) };
+}
+
+function allWinnerBoxesTaken() {
+  const boxes = sanitizeWinnerBoxes(gameState.winnerBoxes);
+  if (!boxes.length) {
+    return false;
+  }
+
+  return boxes.every((box) => gameState.winnerPicks?.[box.id]);
+}
+
+function hasAnyWinnerPick() {
+  return Object.values(gameState.winnerPicks || {}).some(Boolean);
+}
+
+function currentWinnerPick() {
+  if (!currentAccount) {
+    return "";
+  }
+
+  return Object.entries(gameState.winnerPicks || {}).find(([, playerId]) => playerId === currentAccount.id)?.[0] || "";
 }
 
 function playerAccounts() {
@@ -771,6 +857,10 @@ function loadGame() {
       spin: parsed.spin,
       boardReady: Boolean(parsed.boardReady),
       miniMenu: parsed.miniMenu || "",
+      winnerMode: parsed.winnerMode || "",
+      winnerPlayers: Array.isArray(parsed.winnerPlayers) ? parsed.winnerPlayers : [],
+      winnerBoxes: parsed.winnerBoxes,
+      winnerPicks: parsed.winnerPicks,
     });
   } catch {
     return emptyGame();
@@ -959,6 +1049,10 @@ function gameSignature(state) {
     spin: state.spin,
     boardReady: Boolean(state.boardReady),
     miniMenu: state.miniMenu || "",
+    winnerMode: state.winnerMode || "",
+    winnerPlayers: state.winnerPlayers || [],
+    winnerBoxes: state.winnerBoxes || [],
+    winnerPicks: state.winnerPicks || {},
   });
 }
 
@@ -1109,7 +1203,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=138`;
+  const src = `assets/gift-${frame}.png?v=140`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1636,12 +1730,14 @@ function resetPlayUi() {
   stopDrinkTalk();
   stopMenuReveal();
   cancelMenuSpin();
+  stopWinnerTalk();
   if (userPlay) {
     userPlay.dataset.fanfare = "";
     userPlay.dataset.priceTalk = "";
     userPlay.dataset.drinkTalk = "";
     delete userPlay.dataset.menuReveal;
     delete userPlay.dataset.menuSpin;
+    delete userPlay.dataset.winnerRun;
   }
   if (adminPlay) {
     adminPlay.dataset.fanfare = "";
@@ -1649,6 +1745,7 @@ function resetPlayUi() {
     adminPlay.dataset.drinkTalk = "";
     delete adminPlay.dataset.menuReveal;
     delete adminPlay.dataset.menuSpin;
+    delete adminPlay.dataset.winnerRun;
   }
 }
 
@@ -1844,7 +1941,25 @@ function showUserView() {
 
   registerForm.hidden = true;
 
-  if (isGameActive() && isInCurrentGame() && (gameState.game !== "drink" || personalStep() !== "done")) {
+  if (
+    isGameActive() &&
+    isInCurrentGame() &&
+    gameState.game === "game3" &&
+    gameState.phase === "winner-run" &&
+    isWinnerPlayer()
+  ) {
+    userMain.hidden = true;
+    userPlay.hidden = false;
+    renderUserPlay();
+    return;
+  }
+
+  if (
+    isGameActive() &&
+    isInCurrentGame() &&
+    gameState.game !== "game3" &&
+    (gameState.game !== "drink" || personalStep() !== "done")
+  ) {
     userMain.hidden = true;
     userPlay.hidden = false;
     renderUserPlay();
@@ -3295,11 +3410,11 @@ function otherGamePlayMarkup() {
   }
 
   if (gameState.game === "game3") {
-    if (gameState.miniMenu === "winner") {
-      if (currentAccount?.role !== "admin") {
-        return waitMarkup("잠시만 기다려주세요.");
-      }
+    if (currentAccount?.role !== "admin") {
+      return waitMarkup("관리자의 선택을 기다리는중..");
+    }
 
+    if (gameState.miniMenu === "winner" && gameState.phase !== "winner-pick" && gameState.phase !== "winner-run") {
       return `
         <div class="game-choices">
           ${WINNER_MODE_CHOICES.map(
@@ -3313,10 +3428,6 @@ function otherGamePlayMarkup() {
       `;
     }
 
-    const mainBtn =
-      currentAccount?.role === "admin"
-        ? `<button class="btn-primary" type="button" data-action="go-main">메인으로</button>`
-        : "";
     return `
       <div class="game-choices">
         ${MINI_GAME_CHOICES.map(
@@ -3326,12 +3437,290 @@ function otherGamePlayMarkup() {
             </button>
           `,
         ).join("")}
-        ${mainBtn}
+        <button class="btn-primary" type="button" data-action="go-main">메인으로</button>
       </div>
     `;
   }
 
   return `<div class="wait-screen"><p>게임 진행</p></div>`;
+}
+
+let winnerTalkToken = 0;
+
+function stopWinnerTalk() {
+  winnerTalkToken += 1;
+}
+
+function winnerBoxSrc(color) {
+  return `assets/winner-${color}.png?v=140`;
+}
+
+function winnerBoxesMarkup() {
+  const boxes = sanitizeWinnerBoxes(gameState.winnerBoxes);
+  return boxes
+    .map(
+      (box) => `
+        <button class="winner-box" type="button" data-winner-box="${escapeAttr(box.id)}" ${gameState.winnerPicks?.[box.id] ? "hidden" : ""}>
+          <img src="${escapeAttr(winnerBoxSrc(box.color))}" alt="선물상자">
+        </button>
+      `,
+    )
+    .join("");
+}
+
+function winnerStageMarkup() {
+  return `
+    <div class="winner-stage">
+      <p class="winner-line" data-winner-talk></p>
+      <div class="winner-prompt" data-winner-prompt hidden>
+        <p class="winner-line" data-winner-prompt-1></p>
+        <p class="winner-line" data-winner-prompt-2></p>
+      </div>
+      <p class="winner-count" data-winner-count hidden></p>
+      <p class="winner-line" data-winner-reveal hidden></p>
+      <div class="winner-boxes" data-winner-boxes hidden>${winnerBoxesMarkup()}</div>
+    </div>
+  `;
+}
+
+function syncWinnerBoxes(container) {
+  const wrap = container.querySelector("[data-winner-boxes]");
+  if (!wrap) {
+    return;
+  }
+
+  wrap.querySelectorAll("[data-winner-box]").forEach((button) => {
+    button.hidden = Boolean(gameState.winnerPicks?.[button.dataset.winnerBox]);
+  });
+}
+
+function showWinnerReveal(container) {
+  const talk = container.querySelector("[data-winner-talk]");
+  const prompt = container.querySelector("[data-winner-prompt]");
+  const count = container.querySelector("[data-winner-count]");
+  const boxes = container.querySelector("[data-winner-boxes]");
+  const reveal = container.querySelector("[data-winner-reveal]");
+  if (talk) {
+    talk.hidden = true;
+    talk.textContent = "";
+  }
+  if (prompt) {
+    prompt.hidden = true;
+  }
+  if (count) {
+    count.hidden = true;
+    count.textContent = "";
+  }
+  if (boxes) {
+    boxes.hidden = true;
+  }
+  if (reveal && !reveal.dataset.done) {
+    reveal.hidden = false;
+    reveal.dataset.done = "1";
+    typeChunks(reveal, [{ text: "자. 이제 공개하겠습니다.", cls: "" }], ++winnerTalkToken, () => winnerTalkToken);
+  }
+}
+
+async function popWinnerCount(line, text, token) {
+  line.hidden = false;
+  line.textContent = text;
+  line.classList.remove("is-pop");
+  void line.offsetWidth;
+  line.classList.add("is-pop");
+  await delay(900);
+  return token === winnerTalkToken;
+}
+
+async function runWinnerSequence(container) {
+  const token = ++winnerTalkToken;
+  const talk = container.querySelector("[data-winner-talk]");
+  const prompt = container.querySelector("[data-winner-prompt]");
+  const prompt1 = container.querySelector("[data-winner-prompt-1]");
+  const prompt2 = container.querySelector("[data-winner-prompt-2]");
+  const count = container.querySelector("[data-winner-count]");
+  const boxes = container.querySelector("[data-winner-boxes]");
+  if (!talk || !prompt || !prompt1 || !prompt2 || !count || !boxes) {
+    return;
+  }
+
+  syncWinnerBoxes(container);
+
+  if (allWinnerBoxesTaken()) {
+    showWinnerReveal(container);
+    return;
+  }
+
+  if (hasAnyWinnerPick()) {
+    talk.hidden = true;
+    prompt.hidden = true;
+    count.hidden = true;
+    boxes.hidden = false;
+    boxes.classList.add("is-live");
+    return;
+  }
+
+  talk.hidden = false;
+  const introDone = await typeChunks(talk, [{ text: "당첨자를 뽑아보겠습니다.", cls: "" }], token, () => winnerTalkToken);
+  if (!introDone) {
+    return;
+  }
+
+  await delay(1500);
+  if (token !== winnerTalkToken) {
+    return;
+  }
+
+  talk.textContent = "";
+  talk.hidden = true;
+  boxes.hidden = false;
+  syncWinnerBoxes(container);
+
+  prompt.hidden = false;
+  const line1Done = await typeChunks(prompt1, [{ text: "마음에 드는 상자를", cls: "" }], token, () => winnerTalkToken);
+  if (!line1Done) {
+    return;
+  }
+  const line2Done = await typeChunks(prompt2, [{ text: "클릭해주세요.", cls: "" }], token, () => winnerTalkToken);
+  if (!line2Done) {
+    return;
+  }
+
+  await delay(1200);
+  if (token !== winnerTalkToken) {
+    return;
+  }
+
+  prompt.hidden = true;
+  prompt1.textContent = "";
+  prompt2.textContent = "";
+
+  for (const word of ["3", "2", "1", "start"]) {
+    if (!(await popWinnerCount(count, word, token))) {
+      return;
+    }
+  }
+
+  count.hidden = true;
+  count.textContent = "";
+  boxes.classList.add("is-live");
+  if (allWinnerBoxesTaken()) {
+    showWinnerReveal(container);
+  }
+}
+
+function renderWinnerRun(container) {
+  if (container.dataset.winnerRun === "1") {
+    syncWinnerBoxes(container);
+    if (allWinnerBoxesTaken()) {
+      showWinnerReveal(container);
+    }
+    return;
+  }
+
+  container.dataset.winnerRun = "1";
+  container.innerHTML = winnerStageMarkup();
+  runWinnerSequence(container);
+}
+
+function clearWinnerRun(container) {
+  if (!container?.dataset.winnerRun) {
+    return;
+  }
+
+  stopWinnerTalk();
+  delete container.dataset.winnerRun;
+}
+
+function renderMiniGame(container) {
+  if (gameState.phase !== "winner-run") {
+    clearWinnerRun(container);
+  }
+
+  if (gameState.phase === "winner-pick") {
+    if (currentAccount?.role === "admin") {
+      container.innerHTML = playerPickMarkup();
+      return;
+    }
+
+    container.innerHTML = waitMarkup("관리자의 선택을 기다리는중..");
+    return;
+  }
+
+  if (gameState.phase === "winner-run") {
+    renderWinnerRun(container);
+    return;
+  }
+
+  container.innerHTML = otherGamePlayMarkup();
+}
+
+function beginImmediateWinner() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
+    return;
+  }
+
+  gameState.miniMenu = "winner";
+  gameState.winnerMode = "immediate";
+  gameState.phase = "winner-pick";
+  gameState.winnerPlayers = participantIds().filter((id) => profiles[id]?.submitted);
+  gameState.winnerBoxes = [];
+  gameState.winnerPicks = {};
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function confirmWinnerPlayerPick() {
+  const checked = [...document.querySelectorAll("[data-player-id]:checked")].map((input) => input.dataset.playerId);
+  const players = checked.filter((id) => participantIds().includes(id));
+  const error = document.getElementById("playerPickError");
+  if (!players.length) {
+    if (error) {
+      error.hidden = false;
+    }
+    return;
+  }
+
+  if (error) {
+    error.hidden = true;
+  }
+
+  gameState.winnerPlayers = players;
+  gameState.winnerBoxes = players.map((_, index) => ({
+    id: String(index),
+    color: WINNER_BOX_COLORS[index % WINNER_BOX_COLORS.length],
+  }));
+  gameState.winnerPicks = {};
+  gameState.phase = "winner-run";
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function pickWinnerBox(boxId) {
+  const live = document.querySelector(".winner-boxes.is-live");
+  if (!live || gameState.phase !== "winner-run" || !isWinnerPlayer()) {
+    return;
+  }
+
+  if (currentWinnerPick() || gameState.winnerPicks?.[boxId]) {
+    return;
+  }
+
+  gameState.winnerPicks = { ...gameState.winnerPicks, [boxId]: currentAccount.id };
+  saveGame({ immediate: true });
+  publishMqttWinnerPick(boxId);
+  syncWinnerBoxes(live.closest(".winner-stage")?.parentElement || live.parentElement);
+  if (userPlay) {
+    syncWinnerBoxes(userPlay);
+    if (allWinnerBoxesTaken()) {
+      showWinnerReveal(userPlay);
+    }
+  }
+  if (adminPlay) {
+    syncWinnerBoxes(adminPlay);
+    if (allWinnerBoxesTaken()) {
+      showWinnerReveal(adminPlay);
+    }
+  }
 }
 
 function stopGameUrl() {
@@ -3439,6 +3828,11 @@ function renderUserPlay() {
     return;
   }
 
+  if (gameState.game === "game3") {
+    renderMiniGame(userPlay);
+    return;
+  }
+
   if (gameState.game !== "drink") {
     userPlay.innerHTML = otherGamePlayMarkup();
     return;
@@ -3485,7 +3879,7 @@ function renderUserPlay() {
 }
 
 function playerPickMarkup() {
-  const selected = new Set(gamePlayers());
+  const selected = new Set(gameState.phase === "winner-pick" ? winnerPlayers() : gamePlayers());
   const cards = playAccounts().map((account) => {
     const profile = profiles[account.id] || emptyUserProfile();
     const checked = selected.has(account.id) ? " checked" : "";
@@ -3582,6 +3976,11 @@ function renderAdminPlay() {
     }
 
     adminPlay.innerHTML = waitMarkup("잠시만 기다려주세요.");
+    return;
+  }
+
+  if (gameState.game === "game3") {
+    renderMiniGame(adminPlay);
     return;
   }
 
@@ -4089,7 +4488,22 @@ function handlePlayClick(event) {
     return;
   }
 
+  if (button.dataset.winnerMode === "immediate") {
+    beginImmediateWinner();
+    return;
+  }
+
+  if (button.dataset.winnerBox) {
+    pickWinnerBox(button.dataset.winnerBox);
+    return;
+  }
+
   if (button.dataset.action === "confirm-players") {
+    if (gameState.game === "game3" && gameState.phase === "winner-pick") {
+      confirmWinnerPlayerPick();
+      return;
+    }
+
     confirmPlayerPick();
     return;
   }
@@ -5076,6 +5490,22 @@ function publishMqttKnownAppeals() {
   });
 }
 
+function publishMqttWinnerPick(boxId) {
+  publishMqttJson(mqttTopic("winner", String(boxId)), {
+    gameResetAt: currentGameResetAt(),
+    boxId: String(boxId),
+    playerId: gameState.winnerPicks?.[boxId] || "",
+  });
+}
+
+function publishMqttKnownWinnerPicks() {
+  sanitizeWinnerBoxes(gameState.winnerBoxes).forEach((box) => {
+    if (gameState.winnerPicks?.[box.id]) {
+      publishMqttWinnerPick(box.id);
+    }
+  });
+}
+
 function publishMqttGame() {
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
@@ -5089,6 +5519,7 @@ function publishMqttGame() {
     if (gameState.appeals?.[currentAccount.id]?.submitted) {
       publishMqttAppeal(currentAccount.id);
     }
+    publishMqttKnownWinnerPicks();
   }
 }
 
@@ -5105,6 +5536,13 @@ function publishMqttGameRound(resetAt) {
       appeal: { drink: false, price: false, submitted: false },
     });
   });
+  for (let index = 0; index < 12; index += 1) {
+    publishMqttJson(mqttTopic("winner", String(index)), {
+      gameResetAt: resetAt,
+      boxId: String(index),
+      playerId: "",
+    });
+  }
 }
 
 function publishMqttReset(resetAt) {
@@ -5293,6 +5731,47 @@ function handleMqttMessage(topic, data) {
     return;
   }
 
+  if (topic.includes("/winner/")) {
+    const boxId = topic.slice(topic.lastIndexOf("/") + 1);
+    const incomingReset = Number(data.gameResetAt || 0);
+    if (incomingReset && incomingReset < currentGameResetAt()) {
+      return;
+    }
+
+    applyIncomingGameReset({ gameResetAt: incomingReset });
+    const playerId = data.playerId || "";
+    if (!playerId) {
+      return;
+    }
+
+    if (gameState.winnerPicks?.[boxId]) {
+      return;
+    }
+
+    gameState.winnerPicks = { ...gameState.winnerPicks, [boxId]: playerId };
+    persistGameLocal();
+    if (userPlay?.dataset.winnerRun === "1" || adminPlay?.dataset.winnerRun === "1") {
+      if (userPlay) {
+        syncWinnerBoxes(userPlay);
+        if (allWinnerBoxesTaken()) {
+          showWinnerReveal(userPlay);
+        }
+      }
+      if (adminPlay) {
+        syncWinnerBoxes(adminPlay);
+        if (allWinnerBoxesTaken()) {
+          showWinnerReveal(adminPlay);
+        }
+      }
+      return;
+    }
+
+    if (shouldRefreshAfterRemote({ changed: true, reset: false })) {
+      refreshVisible();
+    }
+    return;
+  }
+
   if (topic.endsWith("/game")) {
     const result = applyRemoteState({
       resetAt: currentResetAt(),
@@ -5341,6 +5820,7 @@ function startMqttSync(url) {
       `${root}/+/user/+`,
       `${root}/+/drink/+`,
       `${root}/+/appeal/+`,
+      `${root}/+/winner/+`,
       `${root}/+/game`,
       `${root}/+/reset`,
       `${root}/+/roster`,
@@ -5354,6 +5834,7 @@ function startMqttSync(url) {
         mqttClient.subscribe(`${prefix}/user/+`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/drink/+`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/appeal/+`, { qos: 0 });
+        mqttClient.subscribe(`${prefix}/winner/+`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/game`, { qos: 0 });
         mqttClient.subscribe(`${prefix}/reset`, { qos: 0 });
       });
@@ -5365,6 +5846,7 @@ function startMqttSync(url) {
       publishMqttRoster();
       publishMqttKnownUsers();
       publishMqttKnownAppeals();
+      publishMqttKnownWinnerPicks();
       publishMqttGame();
     };
     shareKnown();
