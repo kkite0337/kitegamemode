@@ -43,3 +43,8 @@ const MINI_GAME_CHOICES = [
   { id: "game-count", label: "게임카운팅" },
   { id: "score", label: "점수" },
 ];
+
+const WINNER_MODE_CHOICES = [
+  { id: "immediate", label: "바로당첨" },
+  { id: "after", label: "진행후당첨" },
+];

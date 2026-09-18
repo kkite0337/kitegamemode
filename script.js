@@ -567,6 +567,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       revoteKind: primary.revoteKind || secondary.revoteKind || "",
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
+      miniMenu: restarting ? "" : primary.miniMenu || secondary.miniMenu || "",
     },
     currentGameResetAt(),
   );
@@ -640,6 +641,7 @@ function emptyGame() {
     roulette: [],
     spin: emptySpin(),
     boardReady: false,
+    miniMenu: "",
   };
 }
 
@@ -768,6 +770,7 @@ function loadGame() {
       roulette: sanitizeRoulette(parsed.roulette),
       spin: parsed.spin,
       boardReady: Boolean(parsed.boardReady),
+      miniMenu: parsed.miniMenu || "",
     });
   } catch {
     return emptyGame();
@@ -955,6 +958,7 @@ function gameSignature(state) {
     roulette: state.roulette,
     spin: state.spin,
     boardReady: Boolean(state.boardReady),
+    miniMenu: state.miniMenu || "",
   });
 }
 
@@ -1105,7 +1109,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=137`;
+  const src = `assets/gift-${frame}.png?v=138`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3291,6 +3295,24 @@ function otherGamePlayMarkup() {
   }
 
   if (gameState.game === "game3") {
+    if (gameState.miniMenu === "winner") {
+      if (currentAccount?.role !== "admin") {
+        return waitMarkup("잠시만 기다려주세요.");
+      }
+
+      return `
+        <div class="game-choices">
+          ${WINNER_MODE_CHOICES.map(
+            (mode) => `
+              <button class="btn-primary" type="button" data-winner-mode="${escapeAttr(mode.id)}">
+                ${escapeHtml(mode.label)}
+              </button>
+            `,
+          ).join("")}
+        </div>
+      `;
+    }
+
     const mainBtn =
       currentAccount?.role === "admin"
         ? `<button class="btn-primary" type="button" data-action="go-main">메인으로</button>`
@@ -4053,6 +4075,17 @@ function handlePlayClick(event) {
 
   if (button.dataset.game) {
     beginPlayerPick(button.dataset.game);
+    return;
+  }
+
+  if (button.dataset.mini === "winner") {
+    if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
+      return;
+    }
+
+    gameState.miniMenu = "winner";
+    saveGame({ immediate: true });
+    refreshVisible();
     return;
   }
 
