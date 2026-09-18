@@ -1105,7 +1105,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=134`;
+  const src = `assets/gift-${frame}.png?v=135`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }

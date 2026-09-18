@@ -33,6 +33,6 @@ const SYNC_MQTT_LEGACY_PREFIXES = [
 const GAME_CHOICES = [
   { id: "drink", label: "음료를 고르자!" },
   { id: "game2", label: "메뉴고르기" },
-  { id: "game3", label: "게임 3" },
+  { id: "game3", label: "미니게임" },
   { id: "stop", label: "멈춰!" },
 ];
