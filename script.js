@@ -1105,7 +1105,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=133`;
+  const src = `assets/gift-${frame}.png?v=134`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3830,17 +3830,18 @@ function redoFullRound() {
     return;
   }
 
-  const players = gamePlayers();
-  const resetAt = bumpGameRound();
   resetPlayUi();
-  gameState = emptyGame();
-  gameState.game = "drink";
-  gameState.players = players;
-  gameState.phase = "entry";
-  gameState.appealClosed = true;
+  resetAppealsForRevote();
   gameState.revoteKind = "full";
+  gameState.assignment = {};
+  gameState.opened = emptyOpened();
+  gameState.boardReady = false;
+  gameState.resultPicked = { drink: true, price: false };
+  gameState.priceShares = {};
+  gameState.personalSteps = emptyPersonalSteps();
+  assignDrinks(true);
+  gameState.phase = "drink-reveal";
   saveGame({ immediate: true });
-  publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
