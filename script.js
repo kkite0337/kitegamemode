@@ -467,6 +467,7 @@ const PHASE_RANK = {
   pick: 1,
   entry: 2,
   play: 2,
+  "winner-mode": 3,
   "winner-pick": 3,
   "winner-run": 4,
   review: 3,
@@ -486,6 +487,15 @@ function pickPhase(local, remote) {
 
 function isStartGamePhase(phase) {
   return phase === "idle" || phase === "pick" || phase === "entry" || phase === "play";
+}
+
+function isMiniMenuPhase(phase) {
+  return (
+    phase === "play" ||
+    phase === "winner-mode" ||
+    phase === "winner-pick" ||
+    phase === "winner-run"
+  );
 }
 
 function isLateGamePhase(phase) {
@@ -545,6 +555,7 @@ function mergeGameState(local, remote, preferRemote = false) {
   const primary = preferRemote ? remote : local;
   const secondary = preferRemote ? local : remote;
   const restarting = isStartGamePhase(primary.phase);
+  const keepMini = isMiniMenuPhase(primary.phase) || isMiniMenuPhase(secondary.phase);
   return sanitizeGameState(
     {
       ...emptyGame(),
@@ -576,19 +587,19 @@ function mergeGameState(local, remote, preferRemote = false) {
       revoteKind: primary.revoteKind || secondary.revoteKind || "",
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
-      miniMenu: restarting ? "" : primary.miniMenu || secondary.miniMenu || "",
-      winnerMode: restarting ? "" : primary.winnerMode || secondary.winnerMode || "",
-      winnerPlayers: restarting
-        ? []
-        : Array.isArray(primary.winnerPlayers)
+      miniMenu: keepMini ? primary.miniMenu || secondary.miniMenu || "" : "",
+      winnerMode: keepMini ? primary.winnerMode || secondary.winnerMode || "" : "",
+      winnerPlayers: keepMini
+        ? Array.isArray(primary.winnerPlayers)
           ? primary.winnerPlayers
-          : secondary.winnerPlayers || [],
-      winnerBoxes: restarting
-        ? []
-        : (primary.winnerBoxes || []).length
+          : secondary.winnerPlayers || []
+        : [],
+      winnerBoxes: keepMini
+        ? (primary.winnerBoxes || []).length
           ? primary.winnerBoxes
-          : secondary.winnerBoxes || [],
-      winnerPicks: restarting ? {} : mergeWinnerPicks(local.winnerPicks, remote.winnerPicks),
+          : secondary.winnerBoxes || []
+        : [],
+      winnerPicks: keepMini ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks) : {},
     },
     currentGameResetAt(),
   );
@@ -1203,7 +1214,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=141`;
+  const src = `assets/gift-${frame}.png?v=142`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3413,7 +3424,7 @@ function otherGamePlayMarkup() {
       return waitMarkup("관리자의 선택을 기다리는중..");
     }
 
-    if (gameState.miniMenu === "winner" && gameState.phase !== "winner-pick" && gameState.phase !== "winner-run") {
+    if (gameState.miniMenu === "winner" || gameState.phase === "winner-mode") {
       return `
         <div class="game-choices">
           ${WINNER_MODE_CHOICES.map(
@@ -3451,7 +3462,7 @@ function stopWinnerTalk() {
 }
 
 function winnerBoxSrc(color) {
-  return `assets/winner-${color}.png?v=141`;
+  return `assets/winner-${color}.png?v=142`;
 }
 
 function winnerBoxesMarkup() {
@@ -4482,6 +4493,7 @@ function handlePlayClick(event) {
     }
 
     gameState.miniMenu = "winner";
+    gameState.phase = "winner-mode";
     saveGame({ immediate: true });
     refreshVisible();
     return;
