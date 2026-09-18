@@ -1105,7 +1105,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=135`;
+  const src = `assets/gift-${frame}.png?v=136`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3288,6 +3288,20 @@ function clearPriceTalk(container) {
 function otherGamePlayMarkup() {
   if (gameState.game === "game2") {
     return `<div class="wait-screen"><p>메뉴고르기</p></div>`;
+  }
+
+  if (gameState.game === "game3") {
+    return `
+      <div class="game-choices">
+        ${MINI_GAME_CHOICES.map(
+          (game) => `
+            <button class="btn-primary" type="button" data-mini="${escapeAttr(game.id)}">
+              ${escapeHtml(game.label)}
+            </button>
+          `,
+        ).join("")}
+      </div>
+    `;
   }
 
   return `<div class="wait-screen"><p>게임 진행</p></div>`;
