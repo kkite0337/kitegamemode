@@ -2662,3 +2662,132 @@ body.is-admin .app {
 .play-ready__start {
   margin-top: 16px;
 }
+
+.play-ten {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: min(340px, 100%);
+  min-height: 280px;
+  text-align: center;
+}
+
+.play-ten--run {
+  justify-content: space-between;
+  min-height: 320px;
+}
+
+.play-ten__line,
+.play-ten__hero,
+.play-ten__now {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.play-ten__hero {
+  font-size: 26px;
+}
+
+.play-ten__now {
+  align-self: center;
+  margin-top: 0;
+}
+
+.play-ten--watch .play-ten__now,
+.play-ten--run .play-ten__now {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+}
+
+.play-ten--watch,
+.play-ten--run {
+  position: relative;
+  padding-top: 48px;
+}
+
+.play-ten__clock {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-ten__stop,
+.play-ten__start {
+  width: min(220px, 100%);
+}
+
+.play-ten--run .play-ten__stop {
+  margin-top: auto;
+}
+
+.play-ten-board {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-top: 1px solid #ddd4c8;
+}
+
+.play-ten-board__row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 0.9fr;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee6da;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.play-ten-board__row--head {
+  font-size: 13px;
+  color: #7a7268;
+}
+
+.play-ten__ranks,
+.play-ten__place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.play-ten__rank,
+.play-ten__place-line,
+.play-ten__place-rank {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.play-ten__place-rank,
+.play-ten__rank.is-pop {
+  animation: play-pop 0.45s ease;
+}
+
+.play-ten__place-rank {
+  font-size: 32px;
+}
+
+@keyframes play-pop {
+  0% {
+    transform: scale(0.72);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
