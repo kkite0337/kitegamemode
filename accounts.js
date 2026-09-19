@@ -44,7 +44,21 @@ const MINI_GAME_CHOICES = [
   { id: "score", label: "점수" },
 ];
 
-const PLAY_WHEEL_VALUES = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+const PLAY_WHEEL_VALUES = [
+  "10초 맞추기",
+  "랜덤 시간 맞추기",
+  "초록신호 누르기",
+  "색깔 반응 게임",
+  "반응속도 테스트",
+  "정확한 위치 클릭",
+  "기억력 게임",
+  "이모티콘 순서 맞추기",
+  "완벽한도형그리기",
+  "완벽한 선 그리기",
+  "사라진 것 찾기",
+  "악어이빨",
+  "숫자 예측하기",
+];
 
 const WINNER_MODE_CHOICES = [
   { id: "immediate", label: "바로당첨" },
