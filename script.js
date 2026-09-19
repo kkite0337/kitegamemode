@@ -487,7 +487,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.miniMenu = next.miniMenu === "winner" || next.miniMenu === "game-count" ? next.miniMenu : "";
   next.playButtonName = String(next.playButtonName || "");
   next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
-  next.playStage = next.playStage === "start" ? "start" : "";
+  next.playStage = next.playStage === "go" || next.playStage === "start" ? next.playStage : "";
   next.playIntroAt = Math.max(0, Number(next.playIntroAt || 0));
   next.playTenReadyAt = Math.max(0, Number(next.playTenReadyAt || 0));
   next.playTenStops = sanitizePlayTenStops(next.playTenStops);
@@ -671,7 +671,12 @@ function mergeGameState(local, remote, preferRemote = false) {
         keepWinner || phase !== "play"
           ? ""
           : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
-      playStage: keepWinner || phase !== "play" ? "" : primary.playStage === "start" ? "start" : "",
+      playStage:
+        keepWinner || phase !== "play"
+          ? ""
+          : primary.playStage === "go" || primary.playStage === "start"
+            ? primary.playStage
+            : "",
       playIntroAt:
         keepWinner || phase !== "play"
           ? 0
@@ -2291,7 +2296,7 @@ function showUserView() {
     isGameActive() &&
     gameState.game === "game3" &&
     gameState.miniMenu === "game-count" &&
-    gameState.playStage === "start"
+    (gameState.playStage === "start" || gameState.playStage === "go")
   ) {
     userMain.hidden = true;
     userPlay.hidden = false;
@@ -3828,7 +3833,7 @@ function sanitizePlayTeams(teams) {
   const allowed = new Set(participantIds());
   return teams
     .map((pair) => (Array.isArray(pair) ? pair.map((id) => String(id)).filter((id) => allowed.has(id)) : []))
-    .filter((pair) => pair.length === 2);
+    .filter((pair) => pair.length === 1 || pair.length === 2);
 }
 
 function playSeatIds() {
@@ -3847,8 +3852,12 @@ function shufflePlayIds(ids) {
 
 function assignPlayTeams() {
   const shuffled = shufflePlayIds(playSeatIds());
-  if (shuffled.length < 2) {
-    return { teams: [], repeatId: shuffled[0] || "" };
+  if (!shuffled.length) {
+    return { teams: [], repeatId: "" };
+  }
+
+  if (shuffled.length === 1) {
+    return { teams: [[shuffled[0]]], repeatId: shuffled[0] };
   }
 
   if (shuffled.length % 2 === 0) {
@@ -3865,9 +3874,8 @@ function assignPlayTeams() {
   for (let index = 0; index < rest.length; index += 2) {
     teams.push([rest[index], rest[index + 1]]);
   }
-  const partner = rest[Math.floor(Math.random() * rest.length)];
-  teams.push([leftover, partner]);
-  return { teams, repeatId: partner };
+  teams.push([leftover]);
+  return { teams, repeatId: leftover };
 }
 
 function playTeamRowsMarkup() {
@@ -3877,12 +3885,7 @@ function playTeamRowsMarkup() {
 
   const rows = sanitizePlayTeams(gameState.playTeams)
     .map((pair, index) => {
-      const names = pair
-        .map((id) => {
-          const label = winnerPersonName(id) || id;
-          return id === gameState.playRepeatId ? `${label} (두 번)` : label;
-        })
-        .join(" · ");
+      const names = pair.map((id) => winnerPersonName(id) || id).join(" - ");
       return `<p class="play-teams__row">${index + 1}팀 ${escapeHtml(names)}</p>`;
     })
     .join("");
@@ -4024,7 +4027,7 @@ function pickRandomPlayWheel() {
     return;
   }
 
-  if (gameState.playStage === "start") {
+  if (gameState.playStage === "start" || gameState.playStage === "go") {
     return;
   }
 
@@ -4049,8 +4052,94 @@ function playIntroMarkup() {
   `;
 }
 
+const PLAY_INTRO_READY_MS = 7000;
+const PLAY_TEAM_COLORS = [
+  { label: "GREEN", hex: "#16a34a" },
+  { label: "BLUE", hex: "#2563eb" },
+  { label: "YELLOW", hex: "#ca8a04" },
+  { label: "RED", hex: "#dc2626" },
+];
+
 function playModePhrase() {
   return gameState.playMode === "team" ? "팀" : "개인";
+}
+
+function playTeamColor(index) {
+  return PLAY_TEAM_COLORS[index % PLAY_TEAM_COLORS.length];
+}
+
+function playReadyStartMarkup() {
+  if (currentAccount?.role !== "admin") {
+    return "";
+  }
+
+  return `<button class="btn-primary play-ready__start" type="button" data-action="play-go">게임시작</button>`;
+}
+
+function playTeamReadyMarkup() {
+  const rows = sanitizePlayTeams(gameState.playTeams)
+    .map((pair, index) => {
+      const color = playTeamColor(index);
+      const names = pair.map((id) => escapeHtml(winnerPersonName(id) || id)).join(" - ");
+      return `<p class="play-teams-board__row" style="color:${color.hex}">${color.label}팀: ${names}</p>`;
+    })
+    .join("");
+
+  return `
+    <div class="play-intro play-ready">
+      <p class="play-intro__line">각 팀은</p>
+      <div class="play-teams-board">${rows}</div>
+      <p class="play-intro__line">입니다.</p>
+      ${playReadyStartMarkup()}
+    </div>
+  `;
+}
+
+function playSoloReadyMarkup() {
+  return `
+    <div class="play-intro play-ready">
+      <p class="play-intro__line">개인입니다.</p>
+      ${playReadyStartMarkup()}
+    </div>
+  `;
+}
+
+function renderPlayLaunch(container) {
+  if (gameState.playStage !== "start") {
+    return;
+  }
+
+  const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
+  if (elapsed < PLAY_INTRO_READY_MS) {
+    delete container.dataset.playReady;
+    renderPlayIntro(container);
+    return;
+  }
+
+  delete container.dataset.playIntro;
+  clearTimeout(container._playIntroTimer);
+  const roleKey = currentAccount?.role === "admin" ? "admin" : "user";
+  if (gameState.playMode === "team") {
+    const key = `team|${roleKey}|${JSON.stringify(sanitizePlayTeams(gameState.playTeams))}`;
+    if (container.dataset.playReady !== key) {
+      container.dataset.playReady = key;
+      container.innerHTML = playTeamReadyMarkup();
+    }
+    return;
+  }
+
+  const key = `solo|${roleKey}`;
+  if (container.dataset.playReady !== key) {
+    container.dataset.playReady = key;
+    container.innerHTML = playSoloReadyMarkup();
+  }
+}
+
+function renderPlayGo(container) {
+  delete container.dataset.playIntro;
+  delete container.dataset.playReady;
+  clearTimeout(container._playIntroTimer);
+  container.innerHTML = `<div class="wait-screen play-go-wait"></div>`;
 }
 
 function syncPlayIntro(container) {
@@ -4078,10 +4167,11 @@ function syncPlayIntro(container) {
     line2.textContent = `${playModePhrase()}으로 진행됩니다.`;
   }
 
-  const nextAt = elapsed < 1500 ? 1500 : elapsed < 3500 ? 3500 : elapsed < 5000 ? 5000 : 0;
+  const nextAt =
+    elapsed < 1500 ? 1500 : elapsed < 3500 ? 3500 : elapsed < 5000 ? 5000 : elapsed < PLAY_INTRO_READY_MS ? PLAY_INTRO_READY_MS : 0;
   clearTimeout(container._playIntroTimer);
   if (nextAt) {
-    container._playIntroTimer = setTimeout(() => syncPlayIntro(container), Math.max(16, nextAt - elapsed));
+    container._playIntroTimer = setTimeout(() => renderPlayLaunch(container), Math.max(16, nextAt - elapsed));
   }
 }
 
@@ -4127,10 +4217,33 @@ function beginPlayStart() {
     return;
   }
 
+  if (gameState.playMode === "team") {
+    const assigned = assignPlayTeams();
+    gameState.playTeams = assigned.teams;
+    gameState.playRepeatId = assigned.repeatId;
+  } else {
+    gameState.playTeams = [];
+    gameState.playRepeatId = "";
+  }
+
   gameState.playStage = "start";
   gameState.playIntroAt = Date.now();
   gameState.playTenReadyAt = 0;
   gameState.playTenStops = {};
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function beginPlayGo() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3" || gameState.miniMenu !== "game-count") {
+    return;
+  }
+
+  if (gameState.playStage !== "start") {
+    return;
+  }
+
+  gameState.playStage = "go";
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -4694,13 +4807,22 @@ function renderMiniGame(container) {
     delete container.dataset.playRun;
     stopPlayTenTick();
     delete container.dataset.playTen;
-    renderPlayIntro(container);
+    renderPlayLaunch(container);
+    return;
+  }
+
+  if (gameState.miniMenu === "game-count" && gameState.playStage === "go") {
+    delete container.dataset.playRun;
+    stopPlayTenTick();
+    delete container.dataset.playTen;
+    renderPlayGo(container);
     return;
   }
 
   stopPlayTenTick();
   delete container.dataset.playTen;
   delete container.dataset.playIntro;
+  delete container.dataset.playReady;
 
   if (gameState.miniMenu === "game-count") {
     renderPlayRun(container);
@@ -5607,6 +5729,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "play-start") {
     beginPlayStart();
+    return;
+  }
+
+  if (button.dataset.action === "play-go") {
+    beginPlayGo();
     return;
   }
 

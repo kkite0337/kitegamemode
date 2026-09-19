@@ -2652,3 +2652,22 @@ body.is-admin .app {
   font-weight: 800;
   line-height: 1.4;
 }
+
+.play-teams-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.play-teams-board__row {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.play-ready__start {
+  margin-top: 16px;
+}
