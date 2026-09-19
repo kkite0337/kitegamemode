@@ -484,8 +484,25 @@ const PHASE_RANK = {
   "price-result": 8,
 };
 
-function pickPhase(local, remote) {
-  return (PHASE_RANK[remote] || 0) > (PHASE_RANK[local] || 0) ? remote : local;
+function pickGamePhase(local, remote, primary) {
+  const left = PHASE_RANK[local.phase] || 0;
+  const right = PHASE_RANK[remote.phase] || 0;
+  if (right > left) {
+    return remote.phase || "idle";
+  }
+  if (left > right) {
+    return local.phase || "idle";
+  }
+  return primary.phase || "idle";
+}
+
+function isWinnerFlowPhase(phase) {
+  return (
+    phase === "winner-mode" ||
+    phase === "winner-pick" ||
+    phase === "winner-run" ||
+    phase === "winner-table"
+  );
 }
 
 function isStartGamePhase(phase) {
@@ -558,8 +575,9 @@ function mergeGameState(local, remote, preferRemote = false) {
 
   const primary = preferRemote ? remote : local;
   const secondary = preferRemote ? local : remote;
-  const restarting = isStartGamePhase(primary.phase);
-  const keepMini = isMiniMenuPhase(primary.phase) || isMiniMenuPhase(secondary.phase);
+  const phase = pickGamePhase(local, remote, primary);
+  const restarting = isStartGamePhase(phase);
+  const keepWinner = isWinnerFlowPhase(phase);
   return sanitizeGameState(
     {
       ...emptyGame(),
@@ -568,7 +586,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       game: primary.game || "",
       pendingGame: primary.pendingGame || "",
       players: Array.isArray(primary.players) ? primary.players : [],
-      phase: primary.phase || "idle",
+      phase,
       boardReady: restarting ? false : Boolean(primary.boardReady),
       drinks,
       menus,
@@ -591,11 +609,11 @@ function mergeGameState(local, remote, preferRemote = false) {
       revoteKind: primary.revoteKind || secondary.revoteKind || "",
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
-      miniMenu: keepMini && primary.phase !== "play" ? primary.miniMenu || secondary.miniMenu || "" : primary.phase === "play" ? primary.miniMenu || "" : "",
-      ...(keepMini && primary.phase !== "play"
-        ? pickWinnerSlice(primary, secondary, local, remote)
+      miniMenu: keepWinner ? "winner" : phase === "play" ? primary.miniMenu || "" : "",
+      ...(keepWinner
+        ? pickWinnerSlice(local, remote)
         : {
-            winnerRound: keepMini ? Math.max(Number(primary.winnerRound || 0), Number(secondary.winnerRound || 0)) : 0,
+            winnerRound: 0,
             winnerMode: "",
             winnerPlayers: [],
             winnerBoxes: [],
@@ -731,17 +749,31 @@ function mergeWinnerPicks(first, second) {
   return { ...(first || {}), ...(second || {}) };
 }
 
-function pickWinnerSlice(primary, secondary, local, remote) {
-  const leftRound = Math.max(0, Number(primary.winnerRound || 0));
-  const rightRound = Math.max(0, Number(secondary.winnerRound || 0));
-  const source = leftRound >= rightRound ? primary : secondary;
+function pickWinnerSlice(local, remote) {
+  const leftRound = Math.max(0, Number(local.winnerRound || 0));
+  const rightRound = Math.max(0, Number(remote.winnerRound || 0));
+  let source = leftRound >= rightRound ? local : remote;
+  let other = source === local ? remote : local;
+  const sourcePlayers = Array.isArray(source.winnerPlayers) ? source.winnerPlayers : [];
+  const otherPlayers = Array.isArray(other.winnerPlayers) ? other.winnerPlayers : [];
+  const sourceRound = Math.max(0, Number(source.winnerRound || 0));
+  const otherRound = Math.max(0, Number(other.winnerRound || 0));
+  const sourceIsReset = source.phase === "play" || source.phase === "winner-pick";
+  if (!sourcePlayers.length && otherPlayers.length && !(sourceIsReset && sourceRound > otherRound)) {
+    const previous = source;
+    source = other;
+    other = previous;
+  }
+
+  const pickedRound = Math.max(0, Number(source.winnerRound || 0));
+  const otherRoundNow = Math.max(0, Number(other.winnerRound || 0));
   return {
-    winnerRound: Math.max(leftRound, rightRound),
-    winnerMode: source.winnerMode || "",
+    winnerRound: Math.max(pickedRound, otherRoundNow),
+    winnerMode: source.winnerMode || other.winnerMode || "",
     winnerPlayers: Array.isArray(source.winnerPlayers) ? source.winnerPlayers : [],
     winnerBoxes: Array.isArray(source.winnerBoxes) ? source.winnerBoxes : [],
     winnerPicks:
-      leftRound === rightRound
+      pickedRound === otherRoundNow
         ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks)
         : source.winnerPicks || {},
     winnerId: source.winnerId || "",
@@ -1282,7 +1314,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=151`;
+  const src = `assets/gift-${frame}.png?v=152`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
