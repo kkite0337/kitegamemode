@@ -26,6 +26,40 @@ function setParticipantCount(count) {
   localStorage.setItem(PARTICIPANT_COUNT_KEY, String(participantCount));
 }
 
+function senderMeta() {
+  return {
+    from: currentAccount?.id || "",
+    fromRole: currentAccount?.role || "",
+  };
+}
+
+function isAdminSender(data) {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  if (data.fromRole === "admin") {
+    return true;
+  }
+
+  const admin = adminAccount();
+  return Boolean(admin && data.from === admin.id);
+}
+
+function applyRemoteParticipantCount(count, sender) {
+  if (!isAdminSender(sender)) {
+    return false;
+  }
+
+  const nextCount = Math.floor(Number(count));
+  if (nextCount < MIN_PARTICIPANTS || nextCount > MAX_PARTICIPANTS || nextCount === participantCount) {
+    return false;
+  }
+
+  setParticipantCount(nextCount);
+  return true;
+}
+
 function seatUserAccounts() {
   return ACCOUNTS.filter((account) => /^USER[1-4]$/.test(account.id));
 }
@@ -6882,6 +6916,8 @@ function normalizeRemoteState(raw) {
     },
     gameUpdatedAt: Number(parsed.gameUpdatedAt || 0),
     participantCount: parsed.participantCount,
+    from: parsed.from || "",
+    fromRole: parsed.fromRole || "",
   };
 }
 
@@ -6924,12 +6960,7 @@ function applyResetProfiles(resetAt, remoteProfiles) {
 
 function applyRemoteState(remote, options = {}) {
   const incoming = normalizeRemoteState(remote);
-  if (incoming.participantCount !== undefined && incoming.participantCount !== "") {
-    const nextCount = Math.floor(Number(incoming.participantCount));
-    if (nextCount >= MIN_PARTICIPANTS && nextCount <= MAX_PARTICIPANTS) {
-      setParticipantCount(nextCount);
-    }
-  }
+  let changed = applyRemoteParticipantCount(incoming.participantCount, incoming);
 
   const localReset = currentResetAt();
   const remoteReset = incoming.resetAt;
@@ -6981,7 +7012,6 @@ function applyRemoteState(remote, options = {}) {
     }
   });
 
-  let changed = false;
   const nextProfileSig = profileSignature(merged);
   if (nextProfileSig !== lastProfileSignature) {
     replaceProfiles(merged);
@@ -7178,6 +7208,7 @@ function currentSyncPayload(withPhotos = false) {
     game,
     gameUpdatedAt,
     participantCount,
+    ...senderMeta(),
   };
 }
 
@@ -7571,6 +7602,7 @@ function publishMqttRoster() {
     profiles: packedProfiles(true),
     gameUpdatedAt,
     participantCount,
+    ...senderMeta(),
   });
 }
 
@@ -7586,6 +7618,7 @@ function publishMqttHello() {
     {
       type: "hello",
       from: currentAccount?.id || "",
+      fromRole: currentAccount?.role || "",
       at: Date.now(),
       participantCount,
     },
@@ -7659,6 +7692,7 @@ function publishMqttGame(options = {}) {
       gameUpdatedAt,
       gameResetAt: currentGameResetAt(),
       participantCount,
+      ...senderMeta(),
     },
     { qos: 1 },
   );
@@ -7698,6 +7732,7 @@ function publishMqttGameRound(resetAt) {
       gameUpdatedAt,
       gameResetAt: resetAt,
       participantCount,
+      ...senderMeta(),
     },
     { qos: 1 },
   );
@@ -7720,17 +7755,19 @@ function publishMqttReset(resetAt) {
       appeal: { drink: false, price: false, submitted: false },
     });
   });
-  publishMqttJson(mqttTopic("reset"), { resetAt, participantCount });
+  publishMqttJson(mqttTopic("reset"), { resetAt, participantCount, ...senderMeta() });
   publishMqttJson(mqttTopic("roster"), {
     resetAt,
     profiles: {},
     gameUpdatedAt: resetAt,
     participantCount,
+    ...senderMeta(),
   });
   publishMqttJson(mqttTopic("game"), {
     game: emptyGame(),
     gameUpdatedAt: resetAt,
     participantCount,
+    ...senderMeta(),
   });
 }
 
@@ -7740,12 +7777,13 @@ function handleMqttMessage(topic, data) {
   }
 
   if (topic.endsWith("/hello")) {
-    const nextCount = Math.floor(Number(data.participantCount));
-    if (nextCount >= MIN_PARTICIPANTS && nextCount <= MAX_PARTICIPANTS) {
-      setParticipantCount(nextCount);
-    }
+    const countChanged = applyRemoteParticipantCount(data.participantCount, data);
     if (logoutUserIfReset()) {
       return;
+    }
+
+    if (countChanged && currentAccount) {
+      refreshVisible();
     }
 
     if (data.from && currentAccount && data.from === currentAccount.id) {
@@ -7764,6 +7802,8 @@ function handleMqttMessage(topic, data) {
       resetAt: Number(data.resetAt || 0),
       profiles: data.profiles || {},
       participantCount: data.participantCount,
+      from: data.from,
+      fromRole: data.fromRole,
     });
     if (logoutUserIfReset()) {
       return;
@@ -7784,6 +7824,8 @@ function handleMqttMessage(topic, data) {
         game: emptyGame(),
         gameUpdatedAt: resetAt,
         participantCount: data.participantCount,
+        from: data.from,
+        fromRole: data.fromRole,
       },
       { replaceCurrent: true },
     );
@@ -7951,6 +7993,8 @@ function handleMqttMessage(topic, data) {
       game: data.game || data,
       gameUpdatedAt: Number(data.gameUpdatedAt || 0),
       participantCount: data.participantCount,
+      from: data.from,
+      fromRole: data.fromRole,
     });
     if (logoutUserIfReset()) {
       return;
