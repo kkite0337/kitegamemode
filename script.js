@@ -1264,7 +1264,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=149`;
+  const src = `assets/gift-${frame}.png?v=150`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3791,15 +3791,16 @@ function renderWinnerRun(container) {
 function winnerTableMarkup() {
   ensureWinnerId();
   const winnerId = gameState.winnerId;
-  const rows = winnerPlayers()
+  const people = winnerPlayers().length ? winnerPlayers() : gamePlayers();
+  const rows = people
     .map((id) => {
       const name = winnerPersonName(id);
       const result = id === winnerId ? "당첨" : "꽝";
       return `
-        <tr>
-          <td>${escapeHtml(name)}</td>
-          <td>${escapeHtml(result)}</td>
-        </tr>
+        <div class="winner-board__row">
+          <span class="winner-board__name">${escapeHtml(name)}</span>
+          <span class="winner-board__mark${id === winnerId ? " is-win" : ""}">${escapeHtml(result)}</span>
+        </div>
       `;
     })
     .join("");
@@ -3809,18 +3810,12 @@ function winnerTableMarkup() {
       : "";
 
   return `
-    <div class="result-screen">
-      <div class="result-table-wrap">
-        <table class="result-table">
-          <thead>
-            <tr>
-              <th>이름</th>
-              <th>당첨</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+    <div class="winner-board">
+      <div class="winner-board__row winner-board__row--head">
+        <span>이름</span>
+        <span>당첨</span>
       </div>
+      ${rows}
       ${next}
     </div>
   `;

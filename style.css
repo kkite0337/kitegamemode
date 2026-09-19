@@ -2378,3 +2378,40 @@ body.is-admin .app {
   line-height: 1;
   pointer-events: none;
 }
+
+#adminPlay:has(.winner-board) {
+  justify-content: center;
+}
+
+.winner-board {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  width: min(360px, 100%);
+}
+
+.winner-board__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 8px;
+  border-bottom: 1px solid #ece6d8;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.winner-board__row--head {
+  color: #8a8174;
+  font-size: 13px;
+}
+
+.winner-board__mark.is-win {
+  color: #dc2626;
+}
+
+.winner-board .next-btn {
+  width: 100%;
+  margin-top: 28px;
+}
