@@ -4095,6 +4095,7 @@ function playIntroMarkup() {
 const PLAY_INTRO_CHAR_MS = 110;
 const PLAY_INTRO_HOLD_MS = 1500;
 const PLAY_INTRO_GAP_MS = 2000;
+const PLAY_MODE_TO_TEAM_MS = 3000;
 const PLAY_TEAM_LINE_GAP_MS = 350;
 const PLAY_TEAM_COLORS = [
   { label: "GREEN", hex: "#16a34a" },
@@ -4128,7 +4129,7 @@ function playIntroPlan() {
   const clearAt = line2At + line2Ms + PLAY_INTRO_HOLD_MS;
   const line1AgainAt = clearAt + PLAY_INTRO_GAP_MS;
   const line3At = line1AgainAt + line1Ms + PLAY_INTRO_HOLD_MS;
-  const readyAt = line3At + line3Ms + PLAY_INTRO_HOLD_MS;
+  const readyAt = line3At + line3Ms + PLAY_MODE_TO_TEAM_MS;
   return { line1, line2, line3, line2At, clearAt, line1AgainAt, line3At, readyAt };
 }
 
