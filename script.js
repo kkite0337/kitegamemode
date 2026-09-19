@@ -2110,24 +2110,26 @@ function resetPlayUi() {
   stopMenuReveal();
   cancelMenuSpin();
   stopWinnerTalk();
-  if (userPlay) {
-    userPlay.dataset.fanfare = "";
-    userPlay.dataset.priceTalk = "";
-    userPlay.dataset.drinkTalk = "";
-    delete userPlay.dataset.menuReveal;
-    delete userPlay.dataset.menuSpin;
-    delete userPlay.dataset.winnerRun;
-    delete userPlay.dataset.winnerReveal;
-  }
-  if (adminPlay) {
-    adminPlay.dataset.fanfare = "";
-    adminPlay.dataset.priceTalk = "";
-    adminPlay.dataset.drinkTalk = "";
-    delete adminPlay.dataset.menuReveal;
-    delete adminPlay.dataset.menuSpin;
-    delete adminPlay.dataset.winnerRun;
-    delete adminPlay.dataset.winnerReveal;
-  }
+  stopPlayTenTick();
+  [userPlay, adminPlay].forEach((container) => {
+    if (!container) {
+      return;
+    }
+
+    clearTimeout(container._playIntroTimer);
+    container.dataset.fanfare = "";
+    container.dataset.priceTalk = "";
+    container.dataset.drinkTalk = "";
+    delete container.dataset.menuReveal;
+    delete container.dataset.menuSpin;
+    delete container.dataset.winnerRun;
+    delete container.dataset.winnerReveal;
+    delete container.dataset.winnerTable;
+    delete container.dataset.playIntro;
+    delete container.dataset.playReady;
+    delete container.dataset.playRun;
+    delete container.dataset.playTen;
+  });
 }
 
 function applyIncomingGameReset(incoming) {
@@ -6418,33 +6420,34 @@ function applyRemoteState(remote, options = {}) {
   }
 
   if (incoming.hasGame) {
-    const preferRemote = roundAdvanced || (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
-    const next = mergeGameState(gameState, incoming.game, preferRemote);
-    if (!roundAdvanced && isFillingDrinkForm() && currentAccount) {
-      next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
-      const nameInput = document.getElementById("drinkName");
-      const priceInput = document.getElementById("drinkPrice");
-      if (nameInput) {
-        next.drinks[currentAccount.id].name = nameInput.value;
-      }
-      if (priceInput) {
-        next.drinks[currentAccount.id].price = priceInput.value;
-      }
-      next.drinks[currentAccount.id].submitted = false;
-    }
-
-    if (gameSignature(next) !== lastGameSignature) {
-      gameState = sanitizeGameState(next, currentGameResetAt());
-      gameUpdatedAt = roundAdvanced
-        ? Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt())
-        : Math.max(gameUpdatedAt, incoming.gameUpdatedAt || 0);
-      persistGameLocal();
-      changed = true;
-    } else if (roundAdvanced) {
-      gameState = sanitizeGameState(next, currentGameResetAt());
+    if (roundAdvanced) {
+      resetPlayUi();
+      gameState = sanitizeGameState(incoming.game, currentGameResetAt());
       gameUpdatedAt = Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt());
       persistGameLocal();
       changed = true;
+    } else {
+      const preferRemote = (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
+      const next = mergeGameState(gameState, incoming.game, preferRemote);
+      if (isFillingDrinkForm() && currentAccount) {
+        next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
+        const nameInput = document.getElementById("drinkName");
+        const priceInput = document.getElementById("drinkPrice");
+        if (nameInput) {
+          next.drinks[currentAccount.id].name = nameInput.value;
+        }
+        if (priceInput) {
+          next.drinks[currentAccount.id].price = priceInput.value;
+        }
+        next.drinks[currentAccount.id].submitted = false;
+      }
+
+      if (gameSignature(next) !== lastGameSignature) {
+        gameState = sanitizeGameState(next, currentGameResetAt());
+        gameUpdatedAt = Math.max(gameUpdatedAt, incoming.gameUpdatedAt || 0);
+        persistGameLocal();
+        changed = true;
+      }
     }
   }
 
@@ -7085,6 +7088,12 @@ function publishMqttGameRound(resetAt) {
       playerId: "",
     });
   }
+  publishMqttJson(mqttTopic("game"), {
+    game: JSON.parse(JSON.stringify(gameState)),
+    gameUpdatedAt,
+    gameResetAt: resetAt,
+    participantCount,
+  });
 }
 
 function publishMqttReset(resetAt) {
