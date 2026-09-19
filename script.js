@@ -4095,6 +4095,7 @@ function playIntroMarkup() {
 const PLAY_INTRO_CHAR_MS = 110;
 const PLAY_INTRO_HOLD_MS = 1500;
 const PLAY_INTRO_GAP_MS = 2000;
+const PLAY_TEAM_LINE_GAP_MS = 350;
 const PLAY_TEAM_COLORS = [
   { label: "GREEN", hex: "#16a34a" },
   { label: "BLUE", hex: "#2563eb" },
@@ -4163,6 +4164,47 @@ function nextPlayIntroAt(elapsed, plan) {
   return 0;
 }
 
+function playTeamAnnounceLines() {
+  const rows = sanitizePlayTeams(gameState.playTeams).map((pair, index) => {
+    const color = playTeamColor(index);
+    const names = pair.map((id) => winnerPersonName(id) || id).join(" - ");
+    return { text: `${color.label}팀: ${names}`, color: color.hex, kind: "row" };
+  });
+  return [{ text: "각 팀은", color: "", kind: "lead" }, ...rows, { text: "입니다.", color: "", kind: "lead" }];
+}
+
+function playTeamAnnouncePlan() {
+  const lines = playTeamAnnounceLines();
+  const starts = [];
+  let at = playIntroPlan().readyAt;
+  lines.forEach((line, index) => {
+    starts.push(at);
+    at += playIntroChars(line.text).length * PLAY_INTRO_CHAR_MS;
+    if (index < lines.length - 1) {
+      at += PLAY_TEAM_LINE_GAP_MS;
+    }
+  });
+  return { lines, starts, buttonAt: at };
+}
+
+function nextPlayTeamAt(elapsed, plan) {
+  for (let index = 0; index < plan.lines.length; index += 1) {
+    const start = plan.starts[index];
+    const duration = playIntroChars(plan.lines[index].text).length * PLAY_INTRO_CHAR_MS;
+    const local = elapsed - start;
+    if (local >= 0 && local < duration) {
+      return start + (Math.floor(local / PLAY_INTRO_CHAR_MS) + 1) * PLAY_INTRO_CHAR_MS;
+    }
+    if (elapsed < start) {
+      return start;
+    }
+  }
+  if (elapsed < plan.buttonAt) {
+    return plan.buttonAt;
+  }
+  return 0;
+}
+
 function playTeamColor(index) {
   return PLAY_TEAM_COLORS[index % PLAY_TEAM_COLORS.length];
 }
@@ -4176,22 +4218,54 @@ function playReadyStartMarkup() {
 }
 
 function playTeamReadyMarkup() {
-  const rows = sanitizePlayTeams(gameState.playTeams)
-    .map((pair, index) => {
-      const color = playTeamColor(index);
-      const names = pair.map((id) => escapeHtml(winnerPersonName(id) || id)).join(" - ");
-      return `<p class="play-teams-board__row" style="color:${color.hex}">${color.label}팀: ${names}</p>`;
+  const lines = playTeamAnnounceLines()
+    .map((line, index) => {
+      if (line.kind === "row") {
+        return `<p class="play-teams-board__row" data-play-team-line="${index}" style="color:${line.color}"></p>`;
+      }
+
+      return `<p class="play-intro__line" data-play-team-line="${index}"></p>`;
     })
     .join("");
 
   return `
     <div class="play-intro play-ready">
-      <p class="play-intro__line">각 팀은</p>
-      <div class="play-teams-board">${rows}</div>
-      <p class="play-intro__line">입니다.</p>
-      ${playReadyStartMarkup()}
+      ${lines}
+      <div data-play-ready-start></div>
     </div>
   `;
+}
+
+function syncPlayTeamReady(container) {
+  const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
+  const plan = playTeamAnnouncePlan();
+  container.querySelectorAll("[data-play-team-line]").forEach((el) => {
+    const index = Number(el.dataset.playTeamLine);
+    const line = plan.lines[index];
+    const start = plan.starts[index];
+    if (!line) {
+      return;
+    }
+
+    el.textContent = elapsed < start ? "" : playIntroTyped(line.text, elapsed - start);
+  });
+
+  const startWrap = container.querySelector("[data-play-ready-start]");
+  if (startWrap) {
+    if (elapsed >= plan.buttonAt && currentAccount?.role === "admin") {
+      if (!startWrap.querySelector("[data-action='play-go']")) {
+        startWrap.innerHTML = playReadyStartMarkup();
+      }
+    } else {
+      startWrap.innerHTML = "";
+    }
+  }
+
+  const nextAt = nextPlayTeamAt(elapsed, plan);
+  clearTimeout(container._playIntroTimer);
+  if (nextAt) {
+    container._playIntroTimer = setTimeout(() => renderPlayLaunch(container), Math.max(16, nextAt - elapsed));
+  }
 }
 
 function playSoloReadyMarkup() {
@@ -4219,11 +4293,12 @@ function renderPlayLaunch(container) {
   clearTimeout(container._playIntroTimer);
   const roleKey = currentAccount?.role === "admin" ? "admin" : "user";
   if (gameState.playMode === "team") {
-    const key = `team|${roleKey}|${JSON.stringify(sanitizePlayTeams(gameState.playTeams))}`;
+    const key = `team|${roleKey}|${JSON.stringify(sanitizePlayTeams(gameState.playTeams))}|${Number(gameState.playIntroAt || 0)}`;
     if (container.dataset.playReady !== key) {
       container.dataset.playReady = key;
       container.innerHTML = playTeamReadyMarkup();
     }
+    syncPlayTeamReady(container);
     return;
   }
 
