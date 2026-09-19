@@ -1411,7 +1411,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=163`;
+  const src = `assets/gift-${frame}.png?v=164`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -4636,9 +4636,14 @@ function beginPlayerPick(gameId) {
 
   const resetAt = bumpGameRound();
   gameState = emptyGame();
-  gameState.pendingGame = pending;
-  gameState.phase = "pick";
   gameState.players = participantIds().filter((id) => profiles[id]?.submitted);
+  if (pending === "game3") {
+    gameState.game = "game3";
+    gameState.phase = "play";
+  } else {
+    gameState.pendingGame = pending;
+    gameState.phase = "pick";
+  }
   resetPlayUi();
   saveGame({ immediate: true });
   publishMqttGameRound(resetAt);
