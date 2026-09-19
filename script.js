@@ -5413,7 +5413,44 @@ function beginPlayerPick(gameId) {
   refreshVisible();
 }
 
+function isGameInProgress() {
+  return Boolean(gameState.game) && gameState.phase !== "idle";
+}
+
+function showGameResetConfirm() {
+  const layer = document.getElementById("gameResetLayer");
+  if (!layer) {
+    if (window.confirm("게임을 초기화하겠습니까?")) {
+      goToMainMenu();
+    }
+    return;
+  }
+
+  layer.hidden = false;
+}
+
+function hideGameResetConfirm() {
+  const layer = document.getElementById("gameResetLayer");
+  if (layer) {
+    layer.hidden = true;
+  }
+}
+
+function requestGoToMainMenu() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
+  if (!isGameInProgress()) {
+    goToMainMenu();
+    return;
+  }
+
+  showGameResetConfirm();
+}
+
 function goToMainMenu() {
+  hideGameResetConfirm();
   const resetAt = bumpGameRound();
   gameState = emptyGame();
   resetPlayUi();
@@ -5761,8 +5798,18 @@ jokePage.addEventListener("click", (event) => {
 });
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
-adminToMain.addEventListener("click", () => goToMainMenu());
+adminToMain.addEventListener("click", () => requestGoToMainMenu());
 resetUsers.addEventListener("click", resetUserProfiles);
+document.getElementById("gameResetLayer")?.addEventListener("click", (event) => {
+  if (event.target.id === "gameResetLayer" || event.target.closest("[data-game-reset='no']")) {
+    hideGameResetConfirm();
+    return;
+  }
+
+  if (event.target.closest("[data-game-reset='yes']")) {
+    goToMainMenu();
+  }
+});
 document.getElementById("participantCountLayer")?.addEventListener("click", (event) => {
   if (event.target.id === "participantCountLayer") {
     hideParticipantCountPicker();
@@ -6093,7 +6140,7 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "go-main") {
-    goToMainMenu();
+    requestGoToMainMenu();
     return;
   }
 
@@ -7666,7 +7713,7 @@ window.addEventListener("message", (event) => {
   }
 
   if (event.data?.type === "stop-exit" && currentAccount?.role === "admin") {
-    goToMainMenu();
+    requestGoToMainMenu();
   }
 });
 

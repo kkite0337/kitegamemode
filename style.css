@@ -1029,6 +1029,10 @@ body.is-admin .app {
   width: 100%;
 }
 
+.confirm-card__choices--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .confirm-card__choices .btn-primary {
   margin: 0;
   padding: 12px 0;
