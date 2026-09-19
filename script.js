@@ -452,6 +452,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
     : [];
   next.winnerBoxes = sanitizeWinnerBoxes(next.winnerBoxes);
   next.winnerPicks = sanitizeWinnerPicks(next.winnerPicks, next.winnerBoxes);
+  next.winnerId = next.winnerPlayers.includes(next.winnerId) ? next.winnerId : "";
   next.appeals = sanitizeAppeals(next.appeals);
   next.appealClosed = Boolean(next.appealClosed);
   next.revoteKind = next.revoteKind === "drink" || next.revoteKind === "price" || next.revoteKind === "full" ? next.revoteKind : "";
@@ -600,6 +601,7 @@ function mergeGameState(local, remote, preferRemote = false) {
           : secondary.winnerBoxes || []
         : [],
       winnerPicks: keepMini ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks) : {},
+      winnerId: keepMini ? primary.winnerId || secondary.winnerId || "" : "",
     },
     currentGameResetAt(),
   );
@@ -678,6 +680,7 @@ function emptyGame() {
     winnerPlayers: [],
     winnerBoxes: [],
     winnerPicks: {},
+    winnerId: "",
   };
 }
 
@@ -746,6 +749,48 @@ function currentWinnerPick() {
   }
 
   return Object.entries(gameState.winnerPicks || {}).find(([, playerId]) => playerId === currentAccount.id)?.[0] || "";
+}
+
+function winnerPersonName(id) {
+  return (profiles[id]?.name || "").trim() || id || "";
+}
+
+function hashWinnerKey(key) {
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function rollWinnerId() {
+  const players = winnerPlayers();
+  if (!players.length) {
+    return "";
+  }
+
+  const key = [
+    ...players.slice().sort(),
+    ...Object.entries(gameState.winnerPicks || {})
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([boxId, playerId]) => `${boxId}:${playerId}`),
+  ].join("|");
+  return players[hashWinnerKey(key) % players.length];
+}
+
+function ensureWinnerId() {
+  const next = winnerPlayers().includes(gameState.winnerId) ? gameState.winnerId : rollWinnerId();
+  if (!next) {
+    return "";
+  }
+
+  if (gameState.winnerId !== next) {
+    gameState.winnerId = next;
+    saveGame({ immediate: true });
+  }
+
+  return next;
 }
 
 function playerAccounts() {
@@ -872,6 +917,7 @@ function loadGame() {
       winnerPlayers: Array.isArray(parsed.winnerPlayers) ? parsed.winnerPlayers : [],
       winnerBoxes: parsed.winnerBoxes,
       winnerPicks: parsed.winnerPicks,
+      winnerId: parsed.winnerId || "",
     });
   } catch {
     return emptyGame();
@@ -1064,6 +1110,7 @@ function gameSignature(state) {
     winnerPlayers: state.winnerPlayers || [],
     winnerBoxes: state.winnerBoxes || [],
     winnerPicks: state.winnerPicks || {},
+    winnerId: state.winnerId || "",
   });
 }
 
@@ -1215,7 +1262,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=146`;
+  const src = `assets/gift-${frame}.png?v=147`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -1762,6 +1809,7 @@ function resetPlayUi() {
     delete userPlay.dataset.menuReveal;
     delete userPlay.dataset.menuSpin;
     delete userPlay.dataset.winnerRun;
+    delete userPlay.dataset.winnerReveal;
   }
   if (adminPlay) {
     adminPlay.dataset.fanfare = "";
@@ -1770,6 +1818,7 @@ function resetPlayUi() {
     delete adminPlay.dataset.menuReveal;
     delete adminPlay.dataset.menuSpin;
     delete adminPlay.dataset.winnerRun;
+    delete adminPlay.dataset.winnerReveal;
   }
 }
 
@@ -3501,6 +3550,12 @@ function winnerStageMarkup() {
       </div>
       <p class="winner-count" data-winner-count hidden></p>
       <p class="winner-line" data-winner-reveal hidden></p>
+      <div class="winner-result" data-winner-result hidden>
+        <p class="winner-line" data-winner-lead></p>
+        <p class="winner-line" data-winner-congrats></p>
+        <p class="winner-line" data-winner-person></p>
+        <p class="winner-line" data-winner-win></p>
+      </div>
       <div class="winner-boxes" data-winner-boxes hidden>${winnerBoxesMarkup()}</div>
     </div>
   `;
@@ -3518,11 +3573,33 @@ function syncWinnerBoxes(container) {
 }
 
 function showWinnerReveal(container) {
+  runWinnerReveal(container);
+}
+
+async function runWinnerReveal(container) {
+  if (container.dataset.winnerReveal === "running" || container.dataset.winnerReveal === "done") {
+    return;
+  }
+
   const talk = container.querySelector("[data-winner-talk]");
   const prompt = container.querySelector("[data-winner-prompt]");
   const count = container.querySelector("[data-winner-count]");
   const boxes = container.querySelector("[data-winner-boxes]");
   const reveal = container.querySelector("[data-winner-reveal]");
+  const result = container.querySelector("[data-winner-result]");
+  const lead = container.querySelector("[data-winner-lead]");
+  const congrats = container.querySelector("[data-winner-congrats]");
+  const person = container.querySelector("[data-winner-person]");
+  const win = container.querySelector("[data-winner-win]");
+  if (!reveal || !result || !lead || !congrats || !person || !win) {
+    return;
+  }
+
+  container.dataset.winnerReveal = "running";
+  const token = ++winnerTalkToken;
+  const winnerId = ensureWinnerId();
+  const winnerName = winnerPersonName(winnerId);
+
   if (talk) {
     talk.hidden = true;
     talk.textContent = "";
@@ -3537,11 +3614,61 @@ function showWinnerReveal(container) {
   if (boxes) {
     boxes.hidden = true;
   }
-  if (reveal && !reveal.dataset.done) {
-    reveal.hidden = false;
-    reveal.dataset.done = "1";
-    typeChunks(reveal, [{ text: "자. 이제 공개하겠습니다.", cls: "" }], ++winnerTalkToken, () => winnerTalkToken);
+
+  reveal.hidden = false;
+  reveal.textContent = "";
+  const openDone = await typeChunks(
+    reveal,
+    [{ text: "자. 이제 공개하겠습니다.", cls: "" }],
+    token,
+    () => winnerTalkToken,
+  );
+  if (!openDone) {
+    return;
   }
+
+  await delay(1500);
+  if (token !== winnerTalkToken) {
+    return;
+  }
+
+  reveal.hidden = true;
+  reveal.textContent = "";
+  result.hidden = false;
+
+  const leadDone = await typeChunks(lead, [{ text: "결과는?", cls: "" }], token, () => winnerTalkToken);
+  if (!leadDone) {
+    return;
+  }
+
+  await delay(1500);
+  if (token !== winnerTalkToken) {
+    return;
+  }
+
+  const congratsDone = await typeChunks(congrats, [{ text: "축하합니다.", cls: "" }], token, () => winnerTalkToken);
+  if (!congratsDone) {
+    return;
+  }
+  const personDone = await typeChunks(
+    person,
+    [{ text: `${winnerName}님,`, cls: "drink-accent" }],
+    token,
+    () => winnerTalkToken,
+  );
+  if (!personDone) {
+    return;
+  }
+  const winDone = await typeChunks(win, [{ text: "당첨입니다!", cls: "" }], token, () => winnerTalkToken);
+  if (!winDone) {
+    return;
+  }
+
+  if (currentAccount?.id === winnerId && !container.querySelector(".menu-confetti")) {
+    container.insertAdjacentHTML("afterbegin", menuConfettiMarkup());
+  }
+
+  container.dataset.winnerReveal = "done";
 }
 
 async function popWinnerCount(line, text, token) {
@@ -3652,6 +3779,7 @@ function clearWinnerRun(container) {
 
   stopWinnerTalk();
   delete container.dataset.winnerRun;
+  delete container.dataset.winnerReveal;
 }
 
 function renderMiniGame(container) {
@@ -3688,6 +3816,7 @@ function beginImmediateWinner() {
   gameState.winnerPlayers = participantIds().filter((id) => profiles[id]?.submitted);
   gameState.winnerBoxes = [];
   gameState.winnerPicks = {};
+  gameState.winnerId = "";
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -3713,6 +3842,7 @@ function confirmWinnerPlayerPick() {
     color: WINNER_BOX_COLORS[index % WINNER_BOX_COLORS.length],
   }));
   gameState.winnerPicks = {};
+  gameState.winnerId = "";
   gameState.phase = "winner-run";
   saveGame({ immediate: true });
   refreshVisible();

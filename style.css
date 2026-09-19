@@ -2308,11 +2308,15 @@ body.is-admin .app {
   line-height: 1.6;
 }
 
-.winner-prompt {
+.winner-result {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+}
+
+.winner-result .winner-line {
+  min-height: 0;
 }
 
 .winner-count {
