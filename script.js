@@ -4170,6 +4170,10 @@ function playIntroMarkup() {
     <div class="play-intro">
       <p class="play-intro__line" data-play-intro-line1></p>
       <p class="play-intro__name" data-play-intro-line2 hidden></p>
+      <p class="play-intro__line" data-play-intro-mode="0" hidden></p>
+      <p class="play-intro__line" data-play-intro-mode="1" hidden></p>
+      <p class="play-intro__line" data-play-intro-mode="2" hidden></p>
+      <div data-play-ready-start></div>
     </div>
   `;
 }
@@ -4203,24 +4207,31 @@ function playIntroTyped(text, elapsed) {
 function playIntroPlan() {
   const line1 = "이번 게임은";
   const line2 = `${sanitizePlayWheelValue(gameState.playWheelValue)}입니다.`;
-  const line3 = `${playModePhrase()}입니다.`;
+  const modeLines = ["게임은", `${playModePhrase()}으로`, "진행됩니다."];
   const line1Ms = playIntroChars(line1).length * PLAY_INTRO_CHAR_MS;
   const line2Ms = playIntroChars(line2).length * PLAY_INTRO_CHAR_MS;
-  const line3Ms = playIntroChars(line3).length * PLAY_INTRO_CHAR_MS;
   const line2At = line1Ms + PLAY_INTRO_HOLD_MS;
   const clearAt = line2At + line2Ms + PLAY_INTRO_HOLD_MS;
-  const line1AgainAt = clearAt + PLAY_INTRO_GAP_MS;
-  const line3At = line1AgainAt + line1Ms + PLAY_INTRO_HOLD_MS;
-  const readyAt = line3At + line3Ms + PLAY_MODE_TO_TEAM_MS;
-  return { line1, line2, line3, line2At, clearAt, line1AgainAt, line3At, readyAt };
+  const modeAt = clearAt + PLAY_INTRO_GAP_MS;
+  const modeStarts = [];
+  let at = modeAt;
+  modeLines.forEach((text, index) => {
+    modeStarts.push(at);
+    at += playIntroChars(text).length * PLAY_INTRO_CHAR_MS;
+    if (index < modeLines.length - 1) {
+      at += PLAY_TEAM_LINE_GAP_MS;
+    }
+  });
+  const modeDoneAt = at;
+  const readyAt = gameState.playMode === "team" ? modeDoneAt + PLAY_MODE_TO_TEAM_MS : modeDoneAt;
+  return { line1, line2, modeLines, line2At, clearAt, modeAt, modeStarts, modeDoneAt, readyAt };
 }
 
 function nextPlayIntroAt(elapsed, plan) {
   const phases = [
     { start: 0, text: plan.line1 },
     { start: plan.line2At, text: plan.line2 },
-    { start: plan.line1AgainAt, text: plan.line1 },
-    { start: plan.line3At, text: plan.line3 },
+    ...plan.modeLines.map((text, index) => ({ start: plan.modeStarts[index], text })),
   ];
   for (const phase of phases) {
     const local = elapsed - phase.start;
@@ -4235,11 +4246,16 @@ function nextPlayIntroAt(elapsed, plan) {
   if (elapsed < plan.clearAt) {
     return plan.clearAt;
   }
-  if (elapsed < plan.line1AgainAt) {
-    return plan.line1AgainAt;
+  if (elapsed < plan.modeAt) {
+    return plan.modeAt;
   }
-  if (elapsed < plan.line3At) {
-    return plan.line3At;
+  for (const start of plan.modeStarts) {
+    if (elapsed < start) {
+      return start;
+    }
+  }
+  if (elapsed < plan.modeDoneAt) {
+    return plan.modeDoneAt;
   }
   if (elapsed < plan.readyAt) {
     return plan.readyAt;
@@ -4351,15 +4367,6 @@ function syncPlayTeamReady(container) {
   }
 }
 
-function playSoloReadyMarkup() {
-  return `
-    <div class="play-intro play-ready">
-      <p class="play-intro__line">개인입니다.</p>
-      ${playReadyStartMarkup()}
-    </div>
-  `;
-}
-
 function playIntroElapsed() {
   const startedAt = Number(gameState.playIntroAt || 0);
   if (startedAt <= 0) {
@@ -4375,16 +4382,10 @@ function renderPlayLaunch(container) {
   }
 
   const elapsed = playIntroElapsed();
-  if (elapsed < playIntroPlan().readyAt) {
-    delete container.dataset.playReady;
-    renderPlayIntro(container);
-    return;
-  }
-
-  delete container.dataset.playIntro;
-  clearTimeout(container._playIntroTimer);
-  const roleKey = currentAccount?.role === "admin" ? "admin" : "user";
-  if (gameState.playMode === "team") {
+  if (gameState.playMode === "team" && elapsed >= playIntroPlan().readyAt) {
+    delete container.dataset.playIntro;
+    clearTimeout(container._playIntroTimer);
+    const roleKey = currentAccount?.role === "admin" ? "admin" : "user";
     const key = `team|${roleKey}|${JSON.stringify(sanitizePlayTeams(gameState.playTeams))}|${Number(gameState.playIntroAt || 0)}`;
     if (container.dataset.playReady !== key) {
       container.dataset.playReady = key;
@@ -4394,11 +4395,8 @@ function renderPlayLaunch(container) {
     return;
   }
 
-  const key = `solo|${roleKey}`;
-  if (container.dataset.playReady !== key) {
-    container.dataset.playReady = key;
-    container.innerHTML = playSoloReadyMarkup();
-  }
+  delete container.dataset.playReady;
+  renderPlayIntro(container);
 }
 
 function renderPlayGo(container) {
@@ -4416,30 +4414,63 @@ function renderPlayGo(container) {
 function syncPlayIntro(container) {
   const line1 = container.querySelector("[data-play-intro-line1]");
   const line2 = container.querySelector("[data-play-intro-line2]");
-  if (!line1 || !line2) {
+  const modeLines = [...container.querySelectorAll("[data-play-intro-mode]")];
+  const startWrap = container.querySelector("[data-play-ready-start]");
+  if (!line1 || !line2 || modeLines.length < 3) {
     return;
   }
 
   const elapsed = playIntroElapsed();
   const plan = playIntroPlan();
+  const inMode = elapsed >= plan.modeAt;
 
-  if (elapsed < plan.clearAt) {
-    line1.textContent = playIntroTyped(plan.line1, elapsed);
-  } else if (elapsed < plan.line1AgainAt) {
-    line1.textContent = "";
+  if (!inMode) {
+    if (elapsed < plan.clearAt) {
+      line1.hidden = false;
+      line1.textContent = playIntroTyped(plan.line1, elapsed);
+    } else {
+      line1.textContent = "";
+    }
+
+    if (elapsed < plan.line2At || elapsed >= plan.clearAt) {
+      line2.hidden = true;
+      line2.textContent = "";
+    } else {
+      line2.hidden = false;
+      line2.textContent = playIntroTyped(plan.line2, elapsed - plan.line2At);
+    }
+
+    modeLines.forEach((el) => {
+      el.hidden = true;
+      el.textContent = "";
+    });
   } else {
-    line1.textContent = playIntroTyped(plan.line1, elapsed - plan.line1AgainAt);
-  }
-
-  if (elapsed < plan.line2At || (elapsed >= plan.clearAt && elapsed < plan.line3At)) {
+    line1.hidden = true;
+    line1.textContent = "";
     line2.hidden = true;
     line2.textContent = "";
-  } else if (elapsed < plan.clearAt) {
-    line2.hidden = false;
-    line2.textContent = playIntroTyped(plan.line2, elapsed - plan.line2At);
-  } else {
-    line2.hidden = false;
-    line2.textContent = playIntroTyped(plan.line3, elapsed - plan.line3At);
+    modeLines.forEach((el, index) => {
+      const start = plan.modeStarts[index];
+      const text = plan.modeLines[index] || "";
+      if (elapsed < start) {
+        el.hidden = true;
+        el.textContent = "";
+        return;
+      }
+
+      el.hidden = false;
+      el.textContent = playIntroTyped(text, elapsed - start);
+    });
+  }
+
+  if (startWrap) {
+    if (gameState.playMode !== "team" && elapsed >= plan.modeDoneAt && currentAccount?.role === "admin") {
+      if (!startWrap.querySelector("[data-action='play-go']")) {
+        startWrap.innerHTML = playReadyStartMarkup();
+      }
+    } else {
+      startWrap.innerHTML = "";
+    }
   }
 
   const nextAt = nextPlayIntroAt(elapsed, plan);
