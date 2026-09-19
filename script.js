@@ -491,6 +491,10 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.playIntroAt = Math.max(0, Number(next.playIntroAt || 0));
   next.playTenReadyAt = Math.max(0, Number(next.playTenReadyAt || 0));
   next.playTenStops = sanitizePlayTenStops(next.playTenStops);
+  next.playMode = next.playMode === "team" || next.playMode === "solo" ? next.playMode : "";
+  next.playModeReady = Boolean(next.playModeReady) && Boolean(next.playMode);
+  next.playTeams = sanitizePlayTeams(next.playTeams);
+  next.playRepeatId = participantIds().includes(next.playRepeatId) ? next.playRepeatId : "";
   next.winnerMode = next.winnerMode === "immediate" || next.winnerMode === "after" ? next.winnerMode : "";
   next.winnerPlayers = Array.isArray(next.winnerPlayers)
     ? next.winnerPlayers.filter((id) => participantIds().includes(id))
@@ -678,6 +682,15 @@ function mergeGameState(local, remote, preferRemote = false) {
           : Math.max(Number(primary.playTenReadyAt || 0), Number(secondary.playTenReadyAt || 0)),
       playTenStops:
         keepWinner || phase !== "play" ? {} : mergePlayTenStops(local.playTenStops, remote.playTenStops),
+      playMode: keepWinner || phase !== "play" ? "" : primary.playMode === "team" || primary.playMode === "solo" ? primary.playMode : "",
+      playModeReady: keepWinner || phase !== "play" ? false : Boolean(primary.playModeReady),
+      playTeams: keepWinner || phase !== "play" ? [] : sanitizePlayTeams(primary.playTeams?.length ? primary.playTeams : secondary.playTeams),
+      playRepeatId:
+        keepWinner || phase !== "play"
+          ? ""
+          : participantIds().includes(primary.playRepeatId)
+            ? primary.playRepeatId
+            : secondary.playRepeatId || "",
       ...(keepWinner
         ? pickWinnerSlice(local, remote)
         : {
@@ -769,6 +782,10 @@ function emptyGame() {
     playIntroAt: 0,
     playTenReadyAt: 0,
     playTenStops: {},
+    playMode: "",
+    playModeReady: false,
+    playTeams: [],
+    playRepeatId: "",
     winnerMode: "",
     winnerPlayers: [],
     winnerBoxes: [],
@@ -1113,6 +1130,10 @@ function loadGame() {
       playIntroAt: Number(parsed.playIntroAt || 0),
       playTenReadyAt: Number(parsed.playTenReadyAt || 0),
       playTenStops: parsed.playTenStops || {},
+      playMode: parsed.playMode || "",
+      playModeReady: Boolean(parsed.playModeReady),
+      playTeams: parsed.playTeams || [],
+      playRepeatId: parsed.playRepeatId || "",
       winnerMode: parsed.winnerMode || "",
       winnerPlayers: Array.isArray(parsed.winnerPlayers) ? parsed.winnerPlayers : [],
       winnerBoxes: parsed.winnerBoxes,
@@ -1337,6 +1358,10 @@ function gameSignature(state) {
     playIntroAt: Number(state.playIntroAt || 0),
     playTenReadyAt: Number(state.playTenReadyAt || 0),
     playTenStops: state.playTenStops || {},
+    playMode: state.playMode || "",
+    playModeReady: Boolean(state.playModeReady),
+    playTeams: state.playTeams || [],
+    playRepeatId: state.playRepeatId || "",
     winnerMode: state.winnerMode || "",
     winnerPlayers: state.winnerPlayers || [],
     winnerBoxes: state.winnerBoxes || [],
@@ -1495,7 +1520,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=170`;
+  const src = `assets/gift-${frame}.png?v=171`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3795,6 +3820,76 @@ function sanitizePlayWheelValue(value) {
   return values.includes(next) ? next : values[0];
 }
 
+function sanitizePlayTeams(teams) {
+  if (!Array.isArray(teams)) {
+    return [];
+  }
+
+  const allowed = new Set(participantIds());
+  return teams
+    .map((pair) => (Array.isArray(pair) ? pair.map((id) => String(id)).filter((id) => allowed.has(id)) : []))
+    .filter((pair) => pair.length === 2);
+}
+
+function playSeatIds() {
+  const seated = participantIds().filter((id) => profiles[id]?.submitted);
+  return seated.length ? seated : participantIds();
+}
+
+function shufflePlayIds(ids) {
+  const next = ids.slice();
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [next[index], next[swap]] = [next[swap], next[index]];
+  }
+  return next;
+}
+
+function assignPlayTeams() {
+  const shuffled = shufflePlayIds(playSeatIds());
+  if (shuffled.length < 2) {
+    return { teams: [], repeatId: shuffled[0] || "" };
+  }
+
+  if (shuffled.length % 2 === 0) {
+    const teams = [];
+    for (let index = 0; index < shuffled.length; index += 2) {
+      teams.push([shuffled[index], shuffled[index + 1]]);
+    }
+    return { teams, repeatId: "" };
+  }
+
+  const leftover = shuffled[shuffled.length - 1];
+  const rest = shuffled.slice(0, -1);
+  const teams = [];
+  for (let index = 0; index < rest.length; index += 2) {
+    teams.push([rest[index], rest[index + 1]]);
+  }
+  const partner = rest[Math.floor(Math.random() * rest.length)];
+  teams.push([leftover, partner]);
+  return { teams, repeatId: partner };
+}
+
+function playTeamRowsMarkup() {
+  if (gameState.playMode !== "team" || !gameState.playModeReady) {
+    return "";
+  }
+
+  const rows = sanitizePlayTeams(gameState.playTeams)
+    .map((pair, index) => {
+      const names = pair
+        .map((id) => {
+          const label = winnerPersonName(id) || id;
+          return id === gameState.playRepeatId ? `${label} (두 번)` : label;
+        })
+        .join(" · ");
+      return `<p class="play-teams__row">${index + 1}팀 ${escapeHtml(names)}</p>`;
+    })
+    .join("");
+
+  return rows ? `<div class="play-teams">${rows}</div>` : "";
+}
+
 function playRunMarkup() {
   const selected = sanitizePlayWheelValue(gameState.playWheelValue);
   const items = playWheelValues()
@@ -3810,6 +3905,18 @@ function playRunMarkup() {
   return `
     <div class="play-run">
       <button class="btn-primary" type="button" data-play-random>랜덤</button>
+      <div class="play-mode">
+        <label class="play-mode__item">
+          <input type="checkbox" data-play-mode="team" ${gameState.playMode === "team" ? "checked" : ""}>
+          <span>팀</span>
+        </label>
+        <label class="play-mode__item">
+          <input type="checkbox" data-play-mode="solo" ${gameState.playMode === "solo" ? "checked" : ""}>
+          <span>개인</span>
+        </label>
+        <button class="btn-primary play-mode__confirm" type="button" data-action="play-mode-confirm">확인</button>
+      </div>
+      ${playTeamRowsMarkup()}
       <div class="play-wheel">
         <div class="play-wheel__window" aria-hidden="true"></div>
         <div class="play-wheel__list" data-play-wheel>
@@ -3879,7 +3986,13 @@ function bindPlayWheel(container) {
 }
 
 function renderPlayRun(container) {
-  const key = playWheelValues().join(",");
+  const key = [
+    playWheelValues().join(","),
+    gameState.playMode || "",
+    gameState.playModeReady ? "1" : "0",
+    JSON.stringify(gameState.playTeams || []),
+    gameState.playRepeatId || "",
+  ].join("|");
   if (container.dataset.playRun === key) {
     syncPlayWheel(container);
     return;
@@ -3962,8 +4075,35 @@ function renderPlayIntro(container) {
   }, remain);
 }
 
+function confirmPlayMode() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3" || gameState.miniMenu !== "game-count") {
+    return;
+  }
+
+  if (gameState.playMode !== "team" && gameState.playMode !== "solo") {
+    return;
+  }
+
+  if (gameState.playMode === "team") {
+    const assigned = assignPlayTeams();
+    gameState.playTeams = assigned.teams;
+    gameState.playRepeatId = assigned.repeatId;
+  } else {
+    gameState.playTeams = [];
+    gameState.playRepeatId = "";
+  }
+
+  gameState.playModeReady = true;
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
 function beginPlayStart() {
   if (currentAccount?.role !== "admin" || gameState.game !== "game3" || gameState.miniMenu !== "game-count") {
+    return;
+  }
+
+  if (!gameState.playModeReady) {
     return;
   }
 
@@ -4125,6 +4265,10 @@ function beginPlayRun() {
   gameState.playIntroAt = 0;
   gameState.playTenReadyAt = 0;
   gameState.playTenStops = {};
+  gameState.playMode = "";
+  gameState.playModeReady = false;
+  gameState.playTeams = [];
+  gameState.playRepeatId = "";
   gameState.playWheelValue = playWheelValues()[0];
   saveGame({ immediate: true });
   refreshVisible();
@@ -4468,6 +4612,10 @@ function goToMiniGameMain() {
   gameState.playIntroAt = 0;
   gameState.playTenReadyAt = 0;
   gameState.playTenStops = {};
+  gameState.playMode = "";
+  gameState.playModeReady = false;
+  gameState.playTeams = [];
+  gameState.playRepeatId = "";
   gameState.winnerMode = "";
   gameState.winnerPlayers = [];
   gameState.winnerBoxes = [];
@@ -5432,6 +5580,11 @@ function handlePlayClick(event) {
     return;
   }
 
+  if (button.dataset.action === "play-mode-confirm") {
+    confirmPlayMode();
+    return;
+  }
+
   if (button.dataset.action === "play-start") {
     beginPlayStart();
     return;
@@ -5725,6 +5878,21 @@ userPlay.addEventListener("input", saveDrinkDraft);
 adminPlay.addEventListener("input", saveDrinkDraft);
 userPlay.addEventListener("change", saveMenuDraft);
 adminPlay.addEventListener("change", saveMenuDraft);
+adminPlay.addEventListener("change", (event) => {
+  const input = event.target.closest("input[data-play-mode]");
+  if (!input || currentAccount?.role !== "admin" || gameState.miniMenu !== "game-count") {
+    return;
+  }
+
+  const mode = input.dataset.playMode === "team" ? "team" : "solo";
+  const checked = input.checked;
+  gameState.playMode = checked ? mode : "";
+  gameState.playModeReady = false;
+  gameState.playTeams = [];
+  gameState.playRepeatId = "";
+  saveGame();
+  refreshVisible();
+});
 
 function syncEnabled() {
   return Boolean(

@@ -2485,6 +2485,48 @@ body.is-admin .app {
   margin-top: 0;
 }
 
+.play-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.play-mode__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.play-mode__item input {
+  width: 18px;
+  height: 18px;
+}
+
+.play-mode__confirm {
+  width: auto;
+  min-width: 72px;
+  padding: 10px 14px;
+}
+
+.play-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: center;
+}
+
+.play-teams__row {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .play-wheel {
   position: relative;
   width: 100%;
