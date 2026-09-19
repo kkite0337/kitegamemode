@@ -1077,11 +1077,12 @@ function findAccount(id, password) {
 
 const GIFT_LAYER_COUNT = 4;
 const JOKE_PUNCHLINE = "이민호 바보";
-const JOKE_NUDGE = {
-  1: "한번만 하면 정없으니까~",
-  2: "아 진짜 마지막^^",
-  3: "진짜 찐막",
-};
+const JOKE_NUDGE_LINES = [
+  "한번만 하면 정없으니까~",
+  "아 진짜 마지막^^",
+  "진짜 찐막",
+];
+let jokeNudgeShown = 0;
 const JOKE_GIFT_FRAMES = [4, 3, 2, 1];
 const JOKE_SUSPENSE = {
   1: "과연?!?",
@@ -1214,13 +1215,27 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=144`;
+  const src = `assets/gift-${frame}.png?v=145`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
 
   photo.hidden = false;
   fly.classList.add("has-photo");
+}
+
+function setJokeNudgeLine(line) {
+  const nudge = document.getElementById("jokeNudge");
+  if (nudge) {
+    nudge.textContent = line;
+  }
+}
+
+function showNextJokeNudge() {
+  const line = JOKE_NUDGE_LINES[Math.min(jokeNudgeShown, JOKE_NUDGE_LINES.length - 1)];
+  jokeNudgeShown += 1;
+  setJokeNudgeLine(line);
+  jokePage.classList.add("is-nudge");
 }
 
 function resetJokeScene() {
@@ -1232,6 +1247,8 @@ function resetJokeScene() {
 
   clearJokeTimers();
   giftUnwrapBusy = false;
+  jokeNudgeShown = 0;
+  setJokeNudgeLine(JOKE_NUDGE_LINES[0]);
   jokePage.classList.remove("is-intro", "is-opening", "is-opened", "is-gift-ready", "is-unwrapped", "is-punchline", "is-suspense", "is-nudge");
 
   if (fly) {
@@ -1391,11 +1408,7 @@ function popNestedGift(layer) {
   }
 
   playJokeTada();
-  const nudge = document.getElementById("jokeNudge");
-  if (nudge) {
-    nudge.textContent = JOKE_NUDGE[layer] || JOKE_NUDGE[1];
-  }
-  jokePage.classList.add("is-nudge");
+  showNextJokeNudge();
   fly?.classList.remove("is-shaking");
   afterJoke(3000, () => {
     jokePage.classList.remove("is-nudge");
@@ -3462,7 +3475,7 @@ function stopWinnerTalk() {
 }
 
 function winnerBoxSrc(color) {
-  return `assets/winner-${color}.png?v=144`;
+  return `assets/winner-${color}.png?v=145`;
 }
 
 function winnerBoxesMarkup() {
