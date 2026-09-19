@@ -616,7 +616,14 @@ function mergePlayerIds(primary, secondary) {
   return next.length ? next : participantIds();
 }
 
+function isIdleGame(state) {
+  return !state?.game || state.phase === "idle";
+}
+
 function mergePlayStage(primary, secondary) {
+  if (isIdleGame(primary)) {
+    return "";
+  }
   if (primary?.playStage === "go" || primary?.playStage === "start") {
     return primary.playStage;
   }
@@ -627,6 +634,9 @@ function mergePlayStage(primary, secondary) {
 }
 
 function pickGamePhase(local, remote, primary) {
+  if (isIdleGame(local)) {
+    return local.phase || "idle";
+  }
   if (remote.playStage === "start" || remote.playStage === "go") {
     return "play";
   }
@@ -6076,11 +6086,20 @@ function requestGoToMainMenu() {
 function goToMainMenu() {
   hideGameResetConfirm();
   const resetAt = bumpGameRound();
+  stopPlayTenTick();
   gameState = emptyGame();
   resetPlayUi();
   adminView = "main";
+  lastLivePaintSig = "";
+  if (adminPlay) {
+    adminPlay.innerHTML = "";
+  }
+  if (userPlay) {
+    userPlay.innerHTML = "";
+  }
   saveGame({ immediate: true });
   publishMqttGameRound(resetAt);
+  publishMqttGame();
   refreshVisible();
 }
 
@@ -6431,6 +6450,8 @@ document.getElementById("gameResetLayer")?.addEventListener("click", (event) => 
   }
 
   if (event.target.closest("[data-game-reset='yes']")) {
+    event.preventDefault();
+    event.stopPropagation();
     goToMainMenu();
   }
 });
@@ -7060,11 +7081,14 @@ function applyRemoteState(remote, options = {}) {
       const incomingTs = incoming.gameUpdatedAt || 0;
       const incomingProg = playTenProgress(next);
       const localProg = playTenProgress(gameState);
+      const incomingIdle = isIdleGame(next);
       const takeIncoming =
         roundAdvanced ||
-        incomingTs > gameUpdatedAt ||
-        (!localIdle && incomingProg > localProg) ||
-        (incomingTs === gameUpdatedAt && incomingProg >= localProg && gameSignature(next) !== lastGameSignature);
+        incomingIdle ||
+        (!localIdle &&
+          (incomingTs > gameUpdatedAt ||
+            incomingProg > localProg ||
+            (incomingTs === gameUpdatedAt && incomingProg >= localProg && gameSignature(next) !== lastGameSignature)));
       if (takeIncoming && (roundAdvanced || gameSignature(next) !== lastGameSignature)) {
         if (roundAdvanced || incomingProg !== localProg) {
           resetPlayUi();
@@ -7330,7 +7354,7 @@ function handlePeerPayload(data, fromConn) {
     return;
   }
 
-  if (currentAccount && (result.changed || isSharedPlayTen(gameState))) {
+  if (currentAccount && (result.changed || (!isIdleGame(gameState) && isSharedPlayTen(gameState)))) {
     refreshVisible();
     return;
   }
@@ -8033,7 +8057,7 @@ function handleMqttMessage(topic, data) {
     if (logoutUserIfReset()) {
       return;
     }
-    if (currentAccount && (result.changed || isSharedPlayTen(gameState))) {
+    if (currentAccount && result.changed) {
       refreshVisible();
       return;
     }
