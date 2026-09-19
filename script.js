@@ -2227,6 +2227,15 @@ function resetPlayUi() {
   });
 }
 
+function incomingGameIsStale(incoming) {
+  const localReset = currentGameResetAt();
+  const incomingReset = Math.max(
+    Number(incoming?.gameResetAt || 0),
+    Number(incoming?.game?.gameResetAt || 0),
+  );
+  return localReset > 0 && incomingReset < localReset;
+}
+
 function applyIncomingGameReset(incoming) {
   const previous = Number(localStorage.getItem(GAME_RESET_KEY) || 0);
   const incomingReset = Math.max(
@@ -7043,8 +7052,9 @@ function applyRemoteState(remote, options = {}) {
     changed = true;
   }
 
-  if (incoming.hasGame) {
+  if (incoming.hasGame && (roundAdvanced || !incomingGameIsStale(incoming))) {
     const incomingPlay = isSharedPlayTen(incoming.game) || isSharedPlayTen(gameState);
+    const localIdle = !gameState.game || gameState.phase === "idle";
     if (roundAdvanced || incomingPlay) {
       const next = sanitizeGameState(incoming.game, currentGameResetAt());
       const incomingTs = incoming.gameUpdatedAt || 0;
@@ -7053,7 +7063,7 @@ function applyRemoteState(remote, options = {}) {
       const takeIncoming =
         roundAdvanced ||
         incomingTs > gameUpdatedAt ||
-        incomingProg > localProg ||
+        (!localIdle && incomingProg > localProg) ||
         (incomingTs === gameUpdatedAt && incomingProg >= localProg && gameSignature(next) !== lastGameSignature);
       if (takeIncoming && (roundAdvanced || gameSignature(next) !== lastGameSignature)) {
         if (roundAdvanced || incomingProg !== localProg) {
