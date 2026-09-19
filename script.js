@@ -1393,7 +1393,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=156`;
+  const src = `assets/gift-${frame}.png?v=157`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -4764,7 +4764,7 @@ jokePage.addEventListener("click", (event) => {
 });
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
-adminToMain.addEventListener("click", () => showAdminView("main"));
+adminToMain.addEventListener("click", () => goToMainMenu());
 resetUsers.addEventListener("click", resetUserProfiles);
 function showRefreshStatus() {
   if (!refreshStatus) {
