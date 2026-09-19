@@ -4559,18 +4559,19 @@ function pickPlayTenSlice(local, remote) {
   const rightRound = Math.max(0, Number(remote.winnerRound || 0));
   const source = rightRound > leftRound ? remote : local;
   const other = source === local ? remote : local;
-  const board = sanitizePlayTenBoard(source.playTenBoard);
+  const sourceBoard = sanitizePlayTenBoard(source.playTenBoard);
   const otherBoard = sanitizePlayTenBoard(other.playTenBoard);
+  const board = rightRound === leftRound && otherBoard.length > sourceBoard.length ? otherBoard : sourceBoard;
   return {
     playTurnIds: sanitizePlayTurnIds(source.playTurnIds?.length ? source.playTurnIds : other.playTurnIds),
     playTurnIndex: Math.max(0, Number(source.playTurnIndex || 0)),
-    playTurnPhase: sanitizePlayTurnPhase(source.playTurnPhase || other.playTurnPhase),
-    playBriefAt: Math.max(Number(source.playBriefAt || 0), Number(other.playBriefAt || 0)),
-    playRunAt: Math.max(Number(source.playRunAt || 0), Number(other.playRunAt || 0)),
-    playStopMs: Math.max(Number(source.playStopMs || 0), Number(other.playStopMs || 0)),
-    playStopAt: Math.max(Number(source.playStopAt || 0), Number(other.playStopAt || 0)),
-    playAnnounceAt: Math.max(Number(source.playAnnounceAt || 0), Number(other.playAnnounceAt || 0)),
-    playTenBoard: board.length >= otherBoard.length ? board : otherBoard,
+    playTurnPhase: sanitizePlayTurnPhase(source.playTurnPhase) || sanitizePlayTurnPhase(other.playTurnPhase),
+    playBriefAt: Number(source.playBriefAt || 0) || Number(other.playBriefAt || 0),
+    playRunAt: Number(source.playRunAt || 0),
+    playStopMs: Number(source.playStopMs || 0),
+    playStopAt: Number(source.playStopAt || 0),
+    playAnnounceAt: Number(source.playAnnounceAt || 0) || Number(other.playAnnounceAt || 0),
+    playTenBoard: board,
   };
 }
 
