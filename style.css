@@ -2513,20 +2513,6 @@ body.is-admin .app {
   padding: 10px 14px;
 }
 
-.play-teams {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  text-align: center;
-}
-
-.play-teams__row {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-}
-
 .play-wheel {
   position: relative;
   width: 100%;

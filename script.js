@@ -3934,21 +3934,6 @@ function assignPlayTeams() {
   return { teams, repeatId: leftover };
 }
 
-function playTeamRowsMarkup() {
-  if (gameState.playMode !== "team" || !gameState.playModeReady) {
-    return "";
-  }
-
-  const rows = sanitizePlayTeams(gameState.playTeams)
-    .map((pair, index) => {
-      const names = pair.map((id) => winnerPersonName(id) || id).join(" - ");
-      return `<p class="play-teams__row">${index + 1}팀 ${escapeHtml(names)}</p>`;
-    })
-    .join("");
-
-  return rows ? `<div class="play-teams">${rows}</div>` : "";
-}
-
 function playRunMarkup() {
   const selected = sanitizePlayWheelValue(gameState.playWheelValue);
   const items = playWheelValues()
@@ -3975,7 +3960,6 @@ function playRunMarkup() {
         </label>
         <button class="btn-primary play-mode__confirm" type="button" data-action="play-mode-confirm">확인</button>
       </div>
-      ${playTeamRowsMarkup()}
       <div class="play-wheel">
         <div class="play-wheel__window" aria-hidden="true"></div>
         <div class="play-wheel__list" data-play-wheel>
