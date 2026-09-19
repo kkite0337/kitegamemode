@@ -453,6 +453,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.winnerBoxes = sanitizeWinnerBoxes(next.winnerBoxes);
   next.winnerPicks = sanitizeWinnerPicks(next.winnerPicks, next.winnerBoxes);
   next.winnerId = next.winnerPlayers.includes(next.winnerId) ? next.winnerId : "";
+  next.winnerBoard = sanitizeWinnerBoard(next.winnerBoard);
   next.winnerRound = Math.max(0, Number(next.winnerRound || 0));
   next.appeals = sanitizeAppeals(next.appeals);
   next.appealClosed = Boolean(next.appealClosed);
@@ -625,6 +626,7 @@ function mergeGameState(local, remote, preferRemote = false) {
             winnerBoxes: [],
             winnerPicks: {},
             winnerId: "",
+            winnerBoard: [],
           }),
     },
     currentGameResetAt(),
@@ -705,6 +707,7 @@ function emptyGame() {
     winnerBoxes: [],
     winnerPicks: {},
     winnerId: "",
+    winnerBoard: [],
     winnerRound: 0,
   };
 }
@@ -755,18 +758,77 @@ function mergeWinnerPicks(first, second) {
   return { ...(first || {}), ...(second || {}) };
 }
 
+function isWinnerResetPhase(phase) {
+  return phase === "play" || phase === "winner-mode" || phase === "winner-pick";
+}
+
+function sanitizeWinnerBoard(board) {
+  if (!Array.isArray(board)) {
+    return [];
+  }
+
+  return board
+    .map((row) => ({
+      id: String(row?.id || ""),
+      name: String(row?.name || ""),
+      win: Boolean(row?.win),
+    }))
+    .filter((row) => row.id && participantIds().includes(row.id));
+}
+
+function buildWinnerBoard(state) {
+  const board = sanitizeWinnerBoard(state?.winnerBoard);
+  if (board.length) {
+    return board;
+  }
+
+  const players = Array.isArray(state?.winnerPlayers)
+    ? state.winnerPlayers.filter((id) => participantIds().includes(id))
+    : [];
+  const winnerId = players.includes(state?.winnerId) ? state.winnerId : "";
+  return players.map((id) => ({
+    id,
+    name: winnerPersonName(id),
+    win: id === winnerId,
+  }));
+}
+
+function snapshotWinnerBoard() {
+  const winnerId = ensureWinnerId();
+  return winnerPlayers().map((id) => ({
+    id,
+    name: winnerPersonName(id),
+    win: id === winnerId,
+  }));
+}
+
 function pickWinnerSlice(local, remote) {
   const leftRound = Math.max(0, Number(local.winnerRound || 0));
   const rightRound = Math.max(0, Number(remote.winnerRound || 0));
   let source = leftRound >= rightRound ? local : remote;
   let other = source === local ? remote : local;
-  const sourcePlayers = Array.isArray(source.winnerPlayers) ? source.winnerPlayers : [];
-  const otherPlayers = Array.isArray(other.winnerPlayers) ? other.winnerPlayers : [];
   const sourceRound = Math.max(0, Number(source.winnerRound || 0));
   const otherRound = Math.max(0, Number(other.winnerRound || 0));
-  const sourceIsReset =
-    source.phase === "play" || source.phase === "winner-mode" || source.phase === "winner-pick";
-  if (!sourcePlayers.length && otherPlayers.length && !(sourceIsReset && sourceRound > otherRound)) {
+  if (isWinnerResetPhase(source.phase) && sourceRound > otherRound) {
+    return {
+      winnerRound: sourceRound,
+      winnerMode: source.winnerMode || "",
+      winnerPlayers: [],
+      winnerBoxes: [],
+      winnerPicks: {},
+      winnerId: "",
+      winnerBoard: [],
+    };
+  }
+
+  const sourcePlayers = Array.isArray(source.winnerPlayers) ? source.winnerPlayers : [];
+  const otherPlayers = Array.isArray(other.winnerPlayers) ? other.winnerPlayers : [];
+  const sourceBoard = sanitizeWinnerBoard(source.winnerBoard);
+  const otherBoard = sanitizeWinnerBoard(other.winnerBoard);
+  if (
+    (!sourcePlayers.length && otherPlayers.length) ||
+    (!sourceBoard.length && otherBoard.length)
+  ) {
     const previous = source;
     source = other;
     other = previous;
@@ -774,16 +836,28 @@ function pickWinnerSlice(local, remote) {
 
   const pickedRound = Math.max(0, Number(source.winnerRound || 0));
   const otherRoundNow = Math.max(0, Number(other.winnerRound || 0));
+  const board = buildWinnerBoard(source).length ? buildWinnerBoard(source) : buildWinnerBoard(other);
+  const players = Array.isArray(source.winnerPlayers) && source.winnerPlayers.length
+    ? source.winnerPlayers
+    : Array.isArray(other.winnerPlayers)
+      ? other.winnerPlayers
+      : [];
+  const boxes = Array.isArray(source.winnerBoxes) && source.winnerBoxes.length
+    ? source.winnerBoxes
+    : Array.isArray(other.winnerBoxes)
+      ? other.winnerBoxes
+      : [];
   return {
     winnerRound: Math.max(pickedRound, otherRoundNow),
     winnerMode: source.winnerMode || other.winnerMode || "",
-    winnerPlayers: Array.isArray(source.winnerPlayers) ? source.winnerPlayers : [],
-    winnerBoxes: Array.isArray(source.winnerBoxes) ? source.winnerBoxes : [],
+    winnerPlayers: players,
+    winnerBoxes: boxes,
     winnerPicks:
       pickedRound === otherRoundNow
         ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks)
-        : source.winnerPicks || {},
-    winnerId: source.winnerId || "",
+        : source.winnerPicks || other.winnerPicks || {},
+    winnerId: source.winnerId || other.winnerId || "",
+    winnerBoard: board,
   };
 }
 
@@ -842,11 +916,7 @@ function ensureWinnerId() {
     return "";
   }
 
-  if (gameState.winnerId !== next) {
-    gameState.winnerId = next;
-    saveGame({ immediate: true });
-  }
-
+  gameState.winnerId = next;
   return next;
 }
 
@@ -975,6 +1045,7 @@ function loadGame() {
       winnerBoxes: parsed.winnerBoxes,
       winnerPicks: parsed.winnerPicks,
       winnerId: parsed.winnerId || "",
+      winnerBoard: parsed.winnerBoard || [],
       winnerRound: Number(parsed.winnerRound || 0),
     });
   } catch {
@@ -1169,6 +1240,7 @@ function gameSignature(state) {
     winnerBoxes: state.winnerBoxes || [],
     winnerPicks: state.winnerPicks || {},
     winnerId: state.winnerId || "",
+    winnerBoard: state.winnerBoard || [],
     winnerRound: Number(state.winnerRound || 0),
   });
 }
@@ -1321,7 +1393,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=154`;
+  const src = `assets/gift-${frame}.png?v=155`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3846,17 +3918,14 @@ function renderWinnerRun(container) {
 }
 
 function winnerTableMarkup() {
-  ensureWinnerId();
-  const winnerId = gameState.winnerId;
-  const people = winnerPlayers();
+  const people = buildWinnerBoard(gameState);
   const rows = people
-    .map((id) => {
-      const name = winnerPersonName(id);
-      const result = id === winnerId ? "당첨" : "꽝";
+    .map((row) => {
+      const result = row.win ? "당첨" : "꽝";
       return `
         <div class="winner-board__row">
-          <span class="winner-board__name">${escapeHtml(name)}</span>
-          <span class="winner-board__mark${id === winnerId ? " is-win" : ""}">${escapeHtml(result)}</span>
+          <span class="winner-board__name">${escapeHtml(row.name || winnerPersonName(row.id))}</span>
+          <span class="winner-board__mark${row.win ? " is-win" : ""}">${escapeHtml(result)}</span>
         </div>
       `;
     })
@@ -3878,12 +3947,26 @@ function winnerTableMarkup() {
   `;
 }
 
+function renderWinnerTable(container) {
+  const key = JSON.stringify({
+    board: buildWinnerBoard(gameState),
+    admin: currentAccount?.role === "admin",
+  });
+  if (container.dataset.winnerTable === key) {
+    return;
+  }
+
+  container.dataset.winnerTable = key;
+  container.innerHTML = winnerTableMarkup();
+}
+
 function goToWinnerTable() {
   if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
     return;
   }
 
   ensureWinnerId();
+  gameState.winnerBoard = snapshotWinnerBoard();
   gameState.phase = "winner-table";
   gameState.winnerRound = Date.now();
   saveGame({ immediate: true });
@@ -3902,6 +3985,7 @@ function goToMiniGameMain() {
   gameState.winnerBoxes = [];
   gameState.winnerPicks = {};
   gameState.winnerId = "";
+  gameState.winnerBoard = [];
   gameState.winnerRound = Date.now();
   resetPlayUi();
   saveGame({ immediate: true });
@@ -3909,18 +3993,25 @@ function goToMiniGameMain() {
 }
 
 function clearWinnerRun(container) {
-  if (!container?.dataset.winnerRun) {
+  if (!container?.dataset.winnerRun && !container?.dataset.winnerTable) {
     return;
   }
 
   stopWinnerTalk();
   delete container.dataset.winnerRun;
   delete container.dataset.winnerReveal;
+  delete container.dataset.winnerTable;
 }
 
 function renderMiniGame(container) {
-  if (gameState.phase !== "winner-run") {
-    clearWinnerRun(container);
+  if (gameState.phase !== "winner-run" && container?.dataset.winnerRun) {
+    stopWinnerTalk();
+    delete container.dataset.winnerRun;
+    delete container.dataset.winnerReveal;
+  }
+
+  if (gameState.phase !== "winner-table") {
+    delete container.dataset.winnerTable;
   }
 
   if (gameState.phase === "winner-pick") {
@@ -3939,7 +4030,7 @@ function renderMiniGame(container) {
   }
 
   if (gameState.phase === "winner-table") {
-    container.innerHTML = winnerTableMarkup();
+    renderWinnerTable(container);
     return;
   }
 
@@ -3959,6 +4050,7 @@ function beginImmediateWinner() {
   gameState.winnerBoxes = [];
   gameState.winnerPicks = {};
   gameState.winnerId = "";
+  gameState.winnerBoard = [];
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -4785,6 +4877,7 @@ function handlePlayClick(event) {
     gameState.winnerBoxes = [];
     gameState.winnerPicks = {};
     gameState.winnerId = "";
+    gameState.winnerBoard = [];
     gameState.winnerRound = Date.now();
     saveGame({ immediate: true });
     refreshVisible();
