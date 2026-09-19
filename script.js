@@ -1487,7 +1487,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=167`;
+  const src = `assets/gift-${frame}.png?v=168`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -5182,12 +5182,27 @@ function openGift(kind) {
   refreshVisible();
 }
 
-loginForm.addEventListener("submit", (event) => {
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const account = findAccount(loginId.value, loginPassword.value);
   if (!account) {
     loginError.hidden = false;
     return;
+  }
+
+  if (account.role === "user") {
+    try {
+      await pullRemoteState({ silent: true });
+    } catch {
+      // MQTT 좌석 수를 기다립니다.
+    }
+    if (!mqttReady()) {
+      await new Promise((resolve) => setTimeout(resolve, 900));
+    }
+    if (!participantIds().includes(account.id)) {
+      loginError.hidden = false;
+      return;
+    }
   }
 
   enterAccount(account);
@@ -6403,6 +6418,7 @@ function publishMqttHello() {
       type: "hello",
       from: currentAccount?.id || "",
       at: Date.now(),
+      participantCount,
     },
     { retain: false },
   );
@@ -6461,6 +6477,7 @@ function publishMqttGame() {
     game,
     gameUpdatedAt,
     gameResetAt: currentGameResetAt(),
+    participantCount,
   });
   if (currentAccount) {
     publishMqttDrink(currentAccount.id);
@@ -6520,6 +6537,7 @@ function publishMqttReset(resetAt) {
   publishMqttJson(mqttTopic("game"), {
     game: emptyGame(),
     gameUpdatedAt: resetAt,
+    participantCount,
   });
 }
 
@@ -6529,6 +6547,14 @@ function handleMqttMessage(topic, data) {
   }
 
   if (topic.endsWith("/hello")) {
+    const nextCount = Math.floor(Number(data.participantCount));
+    if (nextCount >= MIN_PARTICIPANTS && nextCount <= MAX_PARTICIPANTS) {
+      setParticipantCount(nextCount);
+    }
+    if (logoutUserIfReset()) {
+      return;
+    }
+
     if (data.from && currentAccount && data.from === currentAccount.id) {
       return;
     }
@@ -6544,6 +6570,7 @@ function handleMqttMessage(topic, data) {
     const result = applyRemoteState({
       resetAt: Number(data.resetAt || 0),
       profiles: data.profiles || {},
+      participantCount: data.participantCount,
     });
     if (logoutUserIfReset()) {
       return;
@@ -6730,7 +6757,11 @@ function handleMqttMessage(topic, data) {
       profiles: {},
       game: data.game || data,
       gameUpdatedAt: Number(data.gameUpdatedAt || 0),
+      participantCount: data.participantCount,
     });
+    if (logoutUserIfReset()) {
+      return;
+    }
     if (shouldRefreshAfterRemote(result)) {
       refreshVisible();
     }
@@ -7094,6 +7125,7 @@ setInterval(() => {
   publishMqttRoster();
   publishMqttKnownUsers();
   broadcastPeerState();
+  logoutUserIfReset();
 }, 1500);
 window.addEventListener("message", (event) => {
   if (event.data?.type === "stop-ready") {
@@ -7114,7 +7146,9 @@ restoreSession();
 startPeerSync();
 startWsSync();
 startMqttSync();
-pullRemoteState();
+pullRemoteState().then(() => {
+  logoutUserIfReset();
+});
 
 window.addEventListener("pageshow", () => {
   reloadProfilesFromStorage();
