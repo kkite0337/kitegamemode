@@ -453,6 +453,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.winnerBoxes = sanitizeWinnerBoxes(next.winnerBoxes);
   next.winnerPicks = sanitizeWinnerPicks(next.winnerPicks, next.winnerBoxes);
   next.winnerId = next.winnerPlayers.includes(next.winnerId) ? next.winnerId : "";
+  next.winnerRound = Math.max(0, Number(next.winnerRound || 0));
   next.appeals = sanitizeAppeals(next.appeals);
   next.appealClosed = Boolean(next.appealClosed);
   next.revoteKind = next.revoteKind === "drink" || next.revoteKind === "price" || next.revoteKind === "full" ? next.revoteKind : "";
@@ -591,19 +592,16 @@ function mergeGameState(local, remote, preferRemote = false) {
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
       miniMenu: keepMini && primary.phase !== "play" ? primary.miniMenu || secondary.miniMenu || "" : primary.phase === "play" ? primary.miniMenu || "" : "",
-      winnerMode: keepMini && primary.phase !== "play" ? primary.winnerMode || secondary.winnerMode || "" : "",
-      winnerPlayers: keepMini && primary.phase !== "play"
-        ? Array.isArray(primary.winnerPlayers)
-          ? primary.winnerPlayers
-          : secondary.winnerPlayers || []
-        : [],
-      winnerBoxes: keepMini && primary.phase !== "play"
-        ? (primary.winnerBoxes || []).length
-          ? primary.winnerBoxes
-          : secondary.winnerBoxes || []
-        : [],
-      winnerPicks: keepMini && primary.phase !== "play" ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks) : {},
-      winnerId: keepMini && primary.phase !== "play" ? primary.winnerId || secondary.winnerId || "" : "",
+      ...(keepMini && primary.phase !== "play"
+        ? pickWinnerSlice(primary, secondary, local, remote)
+        : {
+            winnerRound: keepMini ? Math.max(Number(primary.winnerRound || 0), Number(secondary.winnerRound || 0)) : 0,
+            winnerMode: "",
+            winnerPlayers: [],
+            winnerBoxes: [],
+            winnerPicks: {},
+            winnerId: "",
+          }),
     },
     currentGameResetAt(),
   );
@@ -683,6 +681,7 @@ function emptyGame() {
     winnerBoxes: [],
     winnerPicks: {},
     winnerId: "",
+    winnerRound: 0,
   };
 }
 
@@ -729,7 +728,24 @@ function sanitizeWinnerPicks(picks, boxes = gameState?.winnerBoxes) {
 }
 
 function mergeWinnerPicks(first, second) {
-  return { ...(first || {}), ...(second || {}), ...sanitizeWinnerPicks({ ...(first || {}), ...(second || {}) }) };
+  return { ...(first || {}), ...(second || {}) };
+}
+
+function pickWinnerSlice(primary, secondary, local, remote) {
+  const leftRound = Math.max(0, Number(primary.winnerRound || 0));
+  const rightRound = Math.max(0, Number(secondary.winnerRound || 0));
+  const source = leftRound >= rightRound ? primary : secondary;
+  return {
+    winnerRound: Math.max(leftRound, rightRound),
+    winnerMode: source.winnerMode || "",
+    winnerPlayers: Array.isArray(source.winnerPlayers) ? source.winnerPlayers : [],
+    winnerBoxes: Array.isArray(source.winnerBoxes) ? source.winnerBoxes : [],
+    winnerPicks:
+      leftRound === rightRound
+        ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks)
+        : source.winnerPicks || {},
+    winnerId: source.winnerId || "",
+  };
 }
 
 function allWinnerBoxesTaken() {
@@ -920,6 +936,7 @@ function loadGame() {
       winnerBoxes: parsed.winnerBoxes,
       winnerPicks: parsed.winnerPicks,
       winnerId: parsed.winnerId || "",
+      winnerRound: Number(parsed.winnerRound || 0),
     });
   } catch {
     return emptyGame();
@@ -1113,6 +1130,7 @@ function gameSignature(state) {
     winnerBoxes: state.winnerBoxes || [],
     winnerPicks: state.winnerPicks || {},
     winnerId: state.winnerId || "",
+    winnerRound: Number(state.winnerRound || 0),
   });
 }
 
@@ -1264,7 +1282,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=150`;
+  const src = `assets/gift-${frame}.png?v=151`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3791,7 +3809,7 @@ function renderWinnerRun(container) {
 function winnerTableMarkup() {
   ensureWinnerId();
   const winnerId = gameState.winnerId;
-  const people = winnerPlayers().length ? winnerPlayers() : gamePlayers();
+  const people = winnerPlayers();
   const rows = people
     .map((id) => {
       const name = winnerPersonName(id);
@@ -3844,6 +3862,7 @@ function goToMiniGameMain() {
   gameState.winnerBoxes = [];
   gameState.winnerPicks = {};
   gameState.winnerId = "";
+  gameState.winnerRound = Date.now();
   resetPlayUi();
   saveGame({ immediate: true });
   refreshVisible();
@@ -3895,7 +3914,8 @@ function beginImmediateWinner() {
   gameState.miniMenu = "winner";
   gameState.winnerMode = "immediate";
   gameState.phase = "winner-pick";
-  gameState.winnerPlayers = participantIds().filter((id) => profiles[id]?.submitted);
+  gameState.winnerRound = Date.now();
+  gameState.winnerPlayers = [];
   gameState.winnerBoxes = [];
   gameState.winnerPicks = {};
   gameState.winnerId = "";
@@ -3919,6 +3939,7 @@ function confirmWinnerPlayerPick() {
   }
 
   gameState.winnerPlayers = players;
+  gameState.winnerRound = Date.now();
   gameState.winnerBoxes = players.map((_, index) => ({
     id: String(index),
     color: WINNER_BOX_COLORS[index % WINNER_BOX_COLORS.length],
