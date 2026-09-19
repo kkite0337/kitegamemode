@@ -2648,6 +2648,7 @@ body.is-admin .app {
 .play-intro__line,
 .play-intro__name {
   margin: 0;
+  min-height: 1.4em;
   font-size: 24px;
   font-weight: 800;
   line-height: 1.4;

@@ -4102,13 +4102,15 @@ function pickRandomPlayWheel() {
 function playIntroMarkup() {
   return `
     <div class="play-intro">
-      <p class="play-intro__line" data-play-intro-line1>이번 게임은</p>
+      <p class="play-intro__line" data-play-intro-line1></p>
       <p class="play-intro__name" data-play-intro-line2 hidden></p>
     </div>
   `;
 }
 
-const PLAY_INTRO_READY_MS = 7000;
+const PLAY_INTRO_CHAR_MS = 110;
+const PLAY_INTRO_HOLD_MS = 1500;
+const PLAY_INTRO_GAP_MS = 2000;
 const PLAY_TEAM_COLORS = [
   { label: "GREEN", hex: "#16a34a" },
   { label: "BLUE", hex: "#2563eb" },
@@ -4118,6 +4120,58 @@ const PLAY_TEAM_COLORS = [
 
 function playModePhrase() {
   return gameState.playMode === "team" ? "팀" : "개인";
+}
+
+function playIntroChars(text) {
+  return [...String(text || "")];
+}
+
+function playIntroTyped(text, elapsed) {
+  const chars = playIntroChars(text);
+  const count = Math.max(0, Math.min(chars.length, Math.floor(Math.max(0, elapsed) / PLAY_INTRO_CHAR_MS)));
+  return chars.slice(0, count).join("");
+}
+
+function playIntroPlan() {
+  const line1 = "이번 게임은";
+  const line2 = `${sanitizePlayWheelValue(gameState.playWheelValue)}입니다.`;
+  const line3 = `${playModePhrase()}으로 진행됩니다.`;
+  const line1Ms = playIntroChars(line1).length * PLAY_INTRO_CHAR_MS;
+  const line2Ms = playIntroChars(line2).length * PLAY_INTRO_CHAR_MS;
+  const line3Ms = playIntroChars(line3).length * PLAY_INTRO_CHAR_MS;
+  const line2At = line1Ms + PLAY_INTRO_HOLD_MS;
+  const clearAt = line2At + line2Ms + PLAY_INTRO_HOLD_MS;
+  const line3At = clearAt + PLAY_INTRO_GAP_MS;
+  const readyAt = line3At + line3Ms + PLAY_INTRO_HOLD_MS;
+  return { line1, line2, line3, line2At, clearAt, line3At, readyAt };
+}
+
+function nextPlayIntroAt(elapsed, plan) {
+  const phases = [
+    { start: 0, text: plan.line1 },
+    { start: plan.line2At, text: plan.line2 },
+    { start: plan.line3At, text: plan.line3 },
+  ];
+  for (const phase of phases) {
+    const local = elapsed - phase.start;
+    const duration = playIntroChars(phase.text).length * PLAY_INTRO_CHAR_MS;
+    if (local >= 0 && local < duration) {
+      return phase.start + (Math.floor(local / PLAY_INTRO_CHAR_MS) + 1) * PLAY_INTRO_CHAR_MS;
+    }
+  }
+  if (elapsed < plan.line2At) {
+    return plan.line2At;
+  }
+  if (elapsed < plan.clearAt) {
+    return plan.clearAt;
+  }
+  if (elapsed < plan.line3At) {
+    return plan.line3At;
+  }
+  if (elapsed < plan.readyAt) {
+    return plan.readyAt;
+  }
+  return 0;
 }
 
 function playTeamColor(index) {
@@ -4166,7 +4220,7 @@ function renderPlayLaunch(container) {
   }
 
   const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
-  if (elapsed < PLAY_INTRO_READY_MS) {
+  if (elapsed < playIntroPlan().readyAt) {
     delete container.dataset.playReady;
     renderPlayIntro(container);
     return;
@@ -4206,25 +4260,24 @@ function syncPlayIntro(container) {
   }
 
   const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
-  const gameName = sanitizePlayWheelValue(gameState.playWheelValue);
-  line1.textContent = "이번 게임은";
+  const plan = playIntroPlan();
+  line1.textContent = playIntroTyped(plan.line1, elapsed);
 
-  if (elapsed < 1500) {
+  if (elapsed < plan.line2At) {
     line2.hidden = true;
     line2.textContent = "";
-  } else if (elapsed < 3500) {
+  } else if (elapsed < plan.clearAt) {
     line2.hidden = false;
-    line2.textContent = `${gameName}입니다.`;
-  } else if (elapsed < 5000) {
+    line2.textContent = playIntroTyped(plan.line2, elapsed - plan.line2At);
+  } else if (elapsed < plan.line3At) {
     line2.hidden = true;
     line2.textContent = "";
   } else {
     line2.hidden = false;
-    line2.textContent = `${playModePhrase()}으로 진행됩니다.`;
+    line2.textContent = playIntroTyped(plan.line3, elapsed - plan.line3At);
   }
 
-  const nextAt =
-    elapsed < 1500 ? 1500 : elapsed < 3500 ? 3500 : elapsed < 5000 ? 5000 : elapsed < PLAY_INTRO_READY_MS ? PLAY_INTRO_READY_MS : 0;
+  const nextAt = nextPlayIntroAt(elapsed, plan);
   clearTimeout(container._playIntroTimer);
   if (nextAt) {
     container._playIntroTimer = setTimeout(() => renderPlayLaunch(container), Math.max(16, nextAt - elapsed));
