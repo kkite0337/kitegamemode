@@ -44,6 +44,9 @@ const MINI_GAME_CHOICES = [
   { id: "score", label: "점수" },
 ];
 
+const PLAY_BUTTON_NAMES = ["하늘", "바다", "별", "달", "구름", "바람", "숲", "강", "돌", "불"];
+const PLAY_WHEEL_VALUES = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+
 const WINNER_MODE_CHOICES = [
   { id: "immediate", label: "바로당첨" },
   { id: "after", label: "진행후당첨" },

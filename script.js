@@ -445,7 +445,9 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   }
 
   next.boardReady = Boolean(next.boardReady);
-  next.miniMenu = next.miniMenu === "winner" ? "winner" : "";
+  next.miniMenu = next.miniMenu === "winner" || next.miniMenu === "game-count" ? next.miniMenu : "";
+  next.playButtonName = String(next.playButtonName || "");
+  next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
   next.winnerMode = next.winnerMode === "immediate" || next.winnerMode === "after" ? next.winnerMode : "";
   next.winnerPlayers = Array.isArray(next.winnerPlayers)
     ? next.winnerPlayers.filter((id) => participantIds().includes(id))
@@ -617,6 +619,11 @@ function mergeGameState(local, remote, preferRemote = false) {
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
       miniMenu: keepWinner ? "winner" : phase === "play" ? primary.miniMenu || "" : "",
+      playButtonName: keepWinner || phase !== "play" ? "" : primary.playButtonName || secondary.playButtonName || "",
+      playWheelValue:
+        keepWinner || phase !== "play"
+          ? ""
+          : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
       ...(keepWinner
         ? pickWinnerSlice(local, remote)
         : {
@@ -702,6 +709,8 @@ function emptyGame() {
     spin: emptySpin(),
     boardReady: false,
     miniMenu: "",
+    playButtonName: "",
+    playWheelValue: "",
     winnerMode: "",
     winnerPlayers: [],
     winnerBoxes: [],
@@ -1040,6 +1049,8 @@ function loadGame() {
       spin: parsed.spin,
       boardReady: Boolean(parsed.boardReady),
       miniMenu: parsed.miniMenu || "",
+      playButtonName: parsed.playButtonName || "",
+      playWheelValue: parsed.playWheelValue || "",
       winnerMode: parsed.winnerMode || "",
       winnerPlayers: Array.isArray(parsed.winnerPlayers) ? parsed.winnerPlayers : [],
       winnerBoxes: parsed.winnerBoxes,
@@ -1235,6 +1246,8 @@ function gameSignature(state) {
     spin: state.spin,
     boardReady: Boolean(state.boardReady),
     miniMenu: state.miniMenu || "",
+    playButtonName: state.playButtonName || "",
+    playWheelValue: state.playWheelValue || "",
     winnerMode: state.winnerMode || "",
     winnerPlayers: state.winnerPlayers || [],
     winnerBoxes: state.winnerBoxes || [],
@@ -1393,7 +1406,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=159`;
+  const src = `assets/gift-${frame}.png?v=160`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3647,6 +3660,141 @@ function otherGamePlayMarkup() {
   return `<div class="wait-screen"><p>게임 진행</p></div>`;
 }
 
+function playWheelValues() {
+  return Array.isArray(PLAY_WHEEL_VALUES) && PLAY_WHEEL_VALUES.length
+    ? PLAY_WHEEL_VALUES.map((value) => String(value))
+    : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+}
+
+function sanitizePlayWheelValue(value) {
+  const values = playWheelValues();
+  const next = String(value ?? "");
+  return values.includes(next) ? next : values[0];
+}
+
+function randomPlayButtonName() {
+  const names = Array.isArray(PLAY_BUTTON_NAMES) && PLAY_BUTTON_NAMES.length ? PLAY_BUTTON_NAMES : ["랜덤"];
+  return names[Math.floor(Math.random() * names.length)];
+}
+
+function playRunMarkup() {
+  const selected = sanitizePlayWheelValue(gameState.playWheelValue);
+  const name = gameState.playButtonName || randomPlayButtonName();
+  const items = playWheelValues()
+    .map(
+      (value) => `
+        <button class="play-wheel__item${value === selected ? " is-active" : ""}" type="button" data-play-wheel-item="${escapeAttr(value)}">
+          ${escapeHtml(value)}
+        </button>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="play-run">
+      <button class="btn-primary" type="button" data-play-random>${escapeHtml(name)}</button>
+      <div class="play-wheel">
+        <div class="play-wheel__window" aria-hidden="true"></div>
+        <div class="play-wheel__list" data-play-wheel>
+          ${items}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindPlayWheel(container) {
+  const list = container.querySelector("[data-play-wheel]");
+  if (!list || list.dataset.bound === "1") {
+    return;
+  }
+
+  list.dataset.bound = "1";
+  const item = list.querySelector("[data-play-wheel-item]");
+  const itemHeight = item?.offsetHeight || 40;
+
+  const selectedIndex = () => {
+    const values = playWheelValues();
+    const current = sanitizePlayWheelValue(gameState.playWheelValue);
+    return Math.max(0, values.indexOf(current));
+  };
+
+  const valueFromScroll = () => {
+    const values = playWheelValues();
+    const index = Math.round(list.scrollTop / itemHeight);
+    return values[Math.max(0, Math.min(index, values.length - 1))];
+  };
+
+  const syncActive = (value) => {
+    list.querySelectorAll("[data-play-wheel-item]").forEach((el) => {
+      el.classList.toggle("is-active", el.dataset.playWheelItem === String(value));
+    });
+  };
+
+  const scrollToValue = (value) => {
+    const values = playWheelValues();
+    const index = Math.max(0, values.indexOf(String(value)));
+    list.scrollTop = index * itemHeight;
+    syncActive(values[index]);
+  };
+
+  const commitValue = (value) => {
+    const next = sanitizePlayWheelValue(value);
+    syncActive(next);
+    scrollToValue(next);
+    if (gameState.playWheelValue === next) {
+      return;
+    }
+
+    gameState.playWheelValue = next;
+    saveGame();
+  };
+
+  list.addEventListener("scroll", () => {
+    const value = valueFromScroll();
+    syncActive(value);
+    clearTimeout(list._playWheelTimer);
+    list._playWheelTimer = setTimeout(() => commitValue(value), 140);
+  });
+
+  scrollToValue(playWheelValues()[selectedIndex()]);
+}
+
+function renderPlayRun(container) {
+  const key = `${gameState.playButtonName}|${playWheelValues().join(",")}`;
+  if (container.dataset.playRun === key) {
+    const list = container.querySelector("[data-play-wheel]");
+    const active = container.querySelector(".play-wheel__item.is-active");
+    if (active?.dataset.playWheelItem !== sanitizePlayWheelValue(gameState.playWheelValue) && list && !list.matches(":hover")) {
+      const item = list.querySelector("[data-play-wheel-item]");
+      const itemHeight = item?.offsetHeight || 40;
+      const index = playWheelValues().indexOf(sanitizePlayWheelValue(gameState.playWheelValue));
+      list.scrollTop = Math.max(0, index) * itemHeight;
+      list.querySelectorAll("[data-play-wheel-item]").forEach((el) => {
+        el.classList.toggle("is-active", el.dataset.playWheelItem === sanitizePlayWheelValue(gameState.playWheelValue));
+      });
+    }
+    return;
+  }
+
+  container.dataset.playRun = key;
+  container.innerHTML = playRunMarkup();
+  bindPlayWheel(container);
+}
+
+function beginPlayRun() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
+    return;
+  }
+
+  gameState.miniMenu = "game-count";
+  gameState.phase = "play";
+  gameState.playButtonName = randomPlayButtonName();
+  gameState.playWheelValue = playWheelValues()[0];
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
 let winnerTalkToken = 0;
 
 function stopWinnerTalk() {
@@ -3979,6 +4127,8 @@ function goToMiniGameMain() {
 
   gameState.phase = "play";
   gameState.miniMenu = "";
+  gameState.playButtonName = "";
+  gameState.playWheelValue = "";
   gameState.winnerMode = "";
   gameState.winnerPlayers = [];
   gameState.winnerBoxes = [];
@@ -4033,6 +4183,12 @@ function renderMiniGame(container) {
     return;
   }
 
+  if (gameState.miniMenu === "game-count") {
+    renderPlayRun(container);
+    return;
+  }
+
+  delete container.dataset.playRun;
   container.innerHTML = otherGamePlayMarkup();
 }
 
@@ -4883,8 +5039,32 @@ function handlePlayClick(event) {
     return;
   }
 
+  if (button.dataset.mini === "game-count") {
+    beginPlayRun();
+    return;
+  }
+
   if (button.dataset.winnerMode === "immediate") {
     beginImmediateWinner();
+    return;
+  }
+
+  if (button.dataset.playWheelItem) {
+    if (currentAccount?.role !== "admin" || gameState.miniMenu !== "game-count") {
+      return;
+    }
+
+    const next = sanitizePlayWheelValue(button.dataset.playWheelItem);
+    const list = button.closest("[data-play-wheel]");
+    const itemHeight = list?.querySelector("[data-play-wheel-item]")?.offsetHeight || 40;
+    const index = playWheelValues().indexOf(next);
+    if (list && index >= 0) {
+      list.scrollTop = index * itemHeight;
+    }
+    if (gameState.playWheelValue !== next) {
+      gameState.playWheelValue = next;
+      saveGame();
+    }
     return;
   }
 
