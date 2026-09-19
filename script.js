@@ -485,6 +485,11 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
 
   next.boardReady = Boolean(next.boardReady);
   next.miniMenu = next.miniMenu === "winner" || next.miniMenu === "game-count" ? next.miniMenu : "";
+  const seated = participantIds();
+  next.players = Array.isArray(next.players) ? next.players.filter((id) => seated.includes(id)) : [];
+  if (next.game === "drink" || next.game === "game2" || next.game === "game3" || next.game === "stop") {
+    next.players = seated;
+  }
   next.playButtonName = String(next.playButtonName || "");
   next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
   next.playStage = next.playStage === "go" || next.playStage === "start" ? next.playStage : "";
@@ -534,11 +539,49 @@ const PHASE_RANK = {
   "price-result": 8,
 };
 
+function isPlayRunState(state) {
+  return state?.phase === "play" && state?.miniMenu === "game-count";
+}
+
+function isStaleWinnerWait(state) {
+  return state?.phase === "winner-mode" || state?.phase === "winner-pick";
+}
+
+function mergePlayerIds(primary, secondary) {
+  const allowed = new Set(participantIds());
+  const next = [];
+  [...(Array.isArray(primary?.players) ? primary.players : []), ...(Array.isArray(secondary?.players) ? secondary.players : [])].forEach(
+    (id) => {
+      if (allowed.has(id) && !next.includes(id)) {
+        next.push(id);
+      }
+    },
+  );
+  return next.length ? next : participantIds();
+}
+
+function mergePlayStage(primary, secondary) {
+  if (primary?.playStage === "go" || secondary?.playStage === "go") {
+    return "go";
+  }
+  if (primary?.playStage === "start" || secondary?.playStage === "start") {
+    return "start";
+  }
+  return "";
+}
+
 function pickGamePhase(local, remote, primary) {
   const leftRound = Math.max(0, Number(local.winnerRound || 0));
   const rightRound = Math.max(0, Number(remote.winnerRound || 0));
   if (leftRound !== rightRound) {
     return (leftRound > rightRound ? local.phase : remote.phase) || "idle";
+  }
+
+  if (isPlayRunState(local) && isStaleWinnerWait(remote)) {
+    return "play";
+  }
+  if (isPlayRunState(remote) && isStaleWinnerWait(local)) {
+    return "play";
   }
 
   const left = PHASE_RANK[local.phase] || 0;
@@ -641,7 +684,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       ...primary,
       game: primary.game || "",
       pendingGame: primary.pendingGame || "",
-      players: Array.isArray(primary.players) ? primary.players : [],
+      players: mergePlayerIds(primary, secondary),
       phase,
       boardReady: restarting ? false : Boolean(primary.boardReady),
       drinks,
@@ -665,18 +708,20 @@ function mergeGameState(local, remote, preferRemote = false) {
       revoteKind: primary.revoteKind || secondary.revoteKind || "",
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
-      miniMenu: keepWinner ? "winner" : phase === "play" ? primary.miniMenu || "" : "",
+      miniMenu:
+        keepWinner
+          ? "winner"
+          : phase === "play"
+            ? isPlayRunState(primary) || isPlayRunState(secondary)
+              ? "game-count"
+              : primary.miniMenu || secondary.miniMenu || ""
+            : "",
       playButtonName: keepWinner || phase !== "play" ? "" : primary.playButtonName || secondary.playButtonName || "",
       playWheelValue:
         keepWinner || phase !== "play"
           ? ""
           : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
-      playStage:
-        keepWinner || phase !== "play"
-          ? ""
-          : primary.playStage === "go" || primary.playStage === "start"
-            ? primary.playStage
-            : "",
+      playStage: keepWinner || phase !== "play" ? "" : mergePlayStage(primary, secondary),
       playIntroAt:
         keepWinner || phase !== "play"
           ? 0
@@ -2307,6 +2352,18 @@ function showUserView() {
   if (
     isGameActive() &&
     gameState.game === "game3" &&
+    gameState.phase === "winner-pick" &&
+    isInCurrentGame()
+  ) {
+    userMain.hidden = true;
+    userPlay.hidden = false;
+    renderUserPlay();
+    return;
+  }
+
+  if (
+    isGameActive() &&
+    gameState.game === "game3" &&
     (gameState.phase === "winner-run" || gameState.phase === "winner-table") &&
     isWinnerPlayer()
   ) {
@@ -3837,8 +3894,7 @@ function sanitizePlayTeams(teams) {
 }
 
 function playSeatIds() {
-  const seated = participantIds().filter((id) => profiles[id]?.submitted);
-  return seated.length ? seated : participantIds();
+  return participantIds();
 }
 
 function shufflePlayIds(ids) {
@@ -4226,6 +4282,8 @@ function beginPlayStart() {
     gameState.playRepeatId = "";
   }
 
+  gameState.players = participantIds();
+  gameState.winnerRound = Date.now();
   gameState.playStage = "start";
   gameState.playIntroAt = Date.now();
   gameState.playTenReadyAt = 0;
@@ -4243,6 +4301,8 @@ function beginPlayGo() {
     return;
   }
 
+  gameState.players = participantIds();
+  gameState.winnerRound = Date.now();
   gameState.playStage = "go";
   saveGame({ immediate: true });
   refreshVisible();
@@ -4394,6 +4454,8 @@ function beginPlayRun() {
 
   gameState.miniMenu = "game-count";
   gameState.phase = "play";
+  gameState.players = participantIds();
+  gameState.winnerRound = Date.now();
   gameState.playStage = "";
   gameState.playIntroAt = 0;
   gameState.playTenReadyAt = 0;
@@ -5216,10 +5278,9 @@ function beginPlayerPick(gameId) {
   }
 
   const resetAt = bumpGameRound();
-  const players = participantIds().filter((id) => profiles[id]?.submitted);
   gameState = emptyGame();
   gameState.game = pending;
-  gameState.players = players.length ? players : participantIds();
+  gameState.players = participantIds();
   gameState.phase = pending === "drink" || pending === "game2" ? "entry" : "play";
   if (pending === "stop") {
     stopSession = Date.now();
