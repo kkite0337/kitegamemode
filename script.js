@@ -493,6 +493,11 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.playButtonName = String(next.playButtonName || "");
   next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
   next.playStage = next.playStage === "go" || next.playStage === "start" ? next.playStage : "";
+  if (next.playStage === "start" || next.playStage === "go") {
+    next.game = next.game || "game3";
+    next.phase = "play";
+    next.miniMenu = "game-count";
+  }
   next.playIntroAt = Math.max(0, Number(next.playIntroAt || 0));
   next.playTenReadyAt = Math.max(0, Number(next.playTenReadyAt || 0));
   next.playTenStops = sanitizePlayTenStops(next.playTenStops);
@@ -553,7 +558,11 @@ const PHASE_RANK = {
 };
 
 function isPlayRunState(state) {
-  return state?.phase === "play" && state?.miniMenu === "game-count";
+  return (
+    state?.playStage === "start" ||
+    state?.playStage === "go" ||
+    (state?.phase === "play" && state?.miniMenu === "game-count")
+  );
 }
 
 function isStaleWinnerWait(state) {
@@ -574,16 +583,23 @@ function mergePlayerIds(primary, secondary) {
 }
 
 function mergePlayStage(primary, secondary) {
-  if (primary?.playStage === "go" || secondary?.playStage === "go") {
-    return "go";
+  if (primary?.playStage === "go" || primary?.playStage === "start") {
+    return primary.playStage;
   }
-  if (primary?.playStage === "start" || secondary?.playStage === "start") {
-    return "start";
+  if (secondary?.playStage === "go" || secondary?.playStage === "start") {
+    return secondary.playStage;
   }
   return "";
 }
 
 function pickGamePhase(local, remote, primary) {
+  if (remote.playStage === "start" || remote.playStage === "go") {
+    return "play";
+  }
+  if (local.playStage === "start" || local.playStage === "go") {
+    return "play";
+  }
+
   const leftRound = Math.max(0, Number(local.winnerRound || 0));
   const rightRound = Math.max(0, Number(remote.winnerRound || 0));
   if (leftRound !== rightRound) {
@@ -738,7 +754,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       playIntroAt:
         keepWinner || phase !== "play"
           ? 0
-          : Math.max(Number(primary.playIntroAt || 0), Number(secondary.playIntroAt || 0)),
+          : Number(primary.playIntroAt || 0) || Number(secondary.playIntroAt || 0),
       playTenReadyAt:
         keepWinner || phase !== "play"
           ? 0
@@ -4323,12 +4339,21 @@ function playSoloReadyMarkup() {
   `;
 }
 
+function playIntroElapsed() {
+  const startedAt = Number(gameState.playIntroAt || 0);
+  if (startedAt <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Date.now() - startedAt);
+}
+
 function renderPlayLaunch(container) {
   if (gameState.playStage !== "start") {
     return;
   }
 
-  const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
+  const elapsed = playIntroElapsed();
   if (elapsed < playIntroPlan().readyAt) {
     delete container.dataset.playReady;
     renderPlayIntro(container);
@@ -4374,7 +4399,7 @@ function syncPlayIntro(container) {
     return;
   }
 
-  const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
+  const elapsed = playIntroElapsed();
   const plan = playIntroPlan();
 
   if (elapsed < plan.clearAt) {
@@ -5433,6 +5458,22 @@ function renderMiniGame(container) {
     delete container.dataset.winnerTable;
   }
 
+  if (gameState.miniMenu === "game-count" && gameState.playStage === "start") {
+    delete container.dataset.playRun;
+    stopPlayTenTick();
+    delete container.dataset.playTen;
+    renderPlayLaunch(container);
+    return;
+  }
+
+  if (gameState.miniMenu === "game-count" && gameState.playStage === "go") {
+    delete container.dataset.playRun;
+    stopPlayTenTick();
+    delete container.dataset.playTen;
+    renderPlayGo(container);
+    return;
+  }
+
   if (gameState.phase === "winner-pick") {
     if (currentAccount?.role === "admin") {
       container.innerHTML = playerPickMarkup();
@@ -5450,22 +5491,6 @@ function renderMiniGame(container) {
 
   if (gameState.phase === "winner-table") {
     renderWinnerTable(container);
-    return;
-  }
-
-  if (gameState.miniMenu === "game-count" && gameState.playStage === "start") {
-    delete container.dataset.playRun;
-    stopPlayTenTick();
-    delete container.dataset.playTen;
-    renderPlayLaunch(container);
-    return;
-  }
-
-  if (gameState.miniMenu === "game-count" && gameState.playStage === "go") {
-    delete container.dataset.playRun;
-    stopPlayTenTick();
-    delete container.dataset.playTen;
-    renderPlayGo(container);
     return;
   }
 
@@ -6899,20 +6924,25 @@ function applyRemoteState(remote, options = {}) {
   }
 
   if (incoming.hasGame) {
-    if (roundAdvanced) {
-      resetPlayUi();
-      gameState = sanitizeGameState(incoming.game, currentGameResetAt());
-      gameUpdatedAt = Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt());
-      persistGameLocal();
-      changed = true;
+    const incomingPlay =
+      incoming.game.playStage === "start" ||
+      incoming.game.playStage === "go" ||
+      incoming.game.playTurnPhase === "run" ||
+      incoming.game.playTurnPhase === "table" ||
+      incoming.game.playTurnPhase === "announce";
+    if (roundAdvanced || incomingPlay) {
+      const next = sanitizeGameState(incoming.game, currentGameResetAt());
+      if (roundAdvanced || gameSignature(next) !== lastGameSignature) {
+        if (roundAdvanced) {
+          resetPlayUi();
+        }
+        gameState = next;
+        gameUpdatedAt = Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt(), gameUpdatedAt);
+        persistGameLocal();
+        changed = true;
+      }
     } else {
-      const incomingPlay =
-        incoming.game.playStage === "start" ||
-        incoming.game.playStage === "go" ||
-        incoming.game.playTurnPhase === "run" ||
-        incoming.game.playTurnPhase === "table" ||
-        incoming.game.playTurnPhase === "announce";
-      const preferRemote = incomingPlay || (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
+      const preferRemote = (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
       const next = mergeGameState(gameState, incoming.game, preferRemote);
       if (isFillingDrinkForm() && currentAccount) {
         next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
@@ -8030,7 +8060,15 @@ function isFillingAppeal() {
 }
 
 function shouldRefreshAfterRemote(result) {
-  if (!currentAccount || !result.changed || isEditingRegister()) {
+  if (!currentAccount || !result.changed) {
+    return false;
+  }
+
+  if (gameState.playStage === "start" || gameState.playStage === "go") {
+    return true;
+  }
+
+  if (isEditingRegister()) {
     return false;
   }
 
@@ -8205,6 +8243,9 @@ setInterval(() => {
   publishMqttOwn();
   publishMqttRoster();
   publishMqttKnownUsers();
+  if (currentAccount.role === "admin") {
+    publishMqttGame();
+  }
   broadcastPeerState();
   logoutUserIfReset();
 }, 1500);
