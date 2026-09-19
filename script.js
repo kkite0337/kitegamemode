@@ -6,9 +6,32 @@ const GAME_KEY = "gift-draw-game";
 const GAME_UPDATED_KEY = "gift-draw-game-updated";
 const GAME_RESET_KEY = "gift-draw-game-reset";
 const RESET_CHANNEL = "gift-draw-reset-channel";
+const PARTICIPANT_COUNT_KEY = "gift-draw-participant-count";
+const MIN_PARTICIPANTS = 2;
+const MAX_PARTICIPANTS = 5;
+
+function sanitizeParticipantCount(value) {
+  const count = Math.floor(Number(value));
+  if (count >= MIN_PARTICIPANTS && count <= MAX_PARTICIPANTS) {
+    return count;
+  }
+
+  return 4;
+}
+
+let participantCount = sanitizeParticipantCount(localStorage.getItem(PARTICIPANT_COUNT_KEY));
+
+function setParticipantCount(count) {
+  participantCount = sanitizeParticipantCount(count);
+  localStorage.setItem(PARTICIPANT_COUNT_KEY, String(participantCount));
+}
+
+function userPlayAccounts() {
+  return ACCOUNTS.filter((account) => account.role === "user");
+}
 
 function playAccounts() {
-  return ACCOUNTS.filter((account) => account.role !== "joke");
+  return userPlayAccounts().slice(0, participantCount);
 }
 
 function participantIds() {
@@ -449,6 +472,8 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.playButtonName = String(next.playButtonName || "");
   next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
   next.playStage = next.playStage === "start" ? "start" : "";
+  next.playTenReadyAt = Math.max(0, Number(next.playTenReadyAt || 0));
+  next.playTenStops = sanitizePlayTenStops(next.playTenStops);
   next.winnerMode = next.winnerMode === "immediate" || next.winnerMode === "after" ? next.winnerMode : "";
   next.winnerPlayers = Array.isArray(next.winnerPlayers)
     ? next.winnerPlayers.filter((id) => participantIds().includes(id))
@@ -626,6 +651,12 @@ function mergeGameState(local, remote, preferRemote = false) {
           ? ""
           : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
       playStage: keepWinner || phase !== "play" ? "" : primary.playStage === "start" ? "start" : "",
+      playTenReadyAt:
+        keepWinner || phase !== "play"
+          ? 0
+          : Math.max(Number(primary.playTenReadyAt || 0), Number(secondary.playTenReadyAt || 0)),
+      playTenStops:
+        keepWinner || phase !== "play" ? {} : mergePlayTenStops(local.playTenStops, remote.playTenStops),
       ...(keepWinner
         ? pickWinnerSlice(local, remote)
         : {
@@ -714,6 +745,8 @@ function emptyGame() {
     playButtonName: "",
     playWheelValue: "",
     playStage: "",
+    playTenReadyAt: 0,
+    playTenStops: {},
     winnerMode: "",
     winnerPlayers: [],
     winnerBoxes: [],
@@ -1055,6 +1088,8 @@ function loadGame() {
       playButtonName: parsed.playButtonName || "",
       playWheelValue: parsed.playWheelValue || "",
       playStage: parsed.playStage || "",
+      playTenReadyAt: Number(parsed.playTenReadyAt || 0),
+      playTenStops: parsed.playTenStops || {},
       winnerMode: parsed.winnerMode || "",
       winnerPlayers: Array.isArray(parsed.winnerPlayers) ? parsed.winnerPlayers : [],
       winnerBoxes: parsed.winnerBoxes,
@@ -1207,6 +1242,29 @@ function resetUserProfiles() {
     return;
   }
 
+  showParticipantCountPicker();
+}
+
+function showParticipantCountPicker() {
+  const layer = document.getElementById("participantCountLayer");
+  if (!layer) {
+    applyResetWithCount(participantCount);
+    return;
+  }
+
+  layer.hidden = false;
+}
+
+function hideParticipantCountPicker() {
+  const layer = document.getElementById("participantCountLayer");
+  if (layer) {
+    layer.hidden = true;
+  }
+}
+
+function applyResetWithCount(count) {
+  hideParticipantCountPicker();
+  setParticipantCount(count);
   const resetAt = Date.now();
   lastProfileResetAt = resetAt;
   localStorage.setItem(PROFILE_RESET_KEY, String(resetAt));
@@ -1253,6 +1311,8 @@ function gameSignature(state) {
     playButtonName: state.playButtonName || "",
     playWheelValue: state.playWheelValue || "",
     playStage: state.playStage || "",
+    playTenReadyAt: Number(state.playTenReadyAt || 0),
+    playTenStops: state.playTenStops || {},
     winnerMode: state.winnerMode || "",
     winnerPlayers: state.winnerPlayers || [],
     winnerBoxes: state.winnerBoxes || [],
@@ -1411,7 +1471,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=164`;
+  const src = `assets/gift-${frame}.png?v=166`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2010,6 +2070,11 @@ function sessionInvalidatedByReset(account) {
 }
 
 function logoutUserIfReset() {
+  if (currentAccount?.role === "user" && !participantIds().includes(currentAccount.id)) {
+    logout();
+    return true;
+  }
+
   if (!sessionInvalidatedByReset(currentAccount)) {
     return false;
   }
@@ -3831,6 +3896,152 @@ function beginPlayStart() {
   }
 
   gameState.playStage = "start";
+  if (gameState.playWheelValue === "10초 맞추기") {
+    gameState.playTenReadyAt = Date.now();
+    gameState.playTenStops = {};
+  } else {
+    gameState.playTenReadyAt = 0;
+    gameState.playTenStops = {};
+  }
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+const PLAY_TEN_COUNTDOWN_MS = 3000;
+let playTenTickTimer = 0;
+
+function stopPlayTenTick() {
+  clearInterval(playTenTickTimer);
+  playTenTickTimer = 0;
+}
+
+function sanitizePlayTenStops(stops) {
+  const next = {};
+  Object.entries(stops && typeof stops === "object" ? stops : {}).forEach(([id, ms]) => {
+    const elapsed = Number(ms);
+    if (participantIds().includes(id) && elapsed > 0) {
+      next[id] = elapsed;
+    }
+  });
+  return next;
+}
+
+function mergePlayTenStops(first, second) {
+  const next = {};
+  participantIds().forEach((id) => {
+    const left = Number(first?.[id] || 0);
+    const right = Number(second?.[id] || 0);
+    if (left > 0) {
+      next[id] = left;
+      return;
+    }
+    if (right > 0) {
+      next[id] = right;
+    }
+  });
+  return next;
+}
+
+function playTenStartAt() {
+  return Math.max(0, Number(gameState.playTenReadyAt || 0)) + PLAY_TEN_COUNTDOWN_MS;
+}
+
+function formatPlayTenSeconds(ms) {
+  return `${(Math.max(0, Number(ms) || 0) / 1000).toFixed(2)}초`;
+}
+
+function currentPlayTenStop() {
+  if (!currentAccount) {
+    return 0;
+  }
+
+  return Number(gameState.playTenStops?.[currentAccount.id] || 0);
+}
+
+function playTenMarkup() {
+  return `
+    <div class="play-ten">
+      <p class="play-ten__title">10초 맞추기</p>
+      <p class="play-ten__line" data-play-ten-line></p>
+      <button class="btn-primary play-ten__stop" type="button" data-action="play-ten-stop" hidden>정지</button>
+      <p class="play-ten__result" data-play-ten-result hidden></p>
+    </div>
+  `;
+}
+
+function syncPlayTenView(container) {
+  const line = container.querySelector("[data-play-ten-line]");
+  const stop = container.querySelector("[data-action='play-ten-stop']");
+  const result = container.querySelector("[data-play-ten-result]");
+  if (!line || !stop || !result) {
+    return;
+  }
+
+  const now = Date.now();
+  const startAt = playTenStartAt();
+  const mine = currentPlayTenStop();
+  if (mine > 0) {
+    stop.hidden = true;
+    line.textContent = "결과";
+    result.hidden = false;
+    result.textContent = formatPlayTenSeconds(mine);
+    return;
+  }
+
+  result.hidden = true;
+  if (!gameState.playTenReadyAt || now < startAt) {
+    const remain = Math.max(1, Math.ceil((startAt - now) / 1000));
+    line.textContent = String(remain);
+    stop.hidden = true;
+    return;
+  }
+
+  line.textContent = "10초가 됐다고 생각하면 누르세요";
+  stop.hidden = false;
+}
+
+function renderPlayTen(container) {
+  const key = String(gameState.playTenReadyAt || 0);
+  if (container.dataset.playTen !== key) {
+    container.dataset.playTen = key;
+    container.innerHTML = playTenMarkup();
+  }
+
+  syncPlayTenView(container);
+  stopPlayTenTick();
+  if (currentPlayTenStop()) {
+    return;
+  }
+
+  playTenTickTimer = setInterval(() => {
+    if (!container.isConnected || gameState.playWheelValue !== "10초 맞추기" || gameState.playStage !== "start") {
+      stopPlayTenTick();
+      return;
+    }
+
+    syncPlayTenView(container);
+    if (currentPlayTenStop()) {
+      stopPlayTenTick();
+    }
+  }, 80);
+}
+
+function stopPlayTenClock() {
+  if (!currentAccount || gameState.playWheelValue !== "10초 맞추기" || gameState.playStage !== "start") {
+    return;
+  }
+
+  if (currentPlayTenStop()) {
+    return;
+  }
+
+  const startAt = playTenStartAt();
+  const now = Date.now();
+  if (!gameState.playTenReadyAt || now < startAt) {
+    return;
+  }
+
+  gameState.playTenStops = { ...gameState.playTenStops, [currentAccount.id]: now - startAt };
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -3843,6 +4054,8 @@ function beginPlayRun() {
   gameState.miniMenu = "game-count";
   gameState.phase = "play";
   gameState.playStage = "";
+  gameState.playTenReadyAt = 0;
+  gameState.playTenStops = {};
   gameState.playWheelValue = playWheelValues()[0];
   saveGame({ immediate: true });
   refreshVisible();
@@ -4183,6 +4396,8 @@ function goToMiniGameMain() {
   gameState.playButtonName = "";
   gameState.playWheelValue = "";
   gameState.playStage = "";
+  gameState.playTenReadyAt = 0;
+  gameState.playTenStops = {};
   gameState.winnerMode = "";
   gameState.winnerPlayers = [];
   gameState.winnerBoxes = [];
@@ -4239,9 +4454,19 @@ function renderMiniGame(container) {
 
   if (gameState.miniMenu === "game-count" && gameState.playStage === "start") {
     delete container.dataset.playRun;
+    if (gameState.playWheelValue === "10초 맞추기") {
+      renderPlayTen(container);
+      return;
+    }
+
+    stopPlayTenTick();
+    delete container.dataset.playTen;
     container.innerHTML = playStartMarkup();
     return;
   }
+
+  stopPlayTenTick();
+  delete container.dataset.playTen;
 
   if (gameState.miniMenu === "game-count") {
     renderPlayRun(container);
@@ -4985,6 +5210,19 @@ document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
 adminToMain.addEventListener("click", () => goToMainMenu());
 resetUsers.addEventListener("click", resetUserProfiles);
+document.getElementById("participantCountLayer")?.addEventListener("click", (event) => {
+  if (event.target.id === "participantCountLayer") {
+    hideParticipantCountPicker();
+    return;
+  }
+
+  const button = event.target.closest("[data-participant-count]");
+  if (!button) {
+    return;
+  }
+
+  applyResetWithCount(button.dataset.participantCount);
+});
 function showRefreshStatus() {
   if (!refreshStatus) {
     return;
@@ -5116,6 +5354,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "play-start") {
     beginPlayStart();
+    return;
+  }
+
+  if (button.dataset.action === "play-ten-stop") {
+    stopPlayTenClock();
     return;
   }
 
@@ -5416,6 +5659,7 @@ function emptyRemoteState() {
     profiles: {},
     gameUpdatedAt: 0,
     gameResetAt: 0,
+    participantCount,
   };
 }
 
@@ -5440,6 +5684,7 @@ function normalizeRemoteState(raw) {
       appeals: sanitizeAppeals(game.appeals),
     },
     gameUpdatedAt: Number(parsed.gameUpdatedAt || 0),
+    participantCount: parsed.participantCount,
   };
 }
 
@@ -5482,6 +5727,13 @@ function applyResetProfiles(resetAt, remoteProfiles) {
 
 function applyRemoteState(remote, options = {}) {
   const incoming = normalizeRemoteState(remote);
+  if (incoming.participantCount !== undefined && incoming.participantCount !== "") {
+    const nextCount = Math.floor(Number(incoming.participantCount));
+    if (nextCount >= MIN_PARTICIPANTS && nextCount <= MAX_PARTICIPANTS) {
+      setParticipantCount(nextCount);
+    }
+  }
+
   const localReset = currentResetAt();
   const remoteReset = incoming.resetAt;
   const previousGameReset = Number(localStorage.getItem(GAME_RESET_KEY) || 0);
@@ -5598,6 +5850,7 @@ function packedRemoteState(state, slimPhotos) {
     ),
     game: state.game,
     gameUpdatedAt: state.gameUpdatedAt,
+    participantCount,
   };
 }
 
@@ -5712,6 +5965,7 @@ function currentSyncPayload(withPhotos = false) {
     profiles: packedProfiles(withPhotos),
     game,
     gameUpdatedAt,
+    participantCount,
   };
 }
 
@@ -6099,6 +6353,7 @@ function publishMqttRoster() {
     resetAt: currentResetAt(),
     profiles: packedProfiles(true),
     gameUpdatedAt,
+    participantCount,
   });
 }
 
@@ -6206,7 +6461,8 @@ function publishMqttGameRound(resetAt) {
 }
 
 function publishMqttReset(resetAt) {
-  participantIds().forEach((id) => {
+  userPlayAccounts().forEach((account) => {
+    const id = account.id;
     publishMqttJson(mqttTopic("user", id), {
       resetAt,
       profile: emptyUserProfile(resetAt),
@@ -6221,11 +6477,12 @@ function publishMqttReset(resetAt) {
       appeal: { drink: false, price: false, submitted: false },
     });
   });
-  publishMqttJson(mqttTopic("reset"), { resetAt });
+  publishMqttJson(mqttTopic("reset"), { resetAt, participantCount });
   publishMqttJson(mqttTopic("roster"), {
     resetAt,
     profiles: {},
     gameUpdatedAt: resetAt,
+    participantCount,
   });
   publishMqttJson(mqttTopic("game"), {
     game: emptyGame(),
@@ -6273,6 +6530,7 @@ function handleMqttMessage(topic, data) {
         profiles: {},
         game: emptyGame(),
         gameUpdatedAt: resetAt,
+        participantCount: data.participantCount,
       },
       { replaceCurrent: true },
     );
