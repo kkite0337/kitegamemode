@@ -590,20 +590,20 @@ function mergeGameState(local, remote, preferRemote = false) {
       revoteKind: primary.revoteKind || secondary.revoteKind || "",
       roulette: restarting ? [] : pickRoulette(primary.roulette, secondary.roulette),
       spin: restarting ? emptySpin() : pickSpin(primary.spin, secondary.spin),
-      miniMenu: keepMini ? primary.miniMenu || secondary.miniMenu || "" : "",
-      winnerMode: keepMini ? primary.winnerMode || secondary.winnerMode || "" : "",
-      winnerPlayers: keepMini
+      miniMenu: keepMini && primary.phase !== "play" ? primary.miniMenu || secondary.miniMenu || "" : primary.phase === "play" ? primary.miniMenu || "" : "",
+      winnerMode: keepMini && primary.phase !== "play" ? primary.winnerMode || secondary.winnerMode || "" : "",
+      winnerPlayers: keepMini && primary.phase !== "play"
         ? Array.isArray(primary.winnerPlayers)
           ? primary.winnerPlayers
           : secondary.winnerPlayers || []
         : [],
-      winnerBoxes: keepMini
+      winnerBoxes: keepMini && primary.phase !== "play"
         ? (primary.winnerBoxes || []).length
           ? primary.winnerBoxes
           : secondary.winnerBoxes || []
         : [],
-      winnerPicks: keepMini ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks) : {},
-      winnerId: keepMini ? primary.winnerId || secondary.winnerId || "" : "",
+      winnerPicks: keepMini && primary.phase !== "play" ? mergeWinnerPicks(local.winnerPicks, remote.winnerPicks) : {},
+      winnerId: keepMini && primary.phase !== "play" ? primary.winnerId || secondary.winnerId || "" : "",
     },
     currentGameResetAt(),
   );
@@ -1264,7 +1264,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=148`;
+  const src = `assets/gift-${frame}.png?v=149`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3837,6 +3837,23 @@ function goToWinnerTable() {
   refreshVisible();
 }
 
+function goToMiniGameMain() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
+    return;
+  }
+
+  gameState.phase = "play";
+  gameState.miniMenu = "";
+  gameState.winnerMode = "";
+  gameState.winnerPlayers = [];
+  gameState.winnerBoxes = [];
+  gameState.winnerPicks = {};
+  gameState.winnerId = "";
+  resetPlayUi();
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
 function clearWinnerRun(container) {
   if (!container?.dataset.winnerRun) {
     return;
@@ -4852,6 +4869,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "go-winner-table") {
     goToWinnerTable();
+    return;
+  }
+
+  if (button.dataset.action === "go-winner-table-next") {
+    goToMiniGameMain();
     return;
   }
 
