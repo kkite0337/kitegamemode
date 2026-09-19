@@ -448,6 +448,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.miniMenu = next.miniMenu === "winner" || next.miniMenu === "game-count" ? next.miniMenu : "";
   next.playButtonName = String(next.playButtonName || "");
   next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
+  next.playStage = next.playStage === "start" ? "start" : "";
   next.winnerMode = next.winnerMode === "immediate" || next.winnerMode === "after" ? next.winnerMode : "";
   next.winnerPlayers = Array.isArray(next.winnerPlayers)
     ? next.winnerPlayers.filter((id) => participantIds().includes(id))
@@ -624,6 +625,7 @@ function mergeGameState(local, remote, preferRemote = false) {
         keepWinner || phase !== "play"
           ? ""
           : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
+      playStage: keepWinner || phase !== "play" ? "" : primary.playStage === "start" ? "start" : "",
       ...(keepWinner
         ? pickWinnerSlice(local, remote)
         : {
@@ -711,6 +713,7 @@ function emptyGame() {
     miniMenu: "",
     playButtonName: "",
     playWheelValue: "",
+    playStage: "",
     winnerMode: "",
     winnerPlayers: [],
     winnerBoxes: [],
@@ -1051,6 +1054,7 @@ function loadGame() {
       miniMenu: parsed.miniMenu || "",
       playButtonName: parsed.playButtonName || "",
       playWheelValue: parsed.playWheelValue || "",
+      playStage: parsed.playStage || "",
       winnerMode: parsed.winnerMode || "",
       winnerPlayers: Array.isArray(parsed.winnerPlayers) ? parsed.winnerPlayers : [],
       winnerBoxes: parsed.winnerBoxes,
@@ -1248,6 +1252,7 @@ function gameSignature(state) {
     miniMenu: state.miniMenu || "",
     playButtonName: state.playButtonName || "",
     playWheelValue: state.playWheelValue || "",
+    playStage: state.playStage || "",
     winnerMode: state.winnerMode || "",
     winnerPlayers: state.winnerPlayers || [],
     winnerBoxes: state.winnerBoxes || [],
@@ -1406,7 +1411,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=161`;
+  const src = `assets/gift-${frame}.png?v=162`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2157,6 +2162,18 @@ function showUserView() {
   }
 
   registerForm.hidden = true;
+
+  if (
+    isGameActive() &&
+    gameState.game === "game3" &&
+    gameState.miniMenu === "game-count" &&
+    gameState.playStage === "start"
+  ) {
+    userMain.hidden = true;
+    userPlay.hidden = false;
+    renderUserPlay();
+    return;
+  }
 
   if (
     isGameActive() &&
@@ -3758,23 +3775,64 @@ function bindPlayWheel(container) {
 function renderPlayRun(container) {
   const key = playWheelValues().join(",");
   if (container.dataset.playRun === key) {
-    const list = container.querySelector("[data-play-wheel]");
-    const active = container.querySelector(".play-wheel__item.is-active");
-    if (active?.dataset.playWheelItem !== sanitizePlayWheelValue(gameState.playWheelValue) && list && !list.matches(":hover")) {
-      const item = list.querySelector("[data-play-wheel-item]");
-      const itemHeight = item?.offsetHeight || 40;
-      const index = playWheelValues().indexOf(sanitizePlayWheelValue(gameState.playWheelValue));
-      list.scrollTop = Math.max(0, index) * itemHeight;
-      list.querySelectorAll("[data-play-wheel-item]").forEach((el) => {
-        el.classList.toggle("is-active", el.dataset.playWheelItem === sanitizePlayWheelValue(gameState.playWheelValue));
-      });
-    }
+    syncPlayWheel(container);
     return;
   }
 
   container.dataset.playRun = key;
   container.innerHTML = playRunMarkup();
   bindPlayWheel(container);
+}
+
+function syncPlayWheel(container) {
+  const list = container.querySelector("[data-play-wheel]");
+  if (!list) {
+    return;
+  }
+
+  const value = sanitizePlayWheelValue(gameState.playWheelValue);
+  const item = list.querySelector("[data-play-wheel-item]");
+  const itemHeight = item?.offsetHeight || 40;
+  const index = playWheelValues().indexOf(value);
+  list.scrollTop = Math.max(0, index) * itemHeight;
+  list.querySelectorAll("[data-play-wheel-item]").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.playWheelItem === value);
+  });
+}
+
+function pickRandomPlayWheel() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3" || gameState.miniMenu !== "game-count") {
+    return;
+  }
+
+  if (gameState.playStage === "start") {
+    return;
+  }
+
+  const values = playWheelValues();
+  if (!values.length) {
+    return;
+  }
+
+  const current = sanitizePlayWheelValue(gameState.playWheelValue);
+  const pool = values.length > 1 ? values.filter((value) => value !== current) : values;
+  gameState.playWheelValue = pool[Math.floor(Math.random() * pool.length)];
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function playStartMarkup() {
+  return `<div class="wait-screen"><p>새로운 화면</p></div>`;
+}
+
+function beginPlayStart() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3" || gameState.miniMenu !== "game-count") {
+    return;
+  }
+
+  gameState.playStage = "start";
+  saveGame({ immediate: true });
+  refreshVisible();
 }
 
 function beginPlayRun() {
@@ -3784,6 +3842,7 @@ function beginPlayRun() {
 
   gameState.miniMenu = "game-count";
   gameState.phase = "play";
+  gameState.playStage = "";
   gameState.playWheelValue = playWheelValues()[0];
   saveGame({ immediate: true });
   refreshVisible();
@@ -4123,6 +4182,7 @@ function goToMiniGameMain() {
   gameState.miniMenu = "";
   gameState.playButtonName = "";
   gameState.playWheelValue = "";
+  gameState.playStage = "";
   gameState.winnerMode = "";
   gameState.winnerPlayers = [];
   gameState.winnerBoxes = [];
@@ -4174,6 +4234,12 @@ function renderMiniGame(container) {
 
   if (gameState.phase === "winner-table") {
     renderWinnerTable(container);
+    return;
+  }
+
+  if (gameState.miniMenu === "game-count" && gameState.playStage === "start") {
+    delete container.dataset.playRun;
+    container.innerHTML = playStartMarkup();
     return;
   }
 
@@ -5035,6 +5101,16 @@ function handlePlayClick(event) {
 
   if (button.dataset.mini === "game-count") {
     beginPlayRun();
+    return;
+  }
+
+  if (button.dataset.playRandom !== undefined) {
+    pickRandomPlayWheel();
+    return;
+  }
+
+  if (button.dataset.action === "play-start") {
+    beginPlayStart();
     return;
   }
 
