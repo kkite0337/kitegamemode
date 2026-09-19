@@ -1215,7 +1215,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=145`;
+  const src = `assets/gift-${frame}.png?v=146`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3474,8 +3474,8 @@ function stopWinnerTalk() {
   winnerTalkToken += 1;
 }
 
-function winnerBoxSrc(color) {
-  return `assets/winner-${color}.png?v=145`;
+function winnerBoxEmoji(color) {
+  return WINNER_BOX_EMOJI[color] || "🎁";
 }
 
 function winnerBoxesMarkup() {
@@ -3483,8 +3483,8 @@ function winnerBoxesMarkup() {
   return boxes
     .map(
       (box) => `
-        <button class="winner-box" type="button" data-winner-box="${escapeAttr(box.id)}" ${gameState.winnerPicks?.[box.id] ? "hidden" : ""}>
-          <img src="${escapeAttr(winnerBoxSrc(box.color))}" alt="선물상자">
+        <button class="winner-box winner-box--${escapeAttr(box.color)}" type="button" data-winner-box="${escapeAttr(box.id)}" ${gameState.winnerPicks?.[box.id] ? "hidden" : ""}>
+          <span class="winner-box__emoji" aria-hidden="true">${winnerBoxEmoji(box.color)}</span>
         </button>
       `,
     )

@@ -50,3 +50,9 @@ const WINNER_MODE_CHOICES = [
 ];
 
 const WINNER_BOX_COLORS = ["red", "yellow", "blue", "green"];
+const WINNER_BOX_EMOJI = {
+  red: "🎁",
+  yellow: "🎁",
+  blue: "🎁",
+  green: "🎁",
+};

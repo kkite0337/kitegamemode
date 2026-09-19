@@ -2340,16 +2340,37 @@ body.is-admin .app {
 }
 
 .winner-box {
-  width: min(140px, 42vw);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(132px, 40vw);
+  height: min(132px, 40vw);
   padding: 0;
   border: 0;
-  background: transparent;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(34, 34, 34, 0.08);
   cursor: pointer;
 }
 
-.winner-box img {
-  display: block;
-  width: 100%;
-  height: auto;
+.winner-box--red {
+  background: #fee2e2;
+}
+
+.winner-box--yellow {
+  background: #fef3c7;
+}
+
+.winner-box--blue {
+  background: #dbeafe;
+}
+
+.winner-box--green {
+  background: #dcfce7;
+}
+
+.winner-box__emoji {
+  font-size: min(72px, 22vw);
+  line-height: 1;
   pointer-events: none;
 }
