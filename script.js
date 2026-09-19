@@ -1406,7 +1406,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=160`;
+  const src = `assets/gift-${frame}.png?v=161`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3672,14 +3672,8 @@ function sanitizePlayWheelValue(value) {
   return values.includes(next) ? next : values[0];
 }
 
-function randomPlayButtonName() {
-  const names = Array.isArray(PLAY_BUTTON_NAMES) && PLAY_BUTTON_NAMES.length ? PLAY_BUTTON_NAMES : ["랜덤"];
-  return names[Math.floor(Math.random() * names.length)];
-}
-
 function playRunMarkup() {
   const selected = sanitizePlayWheelValue(gameState.playWheelValue);
-  const name = gameState.playButtonName || randomPlayButtonName();
   const items = playWheelValues()
     .map(
       (value) => `
@@ -3692,13 +3686,14 @@ function playRunMarkup() {
 
   return `
     <div class="play-run">
-      <button class="btn-primary" type="button" data-play-random>${escapeHtml(name)}</button>
+      <button class="btn-primary" type="button" data-play-random>랜덤</button>
       <div class="play-wheel">
         <div class="play-wheel__window" aria-hidden="true"></div>
         <div class="play-wheel__list" data-play-wheel>
           ${items}
         </div>
       </div>
+      <button class="btn-primary" type="button" data-action="play-start">시작</button>
     </div>
   `;
 }
@@ -3761,7 +3756,7 @@ function bindPlayWheel(container) {
 }
 
 function renderPlayRun(container) {
-  const key = `${gameState.playButtonName}|${playWheelValues().join(",")}`;
+  const key = playWheelValues().join(",");
   if (container.dataset.playRun === key) {
     const list = container.querySelector("[data-play-wheel]");
     const active = container.querySelector(".play-wheel__item.is-active");
@@ -3789,7 +3784,6 @@ function beginPlayRun() {
 
   gameState.miniMenu = "game-count";
   gameState.phase = "play";
-  gameState.playButtonName = randomPlayButtonName();
   gameState.playWheelValue = playWheelValues()[0];
   saveGame({ immediate: true });
   refreshVisible();
