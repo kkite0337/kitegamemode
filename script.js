@@ -619,7 +619,7 @@ function mergeGameState(local, remote, preferRemote = false) {
       ...(keepWinner
         ? pickWinnerSlice(local, remote)
         : {
-            winnerRound: 0,
+            winnerRound: Math.max(Number(local.winnerRound || 0), Number(remote.winnerRound || 0)),
             winnerMode: "",
             winnerPlayers: [],
             winnerBoxes: [],
@@ -764,7 +764,8 @@ function pickWinnerSlice(local, remote) {
   const otherPlayers = Array.isArray(other.winnerPlayers) ? other.winnerPlayers : [];
   const sourceRound = Math.max(0, Number(source.winnerRound || 0));
   const otherRound = Math.max(0, Number(other.winnerRound || 0));
-  const sourceIsReset = source.phase === "play" || source.phase === "winner-pick";
+  const sourceIsReset =
+    source.phase === "play" || source.phase === "winner-mode" || source.phase === "winner-pick";
   if (!sourcePlayers.length && otherPlayers.length && !(sourceIsReset && sourceRound > otherRound)) {
     const previous = source;
     source = other;
@@ -1320,7 +1321,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=153`;
+  const src = `assets/gift-${frame}.png?v=154`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -4779,6 +4780,12 @@ function handlePlayClick(event) {
 
     gameState.miniMenu = "winner";
     gameState.phase = "winner-mode";
+    gameState.winnerMode = "";
+    gameState.winnerPlayers = [];
+    gameState.winnerBoxes = [];
+    gameState.winnerPicks = {};
+    gameState.winnerId = "";
+    gameState.winnerRound = Date.now();
     saveGame({ immediate: true });
     refreshVisible();
     return;
