@@ -1487,7 +1487,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=168`;
+  const src = `assets/gift-${frame}.png?v=169`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -4893,14 +4893,13 @@ function beginPlayerPick(gameId) {
   }
 
   const resetAt = bumpGameRound();
+  const players = participantIds().filter((id) => profiles[id]?.submitted);
   gameState = emptyGame();
-  gameState.players = participantIds().filter((id) => profiles[id]?.submitted);
-  if (pending === "game3") {
-    gameState.game = "game3";
-    gameState.phase = "play";
-  } else {
-    gameState.pendingGame = pending;
-    gameState.phase = "pick";
+  gameState.game = pending;
+  gameState.players = players.length ? players : participantIds();
+  gameState.phase = pending === "drink" || pending === "game2" ? "entry" : "play";
+  if (pending === "stop") {
+    stopSession = Date.now();
   }
   resetPlayUi();
   saveGame({ immediate: true });
