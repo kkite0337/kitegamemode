@@ -471,6 +471,7 @@ const PHASE_RANK = {
   "winner-mode": 3,
   "winner-pick": 3,
   "winner-run": 4,
+  "winner-table": 5,
   review: 3,
   choose: 4,
   "menu-reveal": 5,
@@ -495,7 +496,8 @@ function isMiniMenuPhase(phase) {
     phase === "play" ||
     phase === "winner-mode" ||
     phase === "winner-pick" ||
-    phase === "winner-run"
+    phase === "winner-run" ||
+    phase === "winner-table"
   );
 }
 
@@ -1262,7 +1264,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=147`;
+  const src = `assets/gift-${frame}.png?v=148`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2017,7 +2019,7 @@ function showUserView() {
   if (
     isGameActive() &&
     gameState.game === "game3" &&
-    gameState.phase === "winner-run" &&
+    (gameState.phase === "winner-run" || gameState.phase === "winner-table") &&
     isWinnerPlayer()
   ) {
     userMain.hidden = true;
@@ -3557,6 +3559,7 @@ function winnerStageMarkup() {
         <p class="winner-line" data-winner-win></p>
       </div>
       <div class="winner-boxes" data-winner-boxes hidden>${winnerBoxesMarkup()}</div>
+      <button class="btn-primary next-btn" type="button" data-action="go-winner-table" hidden>넘어가기</button>
     </div>
   `;
 }
@@ -3668,7 +3671,17 @@ async function runWinnerReveal(container) {
     container.insertAdjacentHTML("afterbegin", menuConfettiMarkup());
   }
 
+  showWinnerNextButton(container);
   container.dataset.winnerReveal = "done";
+}
+
+function showWinnerNextButton(container) {
+  const next = container.querySelector("[data-action='go-winner-table']");
+  if (!next || currentAccount?.role !== "admin") {
+    return;
+  }
+
+  next.hidden = false;
 }
 
 async function popWinnerCount(line, text, token) {
@@ -3763,6 +3776,9 @@ function renderWinnerRun(container) {
     syncWinnerBoxes(container);
     if (allWinnerBoxesTaken()) {
       showWinnerReveal(container);
+      if (container.dataset.winnerReveal === "done") {
+        showWinnerNextButton(container);
+      }
     }
     return;
   }
@@ -3770,6 +3786,55 @@ function renderWinnerRun(container) {
   container.dataset.winnerRun = "1";
   container.innerHTML = winnerStageMarkup();
   runWinnerSequence(container);
+}
+
+function winnerTableMarkup() {
+  ensureWinnerId();
+  const winnerId = gameState.winnerId;
+  const rows = winnerPlayers()
+    .map((id) => {
+      const name = winnerPersonName(id);
+      const result = id === winnerId ? "당첨" : "꽝";
+      return `
+        <tr>
+          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(result)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+  const next =
+    currentAccount?.role === "admin"
+      ? `<button class="btn-primary next-btn" type="button" data-action="go-winner-table-next">넘어가기</button>`
+      : "";
+
+  return `
+    <div class="result-screen">
+      <div class="result-table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>당첨</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${next}
+    </div>
+  `;
+}
+
+function goToWinnerTable() {
+  if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
+    return;
+  }
+
+  ensureWinnerId();
+  gameState.phase = "winner-table";
+  saveGame({ immediate: true });
+  refreshVisible();
 }
 
 function clearWinnerRun(container) {
@@ -3799,6 +3864,11 @@ function renderMiniGame(container) {
 
   if (gameState.phase === "winner-run") {
     renderWinnerRun(container);
+    return;
+  }
+
+  if (gameState.phase === "winner-table") {
+    container.innerHTML = winnerTableMarkup();
     return;
   }
 
@@ -4777,6 +4847,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "submit-appeal") {
     submitAppeal();
+    return;
+  }
+
+  if (button.dataset.action === "go-winner-table") {
+    goToWinnerTable();
     return;
   }
 
