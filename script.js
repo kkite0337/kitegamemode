@@ -1393,7 +1393,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=155`;
+  const src = `assets/gift-${frame}.png?v=156`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3627,6 +3627,7 @@ function otherGamePlayMarkup() {
               </button>
             `,
           ).join("")}
+          <button class="btn-primary" type="button" data-action="go-mini-main">게임메뉴로</button>
         </div>
       `;
     }
@@ -5028,6 +5029,11 @@ function handlePlayClick(event) {
   }
 
   if (button.dataset.action === "go-winner-table-next") {
+    goToMiniGameMain();
+    return;
+  }
+
+  if (button.dataset.action === "go-mini-main") {
     goToMiniGameMain();
     return;
   }
