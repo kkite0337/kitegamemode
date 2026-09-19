@@ -4232,10 +4232,23 @@ function playIntroChars(text) {
   return [...String(text || "")];
 }
 
-function playIntroTyped(text, elapsed) {
+function playTyped(text, elapsed, charMs = PLAY_INTRO_CHAR_MS) {
   const chars = playIntroChars(text);
-  const count = Math.max(0, Math.min(chars.length, Math.floor(Math.max(0, elapsed) / PLAY_INTRO_CHAR_MS)));
+  const count = Math.max(0, Math.min(chars.length, Math.floor(Math.max(0, elapsed) / charMs)));
   return chars.slice(0, count).join("");
+}
+
+function playIntroTyped(text, elapsed) {
+  return playTyped(text, elapsed);
+}
+
+function nextTypedAt(elapsed, start, text, charMs = PLAY_INTRO_CHAR_MS) {
+  const local = elapsed - start;
+  const duration = playIntroChars(text).length * charMs;
+  if (local >= 0 && local < duration) {
+    return start + (Math.floor(local / charMs) + 1) * charMs;
+  }
+  return 0;
 }
 
 function playIntroPlan() {
@@ -4459,14 +4472,9 @@ function syncPlayIntro(container) {
   const inMode = elapsed >= plan.modeAt;
 
   if (!inMode) {
-    if (elapsed < plan.clearAt) {
-      line1.hidden = false;
-      line1.textContent = playIntroTyped(plan.line1, elapsed);
-    } else {
-      line1.textContent = "";
-    }
-
-    if (elapsed < plan.line2At || elapsed >= plan.clearAt) {
+    line1.hidden = false;
+    line1.textContent = playIntroTyped(plan.line1, elapsed);
+    if (elapsed < plan.line2At) {
       line2.hidden = true;
       line2.textContent = "";
     } else {
@@ -4726,6 +4734,7 @@ const PLAY_TEN_TARGET_MS = 10000;
 const PLAY_TEN_TABLE_GAP_MS = 2000;
 const PLAY_TEN_RANK_GAP_MS = 800;
 const PLAY_TEN_PLACE_GAP_MS = 2000;
+const PLAY_TEN_CHAR_MS = 36;
 
 function assignPlayTurns() {
   const ids = shufflePlayIds(playSeatIds());
@@ -4767,12 +4776,12 @@ function playTenBriefPlan() {
   const line1 = "10초일 때, STOP 버튼을 누르세요.";
   const line2 = "순서는 랜덤으로 흐릅니다.";
   const line3 = "이제 게임을 시작합니다";
-  const line1Ms = playIntroChars(line1).length * PLAY_INTRO_CHAR_MS;
-  const line2At = line1Ms + 400;
-  const line2Ms = playIntroChars(line2).length * PLAY_INTRO_CHAR_MS;
-  const line3At = line2At + line2Ms + 2000;
-  const line3Ms = playIntroChars(line3).length * PLAY_INTRO_CHAR_MS;
-  const readyAt = line3At + line3Ms + 1200;
+  const line1Ms = playIntroChars(line1).length * PLAY_TEN_CHAR_MS;
+  const line2At = line1Ms + 280;
+  const line2Ms = playIntroChars(line2).length * PLAY_TEN_CHAR_MS;
+  const line3At = line2At + line2Ms + 900;
+  const line3Ms = playIntroChars(line3).length * PLAY_TEN_CHAR_MS;
+  const readyAt = line3At + line3Ms + 700;
   return { line1, line2, line3, line2At, line3At, readyAt };
 }
 
@@ -4822,7 +4831,7 @@ function myPlayTenRank() {
 
 function playTenAnnouncePlan() {
   const title = "결과를 발표하겠습니다.";
-  const titleMs = playIntroChars(title).length * PLAY_INTRO_CHAR_MS;
+  const titleMs = playIntroChars(title).length * PLAY_TEN_CHAR_MS;
   const hideAt = titleMs + 2000;
   const ranks = playTenRankRows();
   const rankAt = hideAt + 400;
@@ -4937,9 +4946,9 @@ function syncPlayTenBrief(container) {
     return;
   }
 
-  line1.textContent = playIntroTyped(plan.line1, elapsed);
-  line2.textContent = elapsed < plan.line2At ? "" : playIntroTyped(plan.line2, elapsed - plan.line2At);
-  line3.textContent = elapsed < plan.line3At ? "" : playIntroTyped(plan.line3, elapsed - plan.line3At);
+  line1.textContent = playTyped(plan.line1, elapsed, PLAY_TEN_CHAR_MS);
+  line2.textContent = elapsed < plan.line2At ? "" : playTyped(plan.line2, elapsed - plan.line2At, PLAY_TEN_CHAR_MS);
+  line3.textContent = elapsed < plan.line3At ? "" : playTyped(plan.line3, elapsed - plan.line3At, PLAY_TEN_CHAR_MS);
 
   if (elapsed >= plan.readyAt && gameState.playTurnPhase === "brief") {
     gameState.playTurnPhase = "turn";
@@ -4948,10 +4957,15 @@ function syncPlayTenBrief(container) {
   }
 
   const nextAt =
-    elapsed < plan.line2At ? plan.line2At : elapsed < plan.line3At ? plan.line3At : elapsed < plan.readyAt ? plan.readyAt : 0;
+    nextTypedAt(elapsed, 0, plan.line1, PLAY_TEN_CHAR_MS) ||
+    (elapsed < plan.line2At ? plan.line2At : 0) ||
+    nextTypedAt(elapsed, plan.line2At, plan.line2, PLAY_TEN_CHAR_MS) ||
+    (elapsed < plan.line3At ? plan.line3At : 0) ||
+    nextTypedAt(elapsed, plan.line3At, plan.line3, PLAY_TEN_CHAR_MS) ||
+    (elapsed < plan.readyAt ? plan.readyAt : 0);
   clearTimeout(container._playTenTimer);
   if (nextAt) {
-    container._playTenTimer = setTimeout(() => renderPlayTenGame(container), Math.max(16, nextAt - elapsed));
+    container._playTenTimer = setTimeout(() => syncPlayTenBrief(container), Math.max(16, nextAt - elapsed));
   }
 }
 
@@ -4983,7 +4997,7 @@ function syncPlayTenAnnounce(container) {
 
   if (elapsed < plan.hideAt) {
     title.hidden = false;
-    title.textContent = playIntroTyped(plan.title, elapsed);
+    title.textContent = playTyped(plan.title, elapsed, PLAY_TEN_CHAR_MS);
     ranks.innerHTML = "";
     place.hidden = true;
   } else {
@@ -5012,12 +5026,22 @@ function syncPlayTenAnnounce(container) {
     place.hidden = false;
     const rank = myPlayTenRank();
     placeRank.textContent = rank ? `${rank}위 입니다` : "순위 입니다";
+    if (rank === 1 && place.dataset.confetti !== "1") {
+      place.dataset.confetti = "1";
+      place.insertAdjacentHTML("afterbegin", menuConfettiMarkup());
+    }
   } else {
     place.hidden = true;
     ranks.hidden = false;
   }
 
   clearTimeout(container._playTenTimer);
+  if (elapsed < plan.titleMs) {
+    const nextAt = nextTypedAt(elapsed, 0, plan.title, PLAY_TEN_CHAR_MS) || plan.titleMs;
+    container._playTenTimer = setTimeout(() => syncPlayTenAnnounce(container), Math.max(16, nextAt - elapsed));
+    return;
+  }
+
   if (elapsed < plan.placeAt) {
     container._playTenTimer = setTimeout(() => renderPlayTenGame(container), 80);
   }

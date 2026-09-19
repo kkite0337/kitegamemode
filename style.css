@@ -2750,6 +2750,10 @@ body.is-admin .app {
   color: #7a7268;
 }
 
+.play-ten--announce {
+  position: relative;
+}
+
 .play-ten__ranks,
 .play-ten__place {
   display: flex;
@@ -2757,6 +2761,10 @@ body.is-admin .app {
   align-items: center;
   gap: 12px;
   width: 100%;
+}
+
+.play-ten__place {
+  position: relative;
 }
 
 .play-ten__rank,
