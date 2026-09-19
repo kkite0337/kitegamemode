@@ -485,6 +485,12 @@ const PHASE_RANK = {
 };
 
 function pickGamePhase(local, remote, primary) {
+  const leftRound = Math.max(0, Number(local.winnerRound || 0));
+  const rightRound = Math.max(0, Number(remote.winnerRound || 0));
+  if (leftRound !== rightRound) {
+    return (leftRound > rightRound ? local.phase : remote.phase) || "idle";
+  }
+
   const left = PHASE_RANK[local.phase] || 0;
   const right = PHASE_RANK[remote.phase] || 0;
   if (right > left) {
@@ -1314,7 +1320,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=152`;
+  const src = `assets/gift-${frame}.png?v=153`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3878,6 +3884,7 @@ function goToWinnerTable() {
 
   ensureWinnerId();
   gameState.phase = "winner-table";
+  gameState.winnerRound = Date.now();
   saveGame({ immediate: true });
   refreshVisible();
 }
