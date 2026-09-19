@@ -39,8 +39,8 @@ const GAME_CHOICES = [
 
 const MINI_GAME_CHOICES = [
   { id: "winner", label: "당첨자" },
+  { id: "game-count", label: "게임진행" },
   { id: "real-count", label: "실제카운팅" },
-  { id: "game-count", label: "게임카운팅" },
   { id: "score", label: "점수" },
 ];
 
