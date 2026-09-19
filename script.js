@@ -1520,7 +1520,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=171`;
+  const src = `assets/gift-${frame}.png?v=172`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -4041,38 +4041,58 @@ function pickRandomPlayWheel() {
 }
 
 function playIntroMarkup() {
-  const name = sanitizePlayWheelValue(gameState.playWheelValue);
   return `
     <div class="play-intro">
-      <p class="play-intro__line">이번 게임은</p>
-      <p class="play-intro__name" data-play-intro-name hidden>${escapeHtml(name)}입니다.</p>
+      <p class="play-intro__line" data-play-intro-line1>이번 게임은</p>
+      <p class="play-intro__name" data-play-intro-line2 hidden></p>
     </div>
   `;
 }
 
+function playModePhrase() {
+  return gameState.playMode === "team" ? "팀" : "개인";
+}
+
+function syncPlayIntro(container) {
+  const line1 = container.querySelector("[data-play-intro-line1]");
+  const line2 = container.querySelector("[data-play-intro-line2]");
+  if (!line1 || !line2) {
+    return;
+  }
+
+  const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
+  const gameName = sanitizePlayWheelValue(gameState.playWheelValue);
+  line1.textContent = "이번 게임은";
+
+  if (elapsed < 1500) {
+    line2.hidden = true;
+    line2.textContent = "";
+  } else if (elapsed < 3500) {
+    line2.hidden = false;
+    line2.textContent = `${gameName}입니다.`;
+  } else if (elapsed < 5000) {
+    line2.hidden = true;
+    line2.textContent = "";
+  } else {
+    line2.hidden = false;
+    line2.textContent = `${playModePhrase()}으로 진행됩니다.`;
+  }
+
+  const nextAt = elapsed < 1500 ? 1500 : elapsed < 3500 ? 3500 : elapsed < 5000 ? 5000 : 0;
+  clearTimeout(container._playIntroTimer);
+  if (nextAt) {
+    container._playIntroTimer = setTimeout(() => syncPlayIntro(container), Math.max(16, nextAt - elapsed));
+  }
+}
+
 function renderPlayIntro(container) {
-  const key = `${Number(gameState.playIntroAt || 0)}|${sanitizePlayWheelValue(gameState.playWheelValue)}`;
+  const key = `${Number(gameState.playIntroAt || 0)}|${sanitizePlayWheelValue(gameState.playWheelValue)}|${gameState.playMode || ""}`;
   if (container.dataset.playIntro !== key) {
     container.dataset.playIntro = key;
     container.innerHTML = playIntroMarkup();
   }
 
-  const name = container.querySelector("[data-play-intro-name]");
-  if (!name) {
-    return;
-  }
-
-  const remain = Number(gameState.playIntroAt || 0) + 1500 - Date.now();
-  clearTimeout(container._playIntroTimer);
-  if (remain <= 0) {
-    name.hidden = false;
-    return;
-  }
-
-  name.hidden = true;
-  container._playIntroTimer = setTimeout(() => {
-    name.hidden = false;
-  }, remain);
+  syncPlayIntro(container);
 }
 
 function confirmPlayMode() {
