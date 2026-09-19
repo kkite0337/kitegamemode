@@ -1041,6 +1041,17 @@ body.is-admin .app {
   width: 100%;
 }
 
+.admin-card.is-closed {
+  opacity: 0.45;
+}
+
+.admin-card__closed {
+  margin: 18px 0 0;
+  color: #8a8174;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .admin-card__id {
   margin: 0 0 16px;
   color: #8a8174;

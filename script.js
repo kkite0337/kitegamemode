@@ -26,12 +26,28 @@ function setParticipantCount(count) {
   localStorage.setItem(PARTICIPANT_COUNT_KEY, String(participantCount));
 }
 
-function userPlayAccounts() {
-  return ACCOUNTS.filter((account) => account.role === "user");
+function seatUserAccounts() {
+  return ACCOUNTS.filter((account) => /^USER[1-4]$/.test(account.id));
+}
+
+function adminAccount() {
+  return ACCOUNTS.find((account) => account.role === "admin") || null;
 }
 
 function playAccounts() {
-  return userPlayAccounts().slice(0, participantCount);
+  const userSeats = Math.max(1, participantCount - 1);
+  const users = seatUserAccounts().slice(0, userSeats);
+  const admin = adminAccount();
+  return admin ? [...users, admin] : users;
+}
+
+function settingsAccounts() {
+  const admin = adminAccount();
+  return admin ? [...seatUserAccounts(), admin] : seatUserAccounts();
+}
+
+function isClosedParticipant(id) {
+  return !participantIds().includes(id);
 }
 
 function participantIds() {
@@ -1471,7 +1487,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=166`;
+  const src = `assets/gift-${frame}.png?v=167`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -2095,6 +2111,11 @@ function notifyProfilesReset() {
 }
 
 function enterAccount(account) {
+  if (account.role === "user" && !participantIds().includes(account.id)) {
+    loginError.hidden = false;
+    return;
+  }
+
   currentAccount = account;
   sessionStorage.setItem(SESSION_KEY, account.id);
   sessionStorage.setItem(SESSION_RESET_KEY, String(currentResetAt()));
@@ -2126,6 +2147,11 @@ function restoreSession() {
   }
 
   if (account) {
+    if (account.role === "user" && !participantIds().includes(account.id)) {
+      logout();
+      return;
+    }
+
     enterAccount(account);
     return;
   }
@@ -2366,16 +2392,21 @@ function displayValue(value) {
 }
 
 function renderAdmin() {
-  const users = playAccounts();
+  const users = settingsAccounts();
   adminList.style.gridTemplateColumns = `repeat(${users.length}, minmax(0, 1fr))`;
 
   adminList.innerHTML = users
     .map((account) => {
+      const closed = isClosedParticipant(account.id);
       const profile = profiles[account.id] || emptyUserProfile();
 
       return `
-        <article class="admin-card">
+        <article class="admin-card${closed ? " is-closed" : ""}">
           <p class="admin-card__id">${escapeHtml(account.id)}</p>
+          ${
+            closed
+              ? `<p class="admin-card__closed">폐쇄</p>`
+              : `
           <div class="admin-card__text">
             <span class="admin-card__label">이름</span>
             ${displayValue(profile.name)}
@@ -2384,6 +2415,8 @@ function renderAdmin() {
             <span class="admin-card__label">별명</span>
             ${displayValue(profile.nickname)}
           </div>
+              `
+          }
         </article>
       `;
     })
@@ -6461,7 +6494,7 @@ function publishMqttGameRound(resetAt) {
 }
 
 function publishMqttReset(resetAt) {
-  userPlayAccounts().forEach((account) => {
+  settingsAccounts().forEach((account) => {
     const id = account.id;
     publishMqttJson(mqttTopic("user", id), {
       resetAt,

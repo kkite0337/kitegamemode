@@ -7,7 +7,6 @@ const ACCOUNTS = [
   { id: "USER2", password: "1234", role: "user" },
   { id: "USER3", password: "1234", role: "user" },
   { id: "USER4", password: "1234", role: "user" },
-  { id: "USER5", password: "1234", role: "user" },
   { id: "USER100", password: "1234", role: "joke" },
   { id: "ADMIN", password: "1234", role: "admin" },
 ];
