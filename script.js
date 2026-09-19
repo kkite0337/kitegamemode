@@ -732,9 +732,19 @@ function mergeGameState(local, remote, preferRemote = false) {
           : Math.max(Number(primary.playTenReadyAt || 0), Number(secondary.playTenReadyAt || 0)),
       playTenStops:
         keepWinner || phase !== "play" ? {} : mergePlayTenStops(local.playTenStops, remote.playTenStops),
-      playMode: keepWinner || phase !== "play" ? "" : primary.playMode === "team" || primary.playMode === "solo" ? primary.playMode : "",
-      playModeReady: keepWinner || phase !== "play" ? false : Boolean(primary.playModeReady),
-      playTeams: keepWinner || phase !== "play" ? [] : sanitizePlayTeams(primary.playTeams?.length ? primary.playTeams : secondary.playTeams),
+      playMode:
+        keepWinner || phase !== "play"
+          ? ""
+          : primary.playMode === "team" || primary.playMode === "solo"
+            ? primary.playMode
+            : secondary.playMode === "team" || secondary.playMode === "solo"
+              ? secondary.playMode
+              : "",
+      playModeReady: keepWinner || phase !== "play" ? false : Boolean(primary.playModeReady || secondary.playModeReady),
+      playTeams:
+        keepWinner || phase !== "play"
+          ? []
+          : sanitizePlayTeams(primary.playTeams?.length ? primary.playTeams : secondary.playTeams),
       playRepeatId:
         keepWinner || phase !== "play"
           ? ""
@@ -2340,7 +2350,6 @@ function showUserView() {
   registerForm.hidden = true;
 
   if (
-    isGameActive() &&
     gameState.game === "game3" &&
     gameState.miniMenu === "game-count" &&
     (gameState.playStage === "start" || gameState.playStage === "go")
@@ -4407,12 +4416,14 @@ function beginPlayStart() {
   }
 
   gameState.players = participantIds();
-  gameState.winnerRound = Date.now();
+  const resetAt = bumpGameRound();
+  gameState.winnerRound = resetAt;
   gameState.playStage = "start";
   gameState.playIntroAt = Date.now();
   gameState.playTenReadyAt = 0;
   gameState.playTenStops = {};
   saveGame({ immediate: true });
+  publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
@@ -4426,9 +4437,11 @@ function beginPlayGo() {
   }
 
   gameState.players = participantIds();
-  gameState.winnerRound = Date.now();
+  const resetAt = bumpGameRound();
+  gameState.winnerRound = resetAt;
   gameState.playStage = "go";
   saveGame({ immediate: true });
+  publishMqttGameRound(resetAt);
   refreshVisible();
 }
 
@@ -6427,7 +6440,9 @@ function applyRemoteState(remote, options = {}) {
       persistGameLocal();
       changed = true;
     } else {
-      const preferRemote = (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
+      const incomingPlay =
+        incoming.game.playStage === "start" || incoming.game.playStage === "go";
+      const preferRemote = incomingPlay || (incoming.gameUpdatedAt || 0) > gameUpdatedAt;
       const next = mergeGameState(gameState, incoming.game, preferRemote);
       if (isFillingDrinkForm() && currentAccount) {
         next.drinks[currentAccount.id] = { ...emptyDrink(), ...gameState.drinks[currentAccount.id] };
@@ -7050,7 +7065,17 @@ function publishMqttKnownWinnerPicks() {
   });
 }
 
-function publishMqttGame() {
+function publishMqttGame(options = {}) {
+  if (currentAccount?.role !== "admin" && !options.force) {
+    if (currentAccount) {
+      publishMqttDrink(currentAccount.id);
+      if (gameState.appeals?.[currentAccount.id]?.submitted) {
+        publishMqttAppeal(currentAccount.id);
+      }
+    }
+    return;
+  }
+
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
   publishMqttJson(mqttTopic("game"), {
@@ -7441,7 +7466,7 @@ function scheduleRemotePush(immediate = false) {
   publishMqttOwn();
   publishMqttRoster();
   publishMqttKnownUsers();
-  publishMqttGame();
+  publishMqttGame({ force: true });
   if (!syncEnabled()) {
     return;
   }
