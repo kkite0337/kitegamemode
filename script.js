@@ -1078,7 +1078,7 @@ function findAccount(id, password) {
 const GIFT_LAYER_COUNT = 4;
 const JOKE_PUNCHLINE = "이민호 바보";
 const JOKE_NUDGE = {
-  1: "아 진짜 마지막^^",
+  1: "한번만 하면 정없으니까~",
   2: "아 진짜 마지막^^",
   3: "진짜 찐막",
 };
@@ -1214,7 +1214,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=143`;
+  const src = `assets/gift-${frame}.png?v=144`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3462,7 +3462,7 @@ function stopWinnerTalk() {
 }
 
 function winnerBoxSrc(color) {
-  return `assets/winner-${color}.png?v=143`;
+  return `assets/winner-${color}.png?v=144`;
 }
 
 function winnerBoxesMarkup() {
