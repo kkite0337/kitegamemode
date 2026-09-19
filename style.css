@@ -2592,3 +2592,21 @@ body.is-admin .app {
   font-size: 28px;
   font-weight: 800;
 }
+
+.play-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: min(320px, 100%);
+  text-align: center;
+}
+
+.play-intro__line,
+.play-intro__name {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.4;
+}

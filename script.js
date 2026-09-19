@@ -488,6 +488,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.playButtonName = String(next.playButtonName || "");
   next.playWheelValue = sanitizePlayWheelValue(next.playWheelValue);
   next.playStage = next.playStage === "start" ? "start" : "";
+  next.playIntroAt = Math.max(0, Number(next.playIntroAt || 0));
   next.playTenReadyAt = Math.max(0, Number(next.playTenReadyAt || 0));
   next.playTenStops = sanitizePlayTenStops(next.playTenStops);
   next.winnerMode = next.winnerMode === "immediate" || next.winnerMode === "after" ? next.winnerMode : "";
@@ -667,6 +668,10 @@ function mergeGameState(local, remote, preferRemote = false) {
           ? ""
           : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
       playStage: keepWinner || phase !== "play" ? "" : primary.playStage === "start" ? "start" : "",
+      playIntroAt:
+        keepWinner || phase !== "play"
+          ? 0
+          : Math.max(Number(primary.playIntroAt || 0), Number(secondary.playIntroAt || 0)),
       playTenReadyAt:
         keepWinner || phase !== "play"
           ? 0
@@ -761,6 +766,7 @@ function emptyGame() {
     playButtonName: "",
     playWheelValue: "",
     playStage: "",
+    playIntroAt: 0,
     playTenReadyAt: 0,
     playTenStops: {},
     winnerMode: "",
@@ -1104,6 +1110,7 @@ function loadGame() {
       playButtonName: parsed.playButtonName || "",
       playWheelValue: parsed.playWheelValue || "",
       playStage: parsed.playStage || "",
+      playIntroAt: Number(parsed.playIntroAt || 0),
       playTenReadyAt: Number(parsed.playTenReadyAt || 0),
       playTenStops: parsed.playTenStops || {},
       winnerMode: parsed.winnerMode || "",
@@ -1327,6 +1334,7 @@ function gameSignature(state) {
     playButtonName: state.playButtonName || "",
     playWheelValue: state.playWheelValue || "",
     playStage: state.playStage || "",
+    playIntroAt: Number(state.playIntroAt || 0),
     playTenReadyAt: Number(state.playTenReadyAt || 0),
     playTenStops: state.playTenStops || {},
     winnerMode: state.winnerMode || "",
@@ -1487,7 +1495,7 @@ function setJokeGiftFrame(frame) {
     return;
   }
 
-  const src = `assets/gift-${frame}.png?v=169`;
+  const src = `assets/gift-${frame}.png?v=170`;
   if (photo.getAttribute("src") !== src) {
     photo.src = src;
   }
@@ -3919,8 +3927,39 @@ function pickRandomPlayWheel() {
   refreshVisible();
 }
 
-function playStartMarkup() {
-  return `<div class="wait-screen"><p>새로운 화면</p></div>`;
+function playIntroMarkup() {
+  const name = sanitizePlayWheelValue(gameState.playWheelValue);
+  return `
+    <div class="play-intro">
+      <p class="play-intro__line">이번 게임은</p>
+      <p class="play-intro__name" data-play-intro-name hidden>${escapeHtml(name)}입니다.</p>
+    </div>
+  `;
+}
+
+function renderPlayIntro(container) {
+  const key = `${Number(gameState.playIntroAt || 0)}|${sanitizePlayWheelValue(gameState.playWheelValue)}`;
+  if (container.dataset.playIntro !== key) {
+    container.dataset.playIntro = key;
+    container.innerHTML = playIntroMarkup();
+  }
+
+  const name = container.querySelector("[data-play-intro-name]");
+  if (!name) {
+    return;
+  }
+
+  const remain = Number(gameState.playIntroAt || 0) + 1500 - Date.now();
+  clearTimeout(container._playIntroTimer);
+  if (remain <= 0) {
+    name.hidden = false;
+    return;
+  }
+
+  name.hidden = true;
+  container._playIntroTimer = setTimeout(() => {
+    name.hidden = false;
+  }, remain);
 }
 
 function beginPlayStart() {
@@ -3929,13 +3968,9 @@ function beginPlayStart() {
   }
 
   gameState.playStage = "start";
-  if (gameState.playWheelValue === "10초 맞추기") {
-    gameState.playTenReadyAt = Date.now();
-    gameState.playTenStops = {};
-  } else {
-    gameState.playTenReadyAt = 0;
-    gameState.playTenStops = {};
-  }
+  gameState.playIntroAt = Date.now();
+  gameState.playTenReadyAt = 0;
+  gameState.playTenStops = {};
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -4087,6 +4122,7 @@ function beginPlayRun() {
   gameState.miniMenu = "game-count";
   gameState.phase = "play";
   gameState.playStage = "";
+  gameState.playIntroAt = 0;
   gameState.playTenReadyAt = 0;
   gameState.playTenStops = {};
   gameState.playWheelValue = playWheelValues()[0];
@@ -4429,6 +4465,7 @@ function goToMiniGameMain() {
   gameState.playButtonName = "";
   gameState.playWheelValue = "";
   gameState.playStage = "";
+  gameState.playIntroAt = 0;
   gameState.playTenReadyAt = 0;
   gameState.playTenStops = {};
   gameState.winnerMode = "";
@@ -4487,19 +4524,15 @@ function renderMiniGame(container) {
 
   if (gameState.miniMenu === "game-count" && gameState.playStage === "start") {
     delete container.dataset.playRun;
-    if (gameState.playWheelValue === "10초 맞추기") {
-      renderPlayTen(container);
-      return;
-    }
-
     stopPlayTenTick();
     delete container.dataset.playTen;
-    container.innerHTML = playStartMarkup();
+    renderPlayIntro(container);
     return;
   }
 
   stopPlayTenTick();
   delete container.dataset.playTen;
+  delete container.dataset.playIntro;
 
   if (gameState.miniMenu === "game-count") {
     renderPlayRun(container);
