@@ -4579,14 +4579,30 @@ function emptyPlayTenFields() {
   };
 }
 
+function playTenProgress(state) {
+  const rank = { brief: 1, turn: 2, run: 3, table: 4, announce: 5 };
+  return Number(state?.playTurnIndex || 0) * 10 + (rank[state?.playTurnPhase] || 0);
+}
+
+function isSharedPlayTen(game) {
+  return game?.playStage === "start" || game?.playStage === "go";
+}
+
 function pickPlayTenSlice(local, remote) {
-  const leftRound = Math.max(0, Number(local.winnerRound || 0));
-  const rightRound = Math.max(0, Number(remote.winnerRound || 0));
-  const source = rightRound > leftRound ? remote : local;
+  const left = playTenProgress(local);
+  const right = playTenProgress(remote);
+  const source =
+    right > left
+      ? remote
+      : left > right
+        ? local
+        : Number(remote.winnerRound || 0) > Number(local.winnerRound || 0)
+          ? remote
+          : local;
   const other = source === local ? remote : local;
   const sourceBoard = sanitizePlayTenBoard(source.playTenBoard);
   const otherBoard = sanitizePlayTenBoard(other.playTenBoard);
-  const board = rightRound === leftRound && otherBoard.length > sourceBoard.length ? otherBoard : sourceBoard;
+  const board = otherBoard.length > sourceBoard.length ? otherBoard : sourceBoard;
   return {
     playTurnIds: sanitizePlayTurnIds(source.playTurnIds?.length ? source.playTurnIds : other.playTurnIds),
     playTurnIndex: Math.max(0, Number(source.playTurnIndex || 0)),
@@ -6924,20 +6940,23 @@ function applyRemoteState(remote, options = {}) {
   }
 
   if (incoming.hasGame) {
-    const incomingPlay =
-      incoming.game.playStage === "start" ||
-      incoming.game.playStage === "go" ||
-      incoming.game.playTurnPhase === "run" ||
-      incoming.game.playTurnPhase === "table" ||
-      incoming.game.playTurnPhase === "announce";
+    const incomingPlay = isSharedPlayTen(incoming.game) || isSharedPlayTen(gameState);
     if (roundAdvanced || incomingPlay) {
       const next = sanitizeGameState(incoming.game, currentGameResetAt());
-      if (roundAdvanced || gameSignature(next) !== lastGameSignature) {
-        if (roundAdvanced) {
+      const incomingTs = incoming.gameUpdatedAt || 0;
+      const incomingProg = playTenProgress(next);
+      const localProg = playTenProgress(gameState);
+      const takeIncoming =
+        roundAdvanced ||
+        incomingTs > gameUpdatedAt ||
+        incomingProg > localProg ||
+        (incomingTs === gameUpdatedAt && incomingProg >= localProg && gameSignature(next) !== lastGameSignature);
+      if (takeIncoming && (roundAdvanced || gameSignature(next) !== lastGameSignature)) {
+        if (roundAdvanced || incomingProg !== localProg) {
           resetPlayUi();
         }
         gameState = next;
-        gameUpdatedAt = Math.max(incoming.gameUpdatedAt || 0, currentGameResetAt(), gameUpdatedAt);
+        gameUpdatedAt = Math.max(incomingTs, currentGameResetAt(), gameUpdatedAt);
         persistGameLocal();
         changed = true;
       }
@@ -8064,7 +8083,7 @@ function shouldRefreshAfterRemote(result) {
     return false;
   }
 
-  if (gameState.playStage === "start" || gameState.playStage === "go") {
+  if (gameState.playStage === "start" || gameState.playStage === "go" || gameState.miniMenu === "game-count") {
     return true;
   }
 
