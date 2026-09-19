@@ -1276,6 +1276,7 @@ const refreshStatus = document.getElementById("refreshStatus");
 let currentAccount = null;
 let adminView = "settings";
 let lastGameSignature = "";
+let lastLivePaintSig = "";
 let lastProfileSignature = "";
 let lastProfileResetAt = Number(localStorage.getItem(PROFILE_RESET_KEY) || 0);
 let gameUpdatedAt = Number(localStorage.getItem(GAME_UPDATED_KEY) || 0);
@@ -2498,6 +2499,26 @@ function refreshVisible() {
 
   showUserView();
   showPage("user");
+}
+
+function paintLiveGame() {
+  if (!currentAccount || currentAccount.role === "joke") {
+    return;
+  }
+
+  if (currentAccount.role !== "admin" && !currentProfile()?.submitted) {
+    return;
+  }
+
+  const shared = isSharedPlayTen(gameState) || gameState.miniMenu === "game-count";
+  const waitingOnMain = currentAccount.role !== "admin" && userMain && !userMain.hidden;
+  const sig = gameSignature(gameState);
+  if (sig === lastLivePaintSig && !(waitingOnMain && shared)) {
+    return;
+  }
+
+  lastLivePaintSig = sig;
+  refreshVisible();
 }
 
 function renderRegister() {
@@ -5484,8 +5505,6 @@ function renderMiniGame(container) {
 
   if (gameState.miniMenu === "game-count" && gameState.playStage === "go") {
     delete container.dataset.playRun;
-    stopPlayTenTick();
-    delete container.dataset.playTen;
     renderPlayGo(container);
     return;
   }
@@ -7215,6 +7234,11 @@ function handlePeerPayload(data, fromConn) {
     return;
   }
 
+  if (currentAccount && (result.changed || isSharedPlayTen(gameState))) {
+    refreshVisible();
+    return;
+  }
+
   if (shouldRefreshAfterRemote(result)) {
     refreshVisible();
   }
@@ -7469,7 +7493,7 @@ function publishMqttJson(topic, data, options = {}) {
     body: JSON.stringify(data),
     options: {
       retain: options.retain !== false,
-      qos: 0,
+      qos: Number.isFinite(Number(options.qos)) ? Number(options.qos) : 0,
     },
   };
 
@@ -7597,12 +7621,16 @@ function publishMqttGame(options = {}) {
 
   const game = JSON.parse(JSON.stringify(gameState));
   game.drinks = filledDrinks(game.drinks);
-  publishMqttJson(mqttTopic("game"), {
-    game,
-    gameUpdatedAt,
-    gameResetAt: currentGameResetAt(),
-    participantCount,
-  });
+  publishMqttJson(
+    mqttTopic("game"),
+    {
+      game,
+      gameUpdatedAt,
+      gameResetAt: currentGameResetAt(),
+      participantCount,
+    },
+    { qos: 1 },
+  );
   if (currentAccount) {
     publishMqttDrink(currentAccount.id);
     if (gameState.appeals?.[currentAccount.id]?.submitted) {
@@ -7632,12 +7660,16 @@ function publishMqttGameRound(resetAt) {
       playerId: "",
     });
   }
-  publishMqttJson(mqttTopic("game"), {
-    game: JSON.parse(JSON.stringify(gameState)),
-    gameUpdatedAt,
-    gameResetAt: resetAt,
-    participantCount,
-  });
+  publishMqttJson(
+    mqttTopic("game"),
+    {
+      game: JSON.parse(JSON.stringify(gameState)),
+      gameUpdatedAt,
+      gameResetAt: resetAt,
+      participantCount,
+    },
+    { qos: 1 },
+  );
 }
 
 function publishMqttReset(resetAt) {
@@ -7892,6 +7924,10 @@ function handleMqttMessage(topic, data) {
     if (logoutUserIfReset()) {
       return;
     }
+    if (currentAccount && (result.changed || isSharedPlayTen(gameState))) {
+      refreshVisible();
+      return;
+    }
     if (shouldRefreshAfterRemote(result)) {
       refreshVisible();
     }
@@ -7939,7 +7975,7 @@ function startMqttSync(url) {
       `${root}/+/hello`,
     ];
     topics.forEach((topic) => {
-      mqttClient.subscribe(topic, { qos: 0 });
+      mqttClient.subscribe(topic, { qos: topic.endsWith("/game") ? 1 : 0 });
     });
     if (Array.isArray(SYNC_MQTT_LEGACY_PREFIXES)) {
       SYNC_MQTT_LEGACY_PREFIXES.forEach((prefix) => {
@@ -8266,8 +8302,20 @@ setInterval(() => {
     publishMqttGame();
   }
   broadcastPeerState();
+  paintLiveGame();
   logoutUserIfReset();
 }, 1500);
+setInterval(() => {
+  if (!currentAccount) {
+    return;
+  }
+
+  if (currentAccount.role === "admin" && isSharedPlayTen(gameState)) {
+    publishMqttGame();
+  }
+
+  paintLiveGame();
+}, 300);
 window.addEventListener("message", (event) => {
   if (event.data?.type === "stop-ready") {
     if (typeof event.source?.postMessage === "function") {
