@@ -4697,10 +4697,33 @@ function beginPlayGo() {
 
 const PLAY_TEN_COUNTDOWN_MS = 3000;
 let playTenTickTimer = 0;
+let playTenHoldMs = 0;
+let playTenHoldAt = 0;
 
 function stopPlayTenTick() {
   clearInterval(playTenTickTimer);
   playTenTickTimer = 0;
+}
+
+function clearPlayTenHold() {
+  playTenHoldMs = 0;
+  playTenHoldAt = 0;
+}
+
+function freezePlayTenClock(ms) {
+  const frozen = Math.max(0, Number(ms || 0));
+  playTenHoldMs = frozen;
+  playTenHoldAt = Date.now();
+}
+
+function playTenFrozenMs() {
+  return Math.max(Number(gameState.playStopMs || 0), playTenHoldMs);
+}
+
+function paintPlayTenClocks(ms) {
+  document.querySelectorAll("[data-play-ten-clock]").forEach((clock) => {
+    clock.textContent = formatPlayClock(ms);
+  });
 }
 
 function sanitizePlayTenStops(stops) {
@@ -4758,8 +4781,9 @@ function emptyPlayTenFields() {
 }
 
 function playTenProgress(state) {
-  const rank = { brief: 1, turn: 2, run: 3, table: 4, announce: 5 };
-  return Number(state?.playTurnIndex || 0) * 10 + (rank[state?.playTurnPhase] || 0);
+  const rank = { brief: 1, turn: 2, run: 3, table: 5, announce: 6 };
+  const stopped = state?.playTurnPhase === "run" && Number(state?.playStopMs || 0) > 0 ? 1 : 0;
+  return Number(state?.playTurnIndex || 0) * 10 + (rank[state?.playTurnPhase] || 0) + stopped;
 }
 
 function isSharedPlayTen(game) {
@@ -4781,17 +4805,50 @@ function pickPlayTenSlice(local, remote) {
   const sourceBoard = sanitizePlayTenBoard(source.playTenBoard);
   const otherBoard = sanitizePlayTenBoard(other.playTenBoard);
   const board = otherBoard.length > sourceBoard.length ? otherBoard : sourceBoard;
+  let stopMs = Number(source.playStopMs || 0);
+  let stopAt = Number(source.playStopAt || 0);
+  if (
+    Number(source.playTurnIndex || 0) === Number(other.playTurnIndex || 0) &&
+    sanitizePlayTurnPhase(source.playTurnPhase) === "run" &&
+    Number(other.playStopMs || 0) > stopMs
+  ) {
+    stopMs = Number(other.playStopMs || 0);
+    stopAt = Number(other.playStopAt || 0) || stopAt;
+  }
   return {
     playTurnIds: sanitizePlayTurnIds(source.playTurnIds?.length ? source.playTurnIds : other.playTurnIds),
     playTurnIndex: Math.max(0, Number(source.playTurnIndex || 0)),
     playTurnPhase: sanitizePlayTurnPhase(source.playTurnPhase) || sanitizePlayTurnPhase(other.playTurnPhase),
     playBriefAt: Number(source.playBriefAt || 0) || Number(other.playBriefAt || 0),
-    playRunAt: Number(source.playRunAt || 0),
-    playStopMs: Number(source.playStopMs || 0),
-    playStopAt: Number(source.playStopAt || 0),
+    playRunAt: Number(source.playRunAt || 0) || Number(other.playRunAt || 0),
+    playStopMs: stopMs,
+    playStopAt: stopAt,
     playAnnounceAt: Number(source.playAnnounceAt || 0) || Number(other.playAnnounceAt || 0),
     playTenBoard: board,
   };
+}
+
+function withKeptPlayTenStop(local, remote) {
+  if (playTenProgress(remote) > playTenProgress(local)) {
+    return remote;
+  }
+  if (
+    sanitizePlayTurnPhase(local.playTurnPhase) === "run" &&
+    Number(local.playStopMs || 0) > 0 &&
+    sanitizePlayTurnPhase(remote.playTurnPhase) === "run" &&
+    Number(local.playTurnIndex || 0) === Number(remote.playTurnIndex || 0)
+  ) {
+    const boardLocal = sanitizePlayTenBoard(local.playTenBoard);
+    const boardRemote = sanitizePlayTenBoard(remote.playTenBoard);
+    return {
+      ...remote,
+      playRunAt: Number(local.playRunAt || 0) || Number(remote.playRunAt || 0),
+      playStopMs: Number(local.playStopMs || 0),
+      playStopAt: Number(local.playStopAt || 0) || Number(remote.playStopAt || 0),
+      playTenBoard: boardLocal.length >= boardRemote.length ? boardLocal : boardRemote,
+    };
+  }
+  return remote;
 }
 
 function mergePlayTenStops(first, second) {
@@ -4819,6 +4876,8 @@ const PLAY_TEN_TABLE_GAP_MS = 2000;
 const PLAY_TEN_RANK_GAP_MS = 800;
 const PLAY_TEN_PLACE_GAP_MS = 2000;
 const PLAY_TEN_CHAR_MS = 36;
+const PLAY_TEN_BRIEF_CHAR_MS = PLAY_INTRO_CHAR_MS;
+const PLAY_TEN_BRIEF_HOLD_MS = 1500;
 const SCORE_PLACE_POINTS = [100, 70, 50, 30, 20];
 
 function assignPlayTurns() {
@@ -4861,13 +4920,12 @@ function playTenBriefPlan() {
   const line1 = "10초일 때, STOP 버튼을 누르세요.";
   const line2 = "순서는 랜덤으로 흐릅니다.";
   const line3 = "이제 게임을 시작합니다";
-  const holdMs = 1500;
-  const line1Ms = playIntroChars(line1).length * PLAY_TEN_CHAR_MS;
-  const line2At = line1Ms + holdMs;
-  const line2Ms = playIntroChars(line2).length * PLAY_TEN_CHAR_MS;
-  const line3At = line2At + line2Ms + holdMs;
-  const line3Ms = playIntroChars(line3).length * PLAY_TEN_CHAR_MS;
-  const readyAt = line3At + line3Ms + holdMs;
+  const line1Ms = playIntroChars(line1).length * PLAY_TEN_BRIEF_CHAR_MS;
+  const line2At = line1Ms + PLAY_TEN_BRIEF_HOLD_MS;
+  const line2Ms = playIntroChars(line2).length * PLAY_TEN_BRIEF_CHAR_MS;
+  const line3At = line2At + line2Ms + PLAY_TEN_BRIEF_HOLD_MS;
+  const line3Ms = playIntroChars(line3).length * PLAY_TEN_BRIEF_CHAR_MS;
+  const readyAt = line3At + line3Ms + PLAY_TEN_BRIEF_HOLD_MS;
   return { line1, line2, line3, line2At, line3At, readyAt };
 }
 
@@ -5032,9 +5090,9 @@ function syncPlayTenBrief(container) {
     return;
   }
 
-  line1.textContent = playTyped(plan.line1, elapsed, PLAY_TEN_CHAR_MS);
-  line2.textContent = elapsed < plan.line2At ? "" : playTyped(plan.line2, elapsed - plan.line2At, PLAY_TEN_CHAR_MS);
-  line3.textContent = elapsed < plan.line3At ? "" : playTyped(plan.line3, elapsed - plan.line3At, PLAY_TEN_CHAR_MS);
+  line1.textContent = playTyped(plan.line1, elapsed, PLAY_TEN_BRIEF_CHAR_MS);
+  line2.textContent = elapsed < plan.line2At ? "" : playTyped(plan.line2, elapsed - plan.line2At, PLAY_TEN_BRIEF_CHAR_MS);
+  line3.textContent = elapsed < plan.line3At ? "" : playTyped(plan.line3, elapsed - plan.line3At, PLAY_TEN_BRIEF_CHAR_MS);
 
   if (elapsed >= plan.readyAt && gameState.playTurnPhase === "brief") {
     gameState.playTurnPhase = "turn";
@@ -5043,11 +5101,11 @@ function syncPlayTenBrief(container) {
   }
 
   const nextAt =
-    nextTypedAt(elapsed, 0, plan.line1, PLAY_TEN_CHAR_MS) ||
+    nextTypedAt(elapsed, 0, plan.line1, PLAY_TEN_BRIEF_CHAR_MS) ||
     (elapsed < plan.line2At ? plan.line2At : 0) ||
-    nextTypedAt(elapsed, plan.line2At, plan.line2, PLAY_TEN_CHAR_MS) ||
+    nextTypedAt(elapsed, plan.line2At, plan.line2, PLAY_TEN_BRIEF_CHAR_MS) ||
     (elapsed < plan.line3At ? plan.line3At : 0) ||
-    nextTypedAt(elapsed, plan.line3At, plan.line3, PLAY_TEN_CHAR_MS) ||
+    nextTypedAt(elapsed, plan.line3At, plan.line3, PLAY_TEN_BRIEF_CHAR_MS) ||
     (elapsed < plan.readyAt ? plan.readyAt : 0);
   clearTimeout(container._playTenTimer);
   if (nextAt) {
@@ -5061,9 +5119,9 @@ function syncPlayTenClock(container) {
     return;
   }
 
-  const stopped = Number(gameState.playStopMs || 0);
-  if (stopped > 0) {
-    clock.textContent = formatPlayClock(stopped);
+  const frozen = playTenFrozenMs();
+  if (frozen > 0 && gameState.playTurnPhase === "run") {
+    clock.textContent = formatPlayClock(frozen);
     return;
   }
 
@@ -5141,8 +5199,12 @@ function renderPlayTenGame(container) {
     }
   }
 
-  if (gameState.playTurnPhase === "run" && Number(gameState.playStopAt || 0) && Date.now() >= Number(gameState.playStopAt) + PLAY_TEN_TABLE_GAP_MS) {
-    gameState.playTurnPhase = "table";
+  if (gameState.playTurnPhase === "run") {
+    const stopAt = Number(gameState.playStopAt || 0) || playTenHoldAt;
+    if (playTenFrozenMs() > 0 && stopAt && Date.now() >= stopAt + PLAY_TEN_TABLE_GAP_MS) {
+      gameState.playTurnPhase = "table";
+      clearPlayTenHold();
+    }
   }
 
   const key = [
@@ -5178,9 +5240,25 @@ function renderPlayTenGame(container) {
 
   if (gameState.playTurnPhase === "run") {
     syncPlayTenClock(container);
+    if (playTenFrozenMs() > 0) {
+      const stopAt = Number(gameState.playStopAt || 0) || playTenHoldAt;
+      const remain = stopAt + PLAY_TEN_TABLE_GAP_MS - Date.now();
+      if (remain <= 0) {
+        renderPlayTenGame(container);
+        return;
+      }
+      container._playTenTimer = setTimeout(() => renderPlayTenGame(container), remain);
+      return;
+    }
     playTenTickTimer = setInterval(() => {
       if (!container.isConnected || gameState.playTurnPhase !== "run") {
         stopPlayTenTick();
+        return;
+      }
+      if (playTenFrozenMs() > 0) {
+        stopPlayTenTick();
+        syncPlayTenClock(container);
+        renderPlayTenGame(container);
         return;
       }
       syncPlayTenClock(container);
@@ -5206,6 +5284,7 @@ function startPlayTenTurn() {
   gameState.playRunAt = Date.now();
   gameState.playStopMs = 0;
   gameState.playStopAt = 0;
+  clearPlayTenHold();
   bumpPlayTen();
   saveGame({ immediate: true });
   refreshVisible();
@@ -5222,6 +5301,9 @@ function stopPlayTenClock() {
 
   const elapsed = Math.max(0, Date.now() - Number(gameState.playRunAt || Date.now()));
   const errorMs = Math.abs(elapsed - PLAY_TEN_TARGET_MS);
+  freezePlayTenClock(elapsed);
+  stopPlayTenTick();
+  paintPlayTenClocks(elapsed);
   gameState.playStopMs = elapsed;
   gameState.playStopAt = Date.now();
   gameState.playTenBoard = [
@@ -5251,9 +5333,11 @@ function advancePlayTenTurn() {
     gameState.playRunAt = 0;
     gameState.playStopMs = 0;
     gameState.playStopAt = 0;
+    clearPlayTenHold();
   } else {
     gameState.playTurnPhase = "announce";
     gameState.playAnnounceAt = Date.now();
+    clearPlayTenHold();
   }
   bumpPlayTen();
   saveGame({ immediate: true });
@@ -7323,9 +7407,10 @@ function applyRemoteState(remote, options = {}) {
         roundAdvanced ||
         incomingIdle ||
         (!localIdle &&
-          (incomingTs > gameUpdatedAt ||
-            incomingProg > localProg ||
-            (incomingTs === gameUpdatedAt && incomingProg >= localProg && gameSignature(next) !== lastGameSignature)));
+          (incomingProg > localProg ||
+            (incomingProg === localProg &&
+              (incomingTs > gameUpdatedAt ||
+                (incomingTs === gameUpdatedAt && gameSignature(next) !== lastGameSignature)))));
       if (takeIncoming && (roundAdvanced || gameSignature(next) !== lastGameSignature)) {
         if (roundAdvanced || incomingProg !== localProg) {
           resetPlayUi();
@@ -7333,7 +7418,7 @@ function applyRemoteState(remote, options = {}) {
         const previous = gameState;
         gameState = sanitizeGameState(
           {
-            ...next,
+            ...withKeptPlayTenStop(previous, next),
             ...mergeScoreSlice(previous, next),
             scoreView: Boolean(next.scoreView),
           },
