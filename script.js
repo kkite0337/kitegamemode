@@ -5401,9 +5401,10 @@ function scoreBoardMarkup() {
       `,
     )
     .join("");
-  const reset =
+  const actions =
     currentAccount?.role === "admin"
-      ? `<button class="btn-reset" type="button" data-action="reset-scores">점수 초기화</button>`
+      ? `<button class="btn-reset" type="button" data-action="reset-scores">점수 초기화</button>
+      <button class="btn-primary" type="button" data-action="close-scores">뒤로가기</button>`
       : "";
   return `
     <div class="score-board">
@@ -5413,7 +5414,7 @@ function scoreBoardMarkup() {
         <span>점수</span>
       </div>
       ${rows}
-      ${reset}
+      ${actions}
     </div>
   `;
 }
@@ -5433,7 +5434,16 @@ function openScoreView() {
 }
 
 function closeScoreView() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
   gameState.scoreView = false;
+  if (gameState.game === "game3") {
+    goToMiniGameMain();
+    return;
+  }
+
   saveGame({ immediate: true });
   refreshVisible();
 }
@@ -6356,17 +6366,7 @@ function requestGoToMainMenu() {
     return;
   }
 
-  if (gameState.scoreView) {
-    closeScoreView();
-    return;
-  }
-
-  if (!isGameInProgress()) {
-    goToMainMenu();
-    return;
-  }
-
-  showGameResetConfirm();
+  goToMainMenu();
 }
 
 function goToMainMenu() {
@@ -6880,6 +6880,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "reset-scores") {
     resetScores();
+    return;
+  }
+
+  if (button.dataset.action === "close-scores") {
+    closeScoreView();
     return;
   }
 
