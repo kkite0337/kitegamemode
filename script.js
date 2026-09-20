@@ -4689,6 +4689,7 @@ function beginPlayGo() {
     gameState.playTurnIndex = 0;
     gameState.playTurnPhase = "brief";
     gameState.playBriefAt = Date.now();
+    playTenBriefFallbackAt = 0;
   }
   saveGame({ immediate: true });
   publishMqttGameRound(resetAt);
@@ -4929,6 +4930,49 @@ function playTenBriefPlan() {
   return { line1, line2, line3, line2At, line3At, readyAt };
 }
 
+let playTenBriefFallbackAt = 0;
+
+function playTenBriefAnchor() {
+  const startedAt = Number(gameState.playBriefAt || 0);
+  if (startedAt > 0) {
+    playTenBriefFallbackAt = 0;
+    return startedAt;
+  }
+  if (
+    gameState.playStage === "go" &&
+    sanitizePlayWheelValue(gameState.playWheelValue) === "10초 맞추기" &&
+    (sanitizePlayTurnPhase(gameState.playTurnPhase) === "brief" ||
+      sanitizePlayTurnPhase(gameState.playTurnPhase) === "turn" ||
+      !sanitizePlayTurnPhase(gameState.playTurnPhase))
+  ) {
+    if (!playTenBriefFallbackAt) {
+      playTenBriefFallbackAt = Date.now();
+    }
+    return playTenBriefFallbackAt;
+  }
+  playTenBriefFallbackAt = 0;
+  return 0;
+}
+
+function playTenBriefElapsed() {
+  const startedAt = playTenBriefAnchor();
+  if (startedAt <= 0) {
+    return 0;
+  }
+  return Math.max(0, Date.now() - startedAt);
+}
+
+function playTenViewPhase() {
+  const phase = sanitizePlayTurnPhase(gameState.playTurnPhase);
+  if (gameState.playStage !== "go" || sanitizePlayWheelValue(gameState.playWheelValue) !== "10초 맞추기") {
+    return phase;
+  }
+  if (phase === "run" || phase === "table" || phase === "announce") {
+    return phase;
+  }
+  return playTenBriefElapsed() >= playTenBriefPlan().readyAt ? "turn" : "brief";
+}
+
 function playTenRankRows() {
   if (gameState.playMode === "team") {
     return sanitizePlayTeams(gameState.playTeams)
@@ -5081,7 +5125,7 @@ function playTenAnnounceMarkup() {
 }
 
 function syncPlayTenBrief(container) {
-  const elapsed = Date.now() - Number(gameState.playBriefAt || 0);
+  const elapsed = playTenBriefElapsed();
   const plan = playTenBriefPlan();
   const line1 = container.querySelector("[data-play-ten-brief='1']");
   const line2 = container.querySelector("[data-play-ten-brief='2']");
@@ -5094,8 +5138,7 @@ function syncPlayTenBrief(container) {
   line2.textContent = elapsed < plan.line2At ? "" : playTyped(plan.line2, elapsed - plan.line2At, PLAY_TEN_BRIEF_CHAR_MS);
   line3.textContent = elapsed < plan.line3At ? "" : playTyped(plan.line3, elapsed - plan.line3At, PLAY_TEN_BRIEF_CHAR_MS);
 
-  if (elapsed >= plan.readyAt && gameState.playTurnPhase === "brief") {
-    gameState.playTurnPhase = "turn";
+  if (elapsed >= plan.readyAt) {
     renderPlayTenGame(container);
     return;
   }
@@ -5192,14 +5235,8 @@ function syncPlayTenAnnounce(container) {
 }
 
 function renderPlayTenGame(container) {
-  if (gameState.playTurnPhase === "brief") {
-    const elapsed = Date.now() - Number(gameState.playBriefAt || 0);
-    if (elapsed >= playTenBriefPlan().readyAt) {
-      gameState.playTurnPhase = "turn";
-    }
-  }
-
-  if (gameState.playTurnPhase === "run") {
+  const viewPhase = playTenViewPhase();
+  if (viewPhase === "run") {
     const stopAt = Number(gameState.playStopAt || 0) || playTenHoldAt;
     if (playTenFrozenMs() > 0 && stopAt && Date.now() >= stopAt + PLAY_TEN_TABLE_GAP_MS) {
       gameState.playTurnPhase = "table";
@@ -5207,24 +5244,26 @@ function renderPlayTenGame(container) {
     }
   }
 
+  const phase = playTenViewPhase();
   const key = [
-    gameState.playTurnPhase,
+    phase,
     gameState.playTurnIndex,
     gameState.playRunAt,
     gameState.playStopAt,
     gameState.playAnnounceAt,
+    Number(gameState.playBriefAt || 0),
     sanitizePlayTenBoard(gameState.playTenBoard).length,
     currentAccount?.id || "",
   ].join("|");
   if (container.dataset.playTen !== key) {
     container.dataset.playTen = key;
-    if (gameState.playTurnPhase === "brief") {
+    if (phase === "brief") {
       container.innerHTML = playTenBriefMarkup();
-    } else if (gameState.playTurnPhase === "run") {
+    } else if (phase === "run") {
       container.innerHTML = playTenRunMarkup();
-    } else if (gameState.playTurnPhase === "table") {
+    } else if (phase === "table") {
       container.innerHTML = playTenTableMarkup();
-    } else if (gameState.playTurnPhase === "announce") {
+    } else if (phase === "announce") {
       container.innerHTML = playTenAnnounceMarkup();
     } else {
       container.innerHTML = playTenTurnMarkup();
@@ -5233,12 +5272,12 @@ function renderPlayTenGame(container) {
 
   stopPlayTenTick();
   clearTimeout(container._playTenTimer);
-  if (gameState.playTurnPhase === "brief") {
+  if (phase === "brief") {
     syncPlayTenBrief(container);
     return;
   }
 
-  if (gameState.playTurnPhase === "run") {
+  if (phase === "run") {
     syncPlayTenClock(container);
     if (playTenFrozenMs() > 0) {
       const stopAt = Number(gameState.playStopAt || 0) || playTenHoldAt;
@@ -5270,13 +5309,13 @@ function renderPlayTenGame(container) {
     return;
   }
 
-  if (gameState.playTurnPhase === "announce") {
+  if (phase === "announce") {
     syncPlayTenAnnounce(container);
   }
 }
 
 function startPlayTenTurn() {
-  if (!isMyPlayTurn() || gameState.playTurnPhase !== "turn" || gameState.playWheelValue !== "10초 맞추기") {
+  if (!isMyPlayTurn() || playTenViewPhase() !== "turn" || gameState.playWheelValue !== "10초 맞추기") {
     return;
   }
 
@@ -5284,6 +5323,7 @@ function startPlayTenTurn() {
   gameState.playRunAt = Date.now();
   gameState.playStopMs = 0;
   gameState.playStopAt = 0;
+  playTenBriefFallbackAt = 0;
   clearPlayTenHold();
   bumpPlayTen();
   saveGame({ immediate: true });
@@ -5862,6 +5902,7 @@ function goToMiniGameMain() {
   gameState.winnerId = "";
   gameState.winnerBoard = [];
   gameState.winnerRound = Date.now();
+  playTenBriefFallbackAt = 0;
   resetPlayUi();
   saveGame({ immediate: true });
   refreshVisible();
