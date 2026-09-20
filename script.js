@@ -519,6 +519,9 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
 
   next.boardReady = Boolean(next.boardReady);
   next.miniMenu = next.miniMenu === "winner" || next.miniMenu === "game-count" ? next.miniMenu : "";
+  if (!isWinnerFlowPhase(next.phase) && next.miniMenu === "winner") {
+    next.miniMenu = "";
+  }
   const seated = participantIds();
   next.players = Array.isArray(next.players) ? next.players.filter((id) => seated.includes(id)) : [];
   if (next.game === "drink" || next.game === "game2" || next.game === "game3" || next.game === "stop") {
@@ -605,6 +608,18 @@ function isPlayRunState(state) {
 
 function isStaleWinnerWait(state) {
   return state?.phase === "winner-mode" || state?.phase === "winner-pick";
+}
+
+function pickSyncSource(local, remote, primary) {
+  const left = playSyncEpoch(local);
+  const right = playSyncEpoch(remote);
+  if (right > left) {
+    return remote;
+  }
+  if (left > right) {
+    return local;
+  }
+  return primary;
 }
 
 function mergePlayerIds(primary, secondary) {
@@ -788,6 +803,7 @@ function mergeGameState(local, remote, preferRemote = false) {
   const phase = pickGamePhase(local, remote, primary);
   const restarting = isStartGamePhase(phase);
   const keepWinner = isWinnerFlowPhase(phase);
+  const syncSource = pickSyncSource(local, remote, primary);
   return sanitizeGameState(
     {
       ...emptyGame(),
@@ -822,17 +838,13 @@ function mergeGameState(local, remote, preferRemote = false) {
       miniMenu:
         keepWinner
           ? "winner"
-          : phase === "play"
-            ? isPlayRunState(primary) || isPlayRunState(secondary)
-              ? "game-count"
-              : primary.miniMenu || secondary.miniMenu || ""
+          : phase === "play" && isPlayRunState(syncSource)
+            ? "game-count"
             : "",
-      playButtonName: keepWinner || phase !== "play" ? "" : primary.playButtonName || secondary.playButtonName || "",
+      playButtonName: keepWinner || phase !== "play" ? "" : String(syncSource.playButtonName || ""),
       playWheelValue:
-        keepWinner || phase !== "play"
-          ? ""
-          : sanitizePlayWheelValue(primary.playWheelValue || secondary.playWheelValue),
-      playStage: keepWinner || phase !== "play" ? "" : mergePlayStage(primary, secondary),
+        keepWinner || phase !== "play" ? "" : sanitizePlayWheelValue(syncSource.playWheelValue),
+      playStage: keepWinner || phase !== "play" ? "" : mergePlayStage(syncSource, {}),
       playIntroAt:
         keepWinner || phase !== "play"
           ? 0
