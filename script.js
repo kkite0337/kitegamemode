@@ -4325,6 +4325,16 @@ const PLAY_TEAM_COLORS = [
   { label: "YELLOW", hex: "#ca8a04" },
   { label: "RED", hex: "#dc2626" },
 ];
+const PLAY_RANK_COLORS = {
+  1: "#dc2626",
+  2: "#f97316",
+  3: "#22c55e",
+  4: "#2563eb",
+};
+
+function playRankColor(rank) {
+  return PLAY_RANK_COLORS[Number(rank)] || "";
+}
 
 function playModePhrase() {
   return gameState.playMode === "team" ? "팀전" : "개인전";
@@ -5119,7 +5129,7 @@ function playTenRankRows() {
     .map((row, index) => ({
       key: row.id,
       text: `${index + 1}위 ${row.name || playTenPersonName(row.id)}`,
-      color: "",
+      color: playRankColor(index + 1),
       errorMs: row.errorMs,
       ids: [row.id],
     }));
@@ -5351,7 +5361,7 @@ function syncPlayTenAnnounce(container) {
       .slice(0, shown)
       .map((row, index) => {
         const pop = index === shown - 1 ? " is-pop" : "";
-        const color = row.color ? ` style="color:${row.color}"` : "";
+        const color = row.color ? ` style="color:${row.color} !important"` : "";
         return `<p class="play-ten__rank${pop}"${color}>${escapeHtml(row.text)}</p>`;
       })
       .join("");
@@ -5365,7 +5375,20 @@ function syncPlayTenAnnounce(container) {
     ranks.hidden = true;
     place.hidden = false;
     const rank = myPlayTenRank();
+    const hex = playRankColor(rank);
     placeRank.textContent = rank ? `${rank}위 입니다` : "순위 입니다";
+    if (hex) {
+      place.style.setProperty("color", hex, "important");
+    } else {
+      place.style.removeProperty("color");
+    }
+    place.querySelectorAll(".play-ten__place-line, .play-ten__place-rank").forEach((node) => {
+      if (hex) {
+        node.style.setProperty("color", hex, "important");
+      } else {
+        node.style.removeProperty("color");
+      }
+    });
     if (rank === 1 && place.dataset.confetti !== "1") {
       place.dataset.confetti = "1";
       place.insertAdjacentHTML("afterbegin", menuConfettiMarkup());

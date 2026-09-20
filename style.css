@@ -2830,6 +2830,11 @@ body.is-admin .app {
   line-height: 1.4;
 }
 
+.play-ten__place[style*="color"] .play-ten__place-line,
+.play-ten__place[style*="color"] .play-ten__place-rank {
+  color: inherit;
+}
+
 .play-ten__place-rank,
 .play-ten__rank.is-pop {
   animation: play-pop 0.45s ease;
