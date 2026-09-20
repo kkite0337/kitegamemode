@@ -6550,7 +6550,12 @@ function requestGoToMainMenu() {
     return;
   }
 
-  goToMainMenu();
+  if (!isGameInProgress() && !gameState.scoreView) {
+    goToMainMenu();
+    return;
+  }
+
+  showGameResetConfirm();
 }
 
 function goToMainMenu() {
