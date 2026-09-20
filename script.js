@@ -4053,6 +4053,7 @@ function otherGamePlayMarkup() {
               </button>
             `,
           ).join("")}
+          <button class="btn-primary" type="button" data-action="go-mini-main">게임화면으로</button>
         </div>
       `;
     }
@@ -7091,6 +7092,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "close-scores") {
     closeScoreView();
+    return;
+  }
+
+  if (button.dataset.action === "go-mini-main") {
+    goToMiniGameMain();
     return;
   }
 
