@@ -4907,6 +4907,8 @@ const PLAY_TEN_PLACE_GAP_MS = 2000;
 const PLAY_TEN_CHAR_MS = 36;
 const PLAY_TEN_BRIEF_CHAR_MS = PLAY_INTRO_CHAR_MS;
 const PLAY_TEN_BRIEF_HOLD_MS = 1500;
+const PLAY_TEN_ANNOUNCE_CHAR_MS = PLAY_INTRO_CHAR_MS;
+const PLAY_TEN_ANNOUNCE_HOLD_MS = 2500;
 const SCORE_PLACE_POINTS = [100, 70, 50, 30, 20];
 
 function rollRandomPlayTargetMs() {
@@ -5091,12 +5093,13 @@ function myPlayTenRank() {
 
 function playTenAnnouncePlan() {
   const title = "결과를 발표하겠습니다.";
-  const titleMs = playIntroChars(title).length * PLAY_TEN_CHAR_MS;
-  const hideAt = titleMs + 2000;
+  const charMs = PLAY_TEN_ANNOUNCE_CHAR_MS;
+  const titleMs = playIntroChars(title).length * charMs;
+  const hideAt = titleMs + PLAY_TEN_ANNOUNCE_HOLD_MS;
   const ranks = playTenRankRows();
   const rankAt = hideAt + 400;
   const placeAt = rankAt + ranks.length * PLAY_TEN_RANK_GAP_MS + PLAY_TEN_PLACE_GAP_MS;
-  return { title, titleMs, hideAt, ranks, rankAt, placeAt };
+  return { title, titleMs, hideAt, ranks, rankAt, placeAt, charMs };
 }
 
 function bumpPlayTen() {
@@ -5278,7 +5281,7 @@ function syncPlayTenAnnounce(container) {
 
   if (elapsed < plan.hideAt) {
     title.hidden = false;
-    title.textContent = playTyped(plan.title, elapsed, PLAY_TEN_CHAR_MS);
+    title.textContent = playTyped(plan.title, elapsed, plan.charMs);
     ranks.innerHTML = "";
     place.hidden = true;
   } else {
@@ -5318,7 +5321,7 @@ function syncPlayTenAnnounce(container) {
 
   clearTimeout(container._playTenTimer);
   if (elapsed < plan.titleMs) {
-    const nextAt = nextTypedAt(elapsed, 0, plan.title, PLAY_TEN_CHAR_MS) || plan.titleMs;
+    const nextAt = nextTypedAt(elapsed, 0, plan.title, plan.charMs) || plan.titleMs;
     container._playTenTimer = setTimeout(() => syncPlayTenAnnounce(container), Math.max(16, nextAt - elapsed));
     return;
   }
@@ -5599,12 +5602,7 @@ function resetScores() {
 function showRecordScoreConfirm() {
   const layer = document.getElementById("recordScoreLayer");
   if (!layer) {
-    if (window.confirm("기록하시겠습니까?")) {
-      applyPlayTenScores();
-      goToMainMenu();
-    } else {
-      goToMainMenu();
-    }
+    confirmRecordScores(window.confirm("기록하시겠습니까?"));
     return;
   }
 
@@ -5623,7 +5621,7 @@ function confirmRecordScores(record) {
   if (record) {
     applyPlayTenScores();
   }
-  goToMainMenu();
+  goToMiniGameMain({ scoreView: true });
 }
 
 function beginPlayRun() {
@@ -5974,11 +5972,12 @@ function goToWinnerTable() {
   refreshVisible();
 }
 
-function goToMiniGameMain() {
+function goToMiniGameMain(options = {}) {
   if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
     return;
   }
 
+  gameState.scoreView = Boolean(options.scoreView);
   gameState.phase = "play";
   gameState.miniMenu = "";
   gameState.playButtonName = "";
