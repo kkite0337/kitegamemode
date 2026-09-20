@@ -5018,12 +5018,12 @@ function playTenBriefPlan() {
         { key: "1", text: "이번에 맞출 시간은", emphasize: false },
         { key: "hit", text: `${clock} 입니다.`, highlight: clock, emphasize: true },
         { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
-        { key: "3", text: "이제 게임을 시작합니다", emphasize: false },
+        { key: "3", text: "이제 게임을 시작합니다!", emphasize: false },
       ]
     : [
         { key: "1", text: "10초일 때, STOP 버튼을 누르세요.", emphasize: false },
         { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
-        { key: "3", text: "이제 게임을 시작합니다", emphasize: false },
+        { key: "3", text: "이제 게임을 시작합니다!", emphasize: false },
       ];
   const starts = [];
   let at = 0;
