@@ -4861,12 +4861,13 @@ function playTenBriefPlan() {
   const line1 = "10초일 때, STOP 버튼을 누르세요.";
   const line2 = "순서는 랜덤으로 흐릅니다.";
   const line3 = "이제 게임을 시작합니다";
+  const holdMs = 1500;
   const line1Ms = playIntroChars(line1).length * PLAY_TEN_CHAR_MS;
-  const line2At = line1Ms + 280;
+  const line2At = line1Ms + holdMs;
   const line2Ms = playIntroChars(line2).length * PLAY_TEN_CHAR_MS;
-  const line3At = line2At + line2Ms + 900;
+  const line3At = line2At + line2Ms + holdMs;
   const line3Ms = playIntroChars(line3).length * PLAY_TEN_CHAR_MS;
-  const readyAt = line3At + line3Ms + 700;
+  const readyAt = line3At + line3Ms + holdMs;
   return { line1, line2, line3, line2At, line3At, readyAt };
 }
 
