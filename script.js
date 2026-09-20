@@ -6211,7 +6211,6 @@ function renderAdminPlay() {
             </button>
           `,
         ).join("")}
-        <button class="btn-primary" type="button" data-action="open-scores">점수</button>
       </div>
     `;
     return;
