@@ -4703,7 +4703,9 @@ function beginPlayGo() {
     gameState.playBriefAt = Date.now();
     gameState.playTargetMs = isRandomTimeWheel() ? rollRandomPlayTargetMs() : PLAY_TEN_TARGET_MS;
     playTenBriefFallbackAt = 0;
+    playTenBriefFallbackEpoch = 0;
   }
+  resetPlayUi();
   saveGame({ immediate: true });
   publishMqttGameRound(resetAt);
   refreshVisible();
@@ -4756,7 +4758,8 @@ function sanitizePlayTurnIds(ids) {
     return [];
   }
 
-  return ids.map((id) => String(id)).filter((id) => participantIds().includes(id));
+  const known = new Set(ACCOUNTS.map((account) => account.id));
+  return ids.map((id) => String(id)).filter((id) => known.has(id));
 }
 
 function sanitizePlayTurnPhase(phase) {
@@ -4799,6 +4802,14 @@ function playTenProgress(state) {
   const rank = { brief: 1, turn: 2, run: 3, table: 5, announce: 6 };
   const stopped = state?.playTurnPhase === "run" && Number(state?.playStopMs || 0) > 0 ? 1 : 0;
   return Number(state?.playTurnIndex || 0) * 10 + (rank[state?.playTurnPhase] || 0) + stopped;
+}
+
+function playSyncEpoch(state) {
+  return Math.max(
+    Number(state?.winnerRound || 0),
+    Number(state?.playIntroAt || 0),
+    Number(state?.playBriefAt || 0),
+  );
 }
 
 function isSharedPlayTen(game) {
@@ -4957,7 +4968,11 @@ function formatPlayError(ms) {
 }
 
 function playTenPersonName(id) {
-  return winnerPersonName(id) || id;
+  const key = String(id || "");
+  if (!key) {
+    return "사용자";
+  }
+  return (profiles[key]?.name || profiles[key]?.nickname || "").trim() || key;
 }
 
 function playTenBriefPlan() {
@@ -4983,11 +4998,14 @@ function playTenBriefPlan() {
 }
 
 let playTenBriefFallbackAt = 0;
+let playTenBriefFallbackEpoch = 0;
 
 function playTenBriefAnchor() {
   const startedAt = Number(gameState.playBriefAt || 0);
+  const epoch = playSyncEpoch(gameState);
   if (startedAt > 0) {
     playTenBriefFallbackAt = 0;
+    playTenBriefFallbackEpoch = epoch;
     return startedAt;
   }
   if (
@@ -4997,12 +5015,14 @@ function playTenBriefAnchor() {
       sanitizePlayTurnPhase(gameState.playTurnPhase) === "turn" ||
       !sanitizePlayTurnPhase(gameState.playTurnPhase))
   ) {
-    if (!playTenBriefFallbackAt) {
+    if (!playTenBriefFallbackAt || playTenBriefFallbackEpoch !== epoch) {
       playTenBriefFallbackAt = Date.now();
+      playTenBriefFallbackEpoch = epoch;
     }
     return playTenBriefFallbackAt;
   }
   playTenBriefFallbackAt = 0;
+  playTenBriefFallbackEpoch = 0;
   return 0;
 }
 
@@ -5112,7 +5132,7 @@ function playTenTurnMarkup() {
 
   return `
     <div class="play-ten play-ten--watch">
-      <p class="play-ten__now">${escapeHtml(name)}님 차례</p>
+        <p class="play-ten__now">${escapeHtml(name || "사용자")}님 차례</p>
     </div>
   `;
 }
@@ -5123,7 +5143,7 @@ function playTenRunMarkup() {
   const name = playTenPersonName(turnId);
   return `
     <div class="play-ten play-ten--run">
-      ${mine ? "" : `<p class="play-ten__now">${escapeHtml(name)}님 차례</p>`}
+      ${mine ? "" : `<p class="play-ten__now">${escapeHtml(name || "사용자")}님 차례</p>`}
       <p class="play-ten__clock" data-play-ten-clock>00:00</p>
       ${mine ? `<button class="btn-primary play-ten__stop" type="button" data-action="play-ten-stop">STOP</button>` : ""}
     </div>
@@ -5327,6 +5347,7 @@ function renderPlayTenGame(container) {
     gameState.playAnnounceAt,
     Number(gameState.playBriefAt || 0),
     Number(gameState.playTargetMs || 0),
+    sanitizePlayTurnIds(gameState.playTurnIds).join(","),
     sanitizePlayTenBoard(gameState.playTenBoard).length,
     currentAccount?.id || "",
   ].join("|");
@@ -5399,6 +5420,7 @@ function startPlayTenTurn() {
   gameState.playStopMs = 0;
   gameState.playStopAt = 0;
   playTenBriefFallbackAt = 0;
+  playTenBriefFallbackEpoch = 0;
   clearPlayTenHold();
   bumpPlayTen();
   saveGame({ immediate: true });
@@ -5978,6 +6000,7 @@ function goToMiniGameMain() {
   gameState.winnerBoard = [];
   gameState.winnerRound = Date.now();
   playTenBriefFallbackAt = 0;
+  playTenBriefFallbackEpoch = 0;
   resetPlayUi();
   saveGame({ immediate: true });
   refreshVisible();
@@ -7522,17 +7545,21 @@ function applyRemoteState(remote, options = {}) {
       const incomingTs = incoming.gameUpdatedAt || 0;
       const incomingProg = playTenProgress(next);
       const localProg = playTenProgress(gameState);
+      const incomingEpoch = playSyncEpoch(next);
+      const localEpoch = playSyncEpoch(gameState);
       const incomingIdle = isIdleGame(next);
       const takeIncoming =
         roundAdvanced ||
         incomingIdle ||
+        incomingEpoch > localEpoch ||
         (!localIdle &&
+          incomingEpoch === localEpoch &&
           (incomingProg > localProg ||
             (incomingProg === localProg &&
               (incomingTs > gameUpdatedAt ||
                 (incomingTs === gameUpdatedAt && gameSignature(next) !== lastGameSignature)))));
       if (takeIncoming && (roundAdvanced || gameSignature(next) !== lastGameSignature)) {
-        if (roundAdvanced || incomingProg !== localProg) {
+        if (roundAdvanced || incomingProg !== localProg || incomingEpoch !== localEpoch) {
           resetPlayUi();
         }
         const previous = gameState;
