@@ -2750,6 +2750,32 @@ body.is-admin .app {
   color: #7a7268;
 }
 
+.score-board {
+  display: flex;
+  flex-direction: column;
+  width: min(360px, 100%);
+}
+
+.score-board__row {
+  display: grid;
+  grid-template-columns: 0.6fr 1.2fr 0.7fr;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee6da;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.score-board__row--head {
+  font-size: 13px;
+  color: #7a7268;
+}
+
+.score-board .btn-reset {
+  margin-top: 18px;
+}
+
 .play-ten--announce {
   position: relative;
 }

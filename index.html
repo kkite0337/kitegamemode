@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=192">
+  <link rel="stylesheet" href="style.css?v=193">
 </head>
 <body>
   <main class="app">
@@ -63,14 +63,14 @@
         <div class="joke-drum__kit">
           <span class="joke-drum__stick is-left"></span>
           <span class="joke-drum__stick is-right"></span>
-          <img class="joke-drum__img" src="assets/snare.png?v=192" alt="">
+          <img class="joke-drum__img" src="assets/snare.png?v=193" alt="">
         </div>
         <p class="joke-suspense" id="jokeSuspense"></p>
       </div>
       <div class="joke-party" id="jokeParty" hidden aria-hidden="true"></div>
       <div class="joke-gift-fly" id="jokeGiftFly" hidden>
         <div class="joke-gift-wiggle">
-        <img class="joke-gift-photo" id="jokeGiftPhoto" src="assets/gift-4.png?v=192" alt="">
+        <img class="joke-gift-photo" id="jokeGiftPhoto" src="assets/gift-4.png?v=193" alt="">
         <div class="gift" id="jokeGift" data-step="0" data-layer="0">
           <div class="gift-inner"></div>
           <div class="gift-paper">
@@ -118,6 +118,15 @@
           </div>
         </div>
       </div>
+      <div class="confirm-layer" id="recordScoreLayer" hidden>
+        <div class="confirm-card">
+          <p class="confirm-card__title">기록하시겠습니까?</p>
+          <div class="confirm-card__choices confirm-card__choices--two">
+            <button class="btn-primary" type="button" data-record-score="yes">예</button>
+            <button class="btn-primary" type="button" data-record-score="no">아니오</button>
+          </div>
+        </div>
+      </div>
       <div class="confirm-layer" id="participantCountLayer" hidden>
         <div class="confirm-card">
           <p class="confirm-card__title">참가자를 몇명으로 설정할까요?</p>
@@ -133,7 +142,7 @@
   </main>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="accounts.js?v=192"></script>
-  <script src="script.js?v=192"></script>
+  <script src="accounts.js?v=193"></script>
+  <script src="script.js?v=193"></script>
 </body>
 </html>

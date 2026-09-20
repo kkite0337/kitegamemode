@@ -561,6 +561,9 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
   next.winnerId = next.winnerPlayers.includes(next.winnerId) ? next.winnerId : "";
   next.winnerBoard = sanitizeWinnerBoard(next.winnerBoard);
   next.winnerRound = Math.max(0, Number(next.winnerRound || 0));
+  next.scores = sanitizeScores(next.scores);
+  next.scoreRound = Math.max(0, Number(next.scoreRound || 0));
+  next.scoreView = Boolean(next.scoreView);
   next.appeals = sanitizeAppeals(next.appeals);
   next.appealClosed = Boolean(next.appealClosed);
   next.revoteKind = next.revoteKind === "drink" || next.revoteKind === "price" || next.revoteKind === "full" ? next.revoteKind : "";
@@ -618,6 +621,40 @@ function mergePlayerIds(primary, secondary) {
 
 function isIdleGame(state) {
   return !state?.game || state.phase === "idle";
+}
+
+function mergeScoreSlice(local, remote) {
+  const leftRound = Math.max(0, Number(local?.scoreRound || 0));
+  const rightRound = Math.max(0, Number(remote?.scoreRound || 0));
+  if (rightRound > leftRound) {
+    return {
+      scores: sanitizeScores(remote?.scores),
+      scoreRound: rightRound,
+    };
+  }
+  if (leftRound > rightRound) {
+    return {
+      scores: sanitizeScores(local?.scores),
+      scoreRound: leftRound,
+    };
+  }
+
+  const scores = emptyScores();
+  participantIds().forEach((id) => {
+    scores[id] = Math.max(Number(local?.scores?.[id] || 0), Number(remote?.scores?.[id] || 0));
+  });
+  return { scores, scoreRound: leftRound };
+}
+
+function keepScoreSlice(state = gameState) {
+  return {
+    scores: sanitizeScores(state.scores),
+    scoreRound: Math.max(0, Number(state.scoreRound || 0)),
+  };
+}
+
+function withKeptScores(next, previous = gameState) {
+  return { ...next, ...keepScoreSlice(previous), scoreView: false };
 }
 
 function mergePlayStage(primary, secondary) {
@@ -836,6 +873,8 @@ function mergeGameState(local, remote, preferRemote = false) {
             winnerId: "",
             winnerBoard: [],
           }),
+      ...mergeScoreSlice(local, remote),
+      scoreView: Boolean(primary.scoreView),
     },
     currentGameResetAt(),
   );
@@ -890,6 +929,14 @@ function emptyPersonalSteps() {
   return Object.fromEntries(participantIds().map((id) => [id, "talk"]));
 }
 
+function emptyScores() {
+  return Object.fromEntries(participantIds().map((id) => [id, 0]));
+}
+
+function sanitizeScores(scores) {
+  return Object.fromEntries(participantIds().map((id) => [id, Math.max(0, Math.round(Number(scores?.[id] || 0)))]));
+}
+
 function emptyGame() {
   return {
     game: "",
@@ -928,6 +975,9 @@ function emptyGame() {
     winnerId: "",
     winnerBoard: [],
     winnerRound: 0,
+    scores: emptyScores(),
+    scoreRound: 0,
+    scoreView: false,
   };
 }
 
@@ -1285,6 +1335,9 @@ function loadGame() {
       winnerId: parsed.winnerId || "",
       winnerBoard: parsed.winnerBoard || [],
       winnerRound: Number(parsed.winnerRound || 0),
+      scores: parsed.scores || {},
+      scoreRound: Number(parsed.scoreRound || 0),
+      scoreView: Boolean(parsed.scoreView),
     });
   } catch {
     return emptyGame();
@@ -1460,6 +1513,8 @@ function applyResetWithCount(count) {
   replaceProfiles(Object.fromEntries(userIds().map((id) => [id, emptyUserProfile(resetAt)])));
   persistProfilesLocal();
   gameState = emptyGame();
+  gameState.scores = emptyScores();
+  gameState.scoreRound = resetAt;
   gameUpdatedAt = resetAt;
   persistGameLocal();
   resetPlayUi();
@@ -1523,6 +1578,9 @@ function gameSignature(state) {
     winnerId: state.winnerId || "",
     winnerBoard: state.winnerBoard || [],
     winnerRound: Number(state.winnerRound || 0),
+    scores: state.scores || {},
+    scoreRound: Number(state.scoreRound || 0),
+    scoreView: Boolean(state.scoreView),
   });
 }
 
@@ -2453,6 +2511,13 @@ function showUserView() {
 
   registerForm.hidden = true;
 
+  if (gameState.scoreView) {
+    userMain.hidden = true;
+    userPlay.hidden = false;
+    renderScoreBoard(userPlay);
+    return;
+  }
+
   if (
     gameState.game === "game3" &&
     gameState.miniMenu === "game-count" &&
@@ -2563,7 +2628,7 @@ function paintLiveGame() {
     return;
   }
 
-  const shared = isSharedPlayTen(gameState) || gameState.miniMenu === "game-count";
+  const shared = isSharedPlayTen(gameState) || gameState.miniMenu === "game-count" || gameState.scoreView;
   const waitingOnMain = currentAccount.role !== "admin" && userMain && !userMain.hidden;
   const sig = gameSignature(gameState);
   if (sig === lastLivePaintSig && !(waitingOnMain && shared)) {
@@ -4754,6 +4819,7 @@ const PLAY_TEN_TABLE_GAP_MS = 2000;
 const PLAY_TEN_RANK_GAP_MS = 800;
 const PLAY_TEN_PLACE_GAP_MS = 2000;
 const PLAY_TEN_CHAR_MS = 36;
+const SCORE_PLACE_POINTS = [100, 70, 50, 30, 20];
 
 function assignPlayTurns() {
   const ids = shufflePlayIds(playSeatIds());
@@ -5201,6 +5267,131 @@ function finishPlayTenPlace() {
   if (Date.now() - Number(gameState.playAnnounceAt || 0) < playTenAnnouncePlan().placeAt) {
     return;
   }
+
+  showRecordScoreConfirm();
+}
+
+function playTenScoreAwards() {
+  const awards = {};
+  playTenRankRows().forEach((row, index) => {
+    const points = SCORE_PLACE_POINTS[index] || 0;
+    [...new Set(row.ids || [])].forEach((id) => {
+      if (!participantIds().includes(id) || awards[id] !== undefined) {
+        return;
+      }
+      awards[id] = points;
+    });
+  });
+  return awards;
+}
+
+function applyPlayTenScores() {
+  const awards = playTenScoreAwards();
+  const next = sanitizeScores(gameState.scores);
+  Object.entries(awards).forEach(([id, points]) => {
+    next[id] = Number(next[id] || 0) + Number(points || 0);
+  });
+  gameState.scores = next;
+}
+
+function scoreRows() {
+  return participantIds()
+    .map((id) => ({
+      id,
+      name: playTenPersonName(id),
+      score: Number(gameState.scores?.[id] || 0),
+    }))
+    .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name, "ko"));
+}
+
+function scoreBoardMarkup() {
+  const rows = scoreRows()
+    .map(
+      (row, index) => `
+        <div class="score-board__row">
+          <span>${index + 1}</span>
+          <span>${escapeHtml(row.name)}</span>
+          <span>${row.score}</span>
+        </div>
+      `,
+    )
+    .join("");
+  const reset =
+    currentAccount?.role === "admin"
+      ? `<button class="btn-reset" type="button" data-action="reset-scores">점수 초기화</button>`
+      : "";
+  return `
+    <div class="score-board">
+      <div class="score-board__row score-board__row--head">
+        <span>순위</span>
+        <span>이름</span>
+        <span>점수</span>
+      </div>
+      ${rows}
+      ${reset}
+    </div>
+  `;
+}
+
+function renderScoreBoard(container) {
+  container.innerHTML = scoreBoardMarkup();
+}
+
+function openScoreView() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
+  gameState.scoreView = true;
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function closeScoreView() {
+  gameState.scoreView = false;
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function resetScores() {
+  if (currentAccount?.role !== "admin") {
+    return;
+  }
+
+  gameState.scores = emptyScores();
+  gameState.scoreRound = Date.now();
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function showRecordScoreConfirm() {
+  const layer = document.getElementById("recordScoreLayer");
+  if (!layer) {
+    if (window.confirm("기록하시겠습니까?")) {
+      applyPlayTenScores();
+      goToMainMenu();
+    } else {
+      goToMainMenu();
+    }
+    return;
+  }
+
+  layer.hidden = false;
+}
+
+function hideRecordScoreConfirm() {
+  const layer = document.getElementById("recordScoreLayer");
+  if (layer) {
+    layer.hidden = true;
+  }
+}
+
+function confirmRecordScores(record) {
+  hideRecordScoreConfirm();
+  if (record) {
+    applyPlayTenScores();
+  }
+  goToMainMenu();
 }
 
 function beginPlayRun() {
@@ -5920,6 +6111,11 @@ function renderAdminPlay() {
     return;
   }
 
+  if (gameState.scoreView) {
+    renderScoreBoard(adminPlay);
+    return;
+  }
+
   if (!gameState.game) {
     adminPlay.innerHTML = `
       <div class="game-choices">
@@ -5930,6 +6126,7 @@ function renderAdminPlay() {
             </button>
           `,
         ).join("")}
+        <button class="btn-primary" type="button" data-action="open-scores">점수</button>
       </div>
     `;
     return;
@@ -6034,7 +6231,7 @@ function beginPlayerPick(gameId) {
   }
 
   const resetAt = bumpGameRound();
-  gameState = emptyGame();
+  gameState = withKeptScores(emptyGame());
   gameState.game = pending;
   gameState.players = participantIds();
   gameState.phase = pending === "drink" || pending === "game2" ? "entry" : "play";
@@ -6075,6 +6272,11 @@ function requestGoToMainMenu() {
     return;
   }
 
+  if (gameState.scoreView) {
+    closeScoreView();
+    return;
+  }
+
   if (!isGameInProgress()) {
     goToMainMenu();
     return;
@@ -6085,9 +6287,10 @@ function requestGoToMainMenu() {
 
 function goToMainMenu() {
   hideGameResetConfirm();
+  hideRecordScoreConfirm();
   const resetAt = bumpGameRound();
   stopPlayTenTick();
-  gameState = emptyGame();
+  gameState = withKeptScores(emptyGame());
   resetPlayUi();
   adminView = "main";
   lastLivePaintSig = "";
@@ -6120,7 +6323,7 @@ function confirmPlayerPick() {
 
   const gameId = gameState.pendingGame;
   const resetAt = bumpGameRound();
-  gameState = emptyGame();
+  gameState = withKeptScores(emptyGame());
   gameState.game = gameId;
   gameState.pendingGame = "";
   gameState.players = players;
@@ -6455,6 +6658,24 @@ document.getElementById("gameResetLayer")?.addEventListener("click", (event) => 
     goToMainMenu();
   }
 });
+document.getElementById("recordScoreLayer")?.addEventListener("click", (event) => {
+  if (event.target.id === "recordScoreLayer") {
+    return;
+  }
+
+  if (event.target.closest("[data-record-score='no']")) {
+    event.preventDefault();
+    event.stopPropagation();
+    confirmRecordScores(false);
+    return;
+  }
+
+  if (event.target.closest("[data-record-score='yes']")) {
+    event.preventDefault();
+    event.stopPropagation();
+    confirmRecordScores(true);
+  }
+});
 document.getElementById("participantCountLayer")?.addEventListener("click", (event) => {
   if (event.target.id === "participantCountLayer") {
     hideParticipantCountPicker();
@@ -6568,6 +6789,16 @@ function handlePlayClick(event) {
     return;
   }
 
+  if (button.dataset.action === "open-scores") {
+    openScoreView();
+    return;
+  }
+
+  if (button.dataset.action === "reset-scores") {
+    resetScores();
+    return;
+  }
+
   if (button.dataset.mini === "winner") {
     if (currentAccount?.role !== "admin" || gameState.game !== "game3") {
       return;
@@ -6589,6 +6820,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.mini === "game-count") {
     beginPlayRun();
+    return;
+  }
+
+  if (button.dataset.mini === "score") {
+    openScoreView();
     return;
   }
 
@@ -7093,7 +7329,15 @@ function applyRemoteState(remote, options = {}) {
         if (roundAdvanced || incomingProg !== localProg) {
           resetPlayUi();
         }
-        gameState = next;
+        const previous = gameState;
+        gameState = sanitizeGameState(
+          {
+            ...next,
+            ...mergeScoreSlice(previous, next),
+            scoreView: Boolean(next.scoreView),
+          },
+          currentGameResetAt(),
+        );
         gameUpdatedAt = Math.max(incomingTs, currentGameResetAt(), gameUpdatedAt);
         persistGameLocal();
         changed = true;
@@ -7115,7 +7359,15 @@ function applyRemoteState(remote, options = {}) {
       }
 
       if (gameSignature(next) !== lastGameSignature) {
-        gameState = sanitizeGameState(next, currentGameResetAt());
+        const previous = gameState;
+        gameState = sanitizeGameState(
+          {
+            ...next,
+            ...mergeScoreSlice(previous, next),
+            scoreView: Boolean(next.scoreView),
+          },
+          currentGameResetAt(),
+        );
         gameUpdatedAt = Math.max(gameUpdatedAt, incoming.gameUpdatedAt || 0);
         persistGameLocal();
         changed = true;
@@ -7822,8 +8074,9 @@ function publishMqttReset(resetAt) {
     ...senderMeta(),
   });
   publishMqttJson(mqttTopic("game"), {
-    game: emptyGame(),
+    game: JSON.parse(JSON.stringify(gameState)),
     gameUpdatedAt: resetAt,
+    gameResetAt: resetAt,
     participantCount,
     ...senderMeta(),
   });
