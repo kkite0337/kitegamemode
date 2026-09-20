@@ -204,7 +204,17 @@ body.is-admin .app {
 
 .play-screen,
 #adminPlay {
+  justify-content: safe center;
   overflow-y: auto;
+}
+
+#adminPlay:has(.play-run),
+#adminPlay:has(.game-choices),
+.play-screen:has(.play-run),
+.play-screen:has(.game-choices) {
+  justify-content: flex-start;
+  padding-top: 8px;
+  padding-bottom: 28px;
 }
 
 .center-form {
@@ -2481,12 +2491,20 @@ body.is-admin .app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 36px;
+  gap: 18px;
   width: min(320px, 100%);
+  padding-bottom: 8px;
 }
 
 .play-run .btn-primary {
   margin-top: 0;
+  flex-shrink: 0;
+}
+
+.mini-back-btn {
+  display: block !important;
+  flex-shrink: 0;
+  margin-top: 8px !important;
 }
 
 .play-mode {

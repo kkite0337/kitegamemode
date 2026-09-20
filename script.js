@@ -4033,6 +4033,10 @@ function clearPriceTalk(container) {
   delete container.dataset.priceTalk;
 }
 
+function miniBackButtonMarkup() {
+  return `<button class="btn-primary mini-back-btn" type="button" data-action="go-mini-main">게임화면으로</button>`;
+}
+
 function otherGamePlayMarkup() {
   if (gameState.game === "game2") {
     return `<div class="wait-screen"><p>메뉴고르기</p></div>`;
@@ -4053,7 +4057,7 @@ function otherGamePlayMarkup() {
               </button>
             `,
           ).join("")}
-          <button class="btn-primary" type="button" data-action="go-mini-main">게임화면으로</button>
+          ${miniBackButtonMarkup()}
         </div>
       `;
     }
@@ -4180,11 +4184,7 @@ function playRunMarkup() {
         </div>
       </div>
       <button class="btn-primary" type="button" data-action="play-start">시작</button>
-      ${
-        currentAccount?.role === "admin"
-          ? `<button class="btn-primary" type="button" data-action="go-mini-main">게임화면으로</button>`
-          : ""
-      }
+      ${miniBackButtonMarkup()}
     </div>
   `;
 }
@@ -4248,6 +4248,7 @@ function bindPlayWheel(container) {
 
 function renderPlayRun(container) {
   const key = [
+    "back",
     playWheelValues().join(","),
     gameState.playMode || "",
     gameState.playModeReady ? "1" : "0",
@@ -6405,6 +6406,7 @@ function playerPickMarkup() {
       <div class="player-pick__list">${cards}</div>
       <p class="player-pick__error" id="playerPickError" hidden>한 명 이상 선택하세요</p>
       <button class="btn-primary" type="button" data-action="confirm-players">완료</button>
+      ${gameState.game === "game3" && (gameState.phase === "winner-pick" || gameState.miniMenu === "winner") ? miniBackButtonMarkup() : ""}
     </div>
   `;
 }
