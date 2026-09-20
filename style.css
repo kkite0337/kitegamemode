@@ -2613,9 +2613,11 @@ body.is-admin .app {
   font-weight: 800;
 }
 
-.play-ten__time {
+.play-ten__time,
+.user-page .play-ten__time,
+.admin-page .play-ten__time {
   display: inline-block;
-  color: #2563eb;
+  color: #2563eb !important;
 }
 
 .play-ten__time.is-pop,
@@ -2653,9 +2655,11 @@ body.is-admin .app {
   line-height: 1.4;
 }
 
-.play-intro__game {
+.play-intro__game,
+.user-page .play-intro__game,
+.admin-page .play-intro__game {
   display: inline-block;
-  color: #2563eb;
+  color: #2563eb !important;
 }
 
 .play-intro__game.is-pop {

@@ -4338,6 +4338,10 @@ function playIntroTyped(text, elapsed) {
   return playTyped(text, elapsed);
 }
 
+function accentMarkup(text, className) {
+  return `<span class="${className}" style="color:#2563eb">${escapeHtml(String(text || ""))}</span>`;
+}
+
 function nextTypedAt(elapsed, start, text, charMs = PLAY_INTRO_CHAR_MS) {
   const local = elapsed - start;
   const duration = playIntroChars(text).length * charMs;
@@ -4584,7 +4588,7 @@ function syncPlayIntro(container) {
       const nameTyped = typed.slice(0, Math.min(typed.length, name.length));
       const restTyped = typed.slice(name.length);
       const nameDone = playIntroChars(typed).length >= playIntroChars(name).length;
-      line2.innerHTML = `<span class="play-intro__game">${escapeHtml(nameTyped)}</span>${escapeHtml(restTyped)}`;
+      line2.innerHTML = `${accentMarkup(nameTyped, "play-intro__game")}${escapeHtml(restTyped)}`;
       if (nameDone && line2.dataset.pop !== "1") {
         line2.dataset.pop = "1";
         line2.querySelector(".play-intro__game")?.classList.add("is-pop");
@@ -4620,7 +4624,7 @@ function syncPlayIntro(container) {
         const left = typed.slice(0, Math.min(typed.length, word.length));
         const right = typed.slice(word.length);
         const wordDone = playIntroChars(typed).length >= playIntroChars(word).length;
-        el.innerHTML = `<span class="play-intro__game">${escapeHtml(left)}</span>${escapeHtml(right)}`;
+        el.innerHTML = `${accentMarkup(left, "play-intro__game")}${escapeHtml(right)}`;
         if (wordDone && el.dataset.pop !== "1") {
           el.dataset.pop = "1";
           el.querySelector(".play-intro__game")?.classList.add("is-pop");
@@ -5260,7 +5264,7 @@ function syncPlayTenBrief(container) {
       const highlight = String(line.highlight);
       const left = typed.slice(0, Math.min(typed.length, highlight.length));
       const right = typed.slice(highlight.length);
-      node.innerHTML = `<span class="play-ten__time">${escapeHtml(left)}</span>${escapeHtml(right)}`;
+      node.innerHTML = `${accentMarkup(left, "play-ten__time")}${escapeHtml(right)}`;
       if (line.emphasize && elapsed - start >= typedMs && node.dataset.pop !== "1") {
         node.dataset.pop = "1";
         node.querySelector(".play-ten__time")?.classList.add("is-pop");
