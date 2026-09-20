@@ -4351,7 +4351,8 @@ function playIntroPlan() {
   const line1 = "이번 게임은";
   const gameName = sanitizePlayWheelValue(gameState.playWheelValue);
   const line2 = `${gameName}입니다.`;
-  const modeLines = ["게임은", `${playModePhrase()}으로`, "진행됩니다."];
+  const modeWord = playModePhrase();
+  const modeLines = ["게임은", `${modeWord}으로`, "진행됩니다."];
   const line1Ms = playIntroChars(line1).length * PLAY_INTRO_CHAR_MS;
   const line2Ms = playIntroChars(line2).length * PLAY_INTRO_CHAR_MS;
   const line2At = line1Ms + PLAY_INTRO_HOLD_MS;
@@ -4368,7 +4369,7 @@ function playIntroPlan() {
   });
   const modeDoneAt = at;
   const readyAt = gameState.playMode === "team" ? modeDoneAt + PLAY_MODE_TO_TEAM_MS : modeDoneAt;
-  return { line1, line2, gameName, modeLines, line2At, clearAt, modeAt, modeStarts, modeDoneAt, readyAt };
+  return { line1, line2, gameName, modeWord, modeLines, line2At, clearAt, modeAt, modeStarts, modeDoneAt, readyAt };
 }
 
 function nextPlayIntroAt(elapsed, plan) {
@@ -4593,6 +4594,7 @@ function syncPlayIntro(container) {
     modeLines.forEach((el) => {
       el.hidden = true;
       el.textContent = "";
+      delete el.dataset.pop;
     });
   } else {
     line1.hidden = true;
@@ -4607,11 +4609,25 @@ function syncPlayIntro(container) {
       if (elapsed < start) {
         el.hidden = true;
         el.textContent = "";
+        delete el.dataset.pop;
         return;
       }
 
       el.hidden = false;
-      el.textContent = playIntroTyped(text, elapsed - start);
+      const typed = playIntroTyped(text, elapsed - start);
+      const word = index === 1 ? plan.modeWord || "" : "";
+      if (word) {
+        const left = typed.slice(0, Math.min(typed.length, word.length));
+        const right = typed.slice(word.length);
+        const wordDone = playIntroChars(typed).length >= playIntroChars(word).length;
+        el.innerHTML = `<span class="play-intro__game">${escapeHtml(left)}</span>${escapeHtml(right)}`;
+        if (wordDone && el.dataset.pop !== "1") {
+          el.dataset.pop = "1";
+          el.querySelector(".play-intro__game")?.classList.add("is-pop");
+        }
+        return;
+      }
+      el.textContent = typed;
     });
   }
 
