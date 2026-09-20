@@ -2607,11 +2607,14 @@ body.is-admin .app {
   font-weight: 800;
 }
 
-.play-ten__line {
-  margin: 0;
-  min-height: 32px;
-  font-size: 20px;
-  font-weight: 700;
+.play-ten__line--target {
+  min-height: 44px;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.play-ten__line--target.is-pop {
+  animation: play-pop 0.45s ease;
 }
 
 .play-ten__stop {

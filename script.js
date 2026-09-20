@@ -546,6 +546,7 @@ function sanitizeGameState(game, resetAt = currentGameResetAt()) {
     next.playTurnIndex = Math.min(Math.max(0, Number(next.playTurnIndex || 0)), Math.max(0, next.playTurnIds.length - 1));
     next.playTurnPhase = sanitizePlayTurnPhase(next.playTurnPhase);
     next.playBriefAt = Math.max(0, Number(next.playBriefAt || 0));
+    next.playTargetMs = sanitizePlayTargetMs(next.playTargetMs, next.playWheelValue);
     next.playRunAt = Math.max(0, Number(next.playRunAt || 0));
     next.playStopMs = Math.max(0, Number(next.playStopMs || 0));
     next.playStopAt = Math.max(0, Number(next.playStopAt || 0));
@@ -1323,6 +1324,7 @@ function loadGame() {
       playTurnIndex: Number(parsed.playTurnIndex || 0),
       playTurnPhase: parsed.playTurnPhase || "",
       playBriefAt: Number(parsed.playBriefAt || 0),
+      playTargetMs: Number(parsed.playTargetMs || 0),
       playRunAt: Number(parsed.playRunAt || 0),
       playStopMs: Number(parsed.playStopMs || 0),
       playStopAt: Number(parsed.playStopAt || 0),
@@ -1566,6 +1568,7 @@ function gameSignature(state) {
     playTurnIndex: Number(state.playTurnIndex || 0),
     playTurnPhase: state.playTurnPhase || "",
     playBriefAt: Number(state.playBriefAt || 0),
+    playTargetMs: Number(state.playTargetMs || 0),
     playRunAt: Number(state.playRunAt || 0),
     playStopMs: Number(state.playStopMs || 0),
     playStopAt: Number(state.playStopAt || 0),
@@ -4082,6 +4085,15 @@ function sanitizePlayWheelValue(value) {
   return values.includes(next) ? next : values[0];
 }
 
+function isPlayTenWheel(value = gameState.playWheelValue) {
+  const wheel = sanitizePlayWheelValue(value);
+  return wheel === "10초 맞추기" || wheel === "랜덤 시간 맞추기";
+}
+
+function isRandomTimeWheel(value = gameState.playWheelValue) {
+  return sanitizePlayWheelValue(value) === "랜덤 시간 맞추기";
+}
+
 function sanitizePlayTeams(teams) {
   if (!Array.isArray(teams)) {
     return [];
@@ -4534,7 +4546,7 @@ function renderPlayGo(container) {
   delete container.dataset.playIntro;
   delete container.dataset.playReady;
   clearTimeout(container._playIntroTimer);
-  if (sanitizePlayWheelValue(gameState.playWheelValue) === "10초 맞추기") {
+  if (isPlayTenWheel()) {
     renderPlayTenGame(container);
     return;
   }
@@ -4684,11 +4696,12 @@ function beginPlayGo() {
   gameState.winnerRound = resetAt;
   gameState.playStage = "go";
   Object.assign(gameState, emptyPlayTenFields());
-  if (sanitizePlayWheelValue(gameState.playWheelValue) === "10초 맞추기") {
+  if (isPlayTenWheel()) {
     gameState.playTurnIds = assignPlayTurns();
     gameState.playTurnIndex = 0;
     gameState.playTurnPhase = "brief";
     gameState.playBriefAt = Date.now();
+    gameState.playTargetMs = isRandomTimeWheel() ? rollRandomPlayTargetMs() : PLAY_TEN_TARGET_MS;
     playTenBriefFallbackAt = 0;
   }
   saveGame({ immediate: true });
@@ -4773,6 +4786,7 @@ function emptyPlayTenFields() {
     playTurnIndex: 0,
     playTurnPhase: "",
     playBriefAt: 0,
+    playTargetMs: 0,
     playRunAt: 0,
     playStopMs: 0,
     playStopAt: 0,
@@ -4821,6 +4835,7 @@ function pickPlayTenSlice(local, remote) {
     playTurnIndex: Math.max(0, Number(source.playTurnIndex || 0)),
     playTurnPhase: sanitizePlayTurnPhase(source.playTurnPhase) || sanitizePlayTurnPhase(other.playTurnPhase),
     playBriefAt: Number(source.playBriefAt || 0) || Number(other.playBriefAt || 0),
+    playTargetMs: Number(source.playTargetMs || 0) || Number(other.playTargetMs || 0),
     playRunAt: Number(source.playRunAt || 0) || Number(other.playRunAt || 0),
     playStopMs: stopMs,
     playStopAt: stopAt,
@@ -4873,6 +4888,8 @@ function playTenStartAt() {
 }
 
 const PLAY_TEN_TARGET_MS = 10000;
+const PLAY_TEN_TARGET_MIN_MS = 6000;
+const PLAY_TEN_TARGET_MAX_MS = 16000;
 const PLAY_TEN_TABLE_GAP_MS = 2000;
 const PLAY_TEN_RANK_GAP_MS = 800;
 const PLAY_TEN_PLACE_GAP_MS = 2000;
@@ -4880,6 +4897,32 @@ const PLAY_TEN_CHAR_MS = 36;
 const PLAY_TEN_BRIEF_CHAR_MS = PLAY_INTRO_CHAR_MS;
 const PLAY_TEN_BRIEF_HOLD_MS = 1500;
 const SCORE_PLACE_POINTS = [100, 70, 50, 30, 20];
+
+function rollRandomPlayTargetMs() {
+  return (
+    PLAY_TEN_TARGET_MIN_MS +
+    Math.floor(Math.random() * (PLAY_TEN_TARGET_MAX_MS - PLAY_TEN_TARGET_MIN_MS + 1))
+  );
+}
+
+function sanitizePlayTargetMs(ms, wheel = gameState.playWheelValue) {
+  if (sanitizePlayWheelValue(wheel) === "10초 맞추기") {
+    return PLAY_TEN_TARGET_MS;
+  }
+  const next = Math.round(Number(ms || 0));
+  if (sanitizePlayWheelValue(wheel) === "랜덤 시간 맞추기" && next >= PLAY_TEN_TARGET_MIN_MS && next <= PLAY_TEN_TARGET_MAX_MS) {
+    return next;
+  }
+  return 0;
+}
+
+function playTenTargetMs() {
+  const next = sanitizePlayTargetMs(gameState.playTargetMs);
+  if (next > 0) {
+    return next;
+  }
+  return isRandomTimeWheel() ? PLAY_TEN_TARGET_MIN_MS : PLAY_TEN_TARGET_MS;
+}
 
 function assignPlayTurns() {
   const ids = shufflePlayIds(playSeatIds());
@@ -4918,16 +4961,25 @@ function playTenPersonName(id) {
 }
 
 function playTenBriefPlan() {
-  const line1 = "10초일 때, STOP 버튼을 누르세요.";
-  const line2 = "순서는 랜덤으로 흐릅니다.";
-  const line3 = "이제 게임을 시작합니다";
-  const line1Ms = playIntroChars(line1).length * PLAY_TEN_BRIEF_CHAR_MS;
-  const line2At = line1Ms + PLAY_TEN_BRIEF_HOLD_MS;
-  const line2Ms = playIntroChars(line2).length * PLAY_TEN_BRIEF_CHAR_MS;
-  const line3At = line2At + line2Ms + PLAY_TEN_BRIEF_HOLD_MS;
-  const line3Ms = playIntroChars(line3).length * PLAY_TEN_BRIEF_CHAR_MS;
-  const readyAt = line3At + line3Ms + PLAY_TEN_BRIEF_HOLD_MS;
-  return { line1, line2, line3, line2At, line3At, readyAt };
+  const lineOrder = isRandomTimeWheel()
+    ? [
+        { key: "1", text: "이번에 맞출 시간은", emphasize: false },
+        { key: "hit", text: `${formatPlayClock(playTenTargetMs())} 입니다.`, emphasize: true },
+        { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
+        { key: "3", text: "이제 게임을 시작합니다", emphasize: false },
+      ]
+    : [
+        { key: "1", text: "10초일 때, STOP 버튼을 누르세요.", emphasize: false },
+        { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
+        { key: "3", text: "이제 게임을 시작합니다", emphasize: false },
+      ];
+  const starts = [];
+  let at = 0;
+  lineOrder.forEach((line) => {
+    starts.push(at);
+    at += playIntroChars(line.text).length * PLAY_TEN_BRIEF_CHAR_MS + PLAY_TEN_BRIEF_HOLD_MS;
+  });
+  return { lines: lineOrder, starts, readyAt: at };
 }
 
 let playTenBriefFallbackAt = 0;
@@ -4940,7 +4992,7 @@ function playTenBriefAnchor() {
   }
   if (
     gameState.playStage === "go" &&
-    sanitizePlayWheelValue(gameState.playWheelValue) === "10초 맞추기" &&
+    isPlayTenWheel() &&
     (sanitizePlayTurnPhase(gameState.playTurnPhase) === "brief" ||
       sanitizePlayTurnPhase(gameState.playTurnPhase) === "turn" ||
       !sanitizePlayTurnPhase(gameState.playTurnPhase))
@@ -4964,7 +5016,7 @@ function playTenBriefElapsed() {
 
 function playTenViewPhase() {
   const phase = sanitizePlayTurnPhase(gameState.playTurnPhase);
-  if (gameState.playStage !== "go" || sanitizePlayWheelValue(gameState.playWheelValue) !== "10초 맞추기") {
+  if (gameState.playStage !== "go" || !isPlayTenWheel()) {
     return phase;
   }
   if (phase === "run" || phase === "table" || phase === "announce") {
@@ -5032,9 +5084,13 @@ function bumpPlayTen() {
 }
 
 function playTenBriefMarkup() {
+  const hit = isRandomTimeWheel()
+    ? `<p class="play-ten__line play-ten__line--target" data-play-ten-brief="hit"></p>`
+    : "";
   return `
     <div class="play-ten play-ten--brief">
       <p class="play-ten__line" data-play-ten-brief="1"></p>
+      ${hit}
       <p class="play-ten__line" data-play-ten-brief="2"></p>
       <p class="play-ten__line" data-play-ten-brief="3"></p>
     </div>
@@ -5127,29 +5183,47 @@ function playTenAnnounceMarkup() {
 function syncPlayTenBrief(container) {
   const elapsed = playTenBriefElapsed();
   const plan = playTenBriefPlan();
-  const line1 = container.querySelector("[data-play-ten-brief='1']");
-  const line2 = container.querySelector("[data-play-ten-brief='2']");
-  const line3 = container.querySelector("[data-play-ten-brief='3']");
-  if (!line1 || !line2 || !line3) {
+  const nodes = plan.lines.map((line) => container.querySelector(`[data-play-ten-brief='${line.key}']`));
+  if (nodes.some((node) => !node)) {
     return;
   }
 
-  line1.textContent = playTyped(plan.line1, elapsed, PLAY_TEN_BRIEF_CHAR_MS);
-  line2.textContent = elapsed < plan.line2At ? "" : playTyped(plan.line2, elapsed - plan.line2At, PLAY_TEN_BRIEF_CHAR_MS);
-  line3.textContent = elapsed < plan.line3At ? "" : playTyped(plan.line3, elapsed - plan.line3At, PLAY_TEN_BRIEF_CHAR_MS);
+  plan.lines.forEach((line, index) => {
+    const node = nodes[index];
+    const start = plan.starts[index];
+    if (elapsed < start) {
+      node.textContent = "";
+      node.classList.remove("is-pop");
+      delete node.dataset.pop;
+      return;
+    }
+    node.textContent = playTyped(line.text, elapsed - start, PLAY_TEN_BRIEF_CHAR_MS);
+    const typedMs = playIntroChars(line.text).length * PLAY_TEN_BRIEF_CHAR_MS;
+    if (line.emphasize && elapsed - start >= typedMs) {
+      if (node.dataset.pop !== "1") {
+        node.dataset.pop = "1";
+        node.classList.add("is-pop");
+      }
+    }
+  });
 
   if (elapsed >= plan.readyAt) {
     renderPlayTenGame(container);
     return;
   }
 
-  const nextAt =
-    nextTypedAt(elapsed, 0, plan.line1, PLAY_TEN_BRIEF_CHAR_MS) ||
-    (elapsed < plan.line2At ? plan.line2At : 0) ||
-    nextTypedAt(elapsed, plan.line2At, plan.line2, PLAY_TEN_BRIEF_CHAR_MS) ||
-    (elapsed < plan.line3At ? plan.line3At : 0) ||
-    nextTypedAt(elapsed, plan.line3At, plan.line3, PLAY_TEN_BRIEF_CHAR_MS) ||
-    (elapsed < plan.readyAt ? plan.readyAt : 0);
+  let nextAt = 0;
+  for (let index = 0; index < plan.lines.length; index += 1) {
+    nextAt =
+      nextTypedAt(elapsed, plan.starts[index], plan.lines[index].text, PLAY_TEN_BRIEF_CHAR_MS) ||
+      (elapsed < plan.starts[index] ? plan.starts[index] : 0);
+    if (nextAt) {
+      break;
+    }
+  }
+  if (!nextAt && elapsed < plan.readyAt) {
+    nextAt = plan.readyAt;
+  }
   clearTimeout(container._playTenTimer);
   if (nextAt) {
     container._playTenTimer = setTimeout(() => syncPlayTenBrief(container), Math.max(16, nextAt - elapsed));
@@ -5252,6 +5326,7 @@ function renderPlayTenGame(container) {
     gameState.playStopAt,
     gameState.playAnnounceAt,
     Number(gameState.playBriefAt || 0),
+    Number(gameState.playTargetMs || 0),
     sanitizePlayTenBoard(gameState.playTenBoard).length,
     currentAccount?.id || "",
   ].join("|");
@@ -5315,7 +5390,7 @@ function renderPlayTenGame(container) {
 }
 
 function startPlayTenTurn() {
-  if (!isMyPlayTurn() || playTenViewPhase() !== "turn" || gameState.playWheelValue !== "10초 맞추기") {
+  if (!isMyPlayTurn() || playTenViewPhase() !== "turn" || !isPlayTenWheel()) {
     return;
   }
 
@@ -5331,7 +5406,7 @@ function startPlayTenTurn() {
 }
 
 function stopPlayTenClock() {
-  if (!isMyPlayTurn() || gameState.playTurnPhase !== "run" || gameState.playWheelValue !== "10초 맞추기") {
+  if (!isMyPlayTurn() || gameState.playTurnPhase !== "run" || !isPlayTenWheel()) {
     return;
   }
 
@@ -5340,7 +5415,7 @@ function stopPlayTenClock() {
   }
 
   const elapsed = Math.max(0, Date.now() - Number(gameState.playRunAt || Date.now()));
-  const errorMs = Math.abs(elapsed - PLAY_TEN_TARGET_MS);
+  const errorMs = Math.abs(elapsed - playTenTargetMs());
   freezePlayTenClock(elapsed);
   stopPlayTenTick();
   paintPlayTenClocks(elapsed);
