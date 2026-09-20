@@ -5175,9 +5175,12 @@ function playTenRunMarkup() {
   const turnId = currentPlayTurnId();
   const mine = isMyPlayTurn();
   const name = playTenPersonName(turnId);
+  const top = mine
+    ? `<p class="play-ten__now">목표: ${escapeHtml(formatPlayClock(playTenTargetMs()))}</p>`
+    : `<p class="play-ten__now">${escapeHtml(name || "사용자")}님 차례</p>`;
   return `
     <div class="play-ten play-ten--run">
-      ${mine ? "" : `<p class="play-ten__now">${escapeHtml(name || "사용자")}님 차례</p>`}
+      ${top}
       <p class="play-ten__clock" data-play-ten-clock>00:00</p>
       ${mine ? `<button class="btn-primary play-ten__stop" type="button" data-action="play-ten-stop">STOP</button>` : ""}
     </div>
