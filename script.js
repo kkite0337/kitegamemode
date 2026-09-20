@@ -4992,10 +4992,11 @@ function playTenPersonName(id) {
 }
 
 function playTenBriefPlan() {
+  const clock = formatPlayClock(playTenTargetMs());
   const lineOrder = isRandomTimeWheel()
     ? [
         { key: "1", text: "이번에 맞출 시간은", emphasize: false },
-        { key: "hit", text: `${formatPlayClock(playTenTargetMs())} 입니다.`, emphasize: true },
+        { key: "hit", text: `${clock} 입니다.`, highlight: clock, emphasize: true },
         { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
         { key: "3", text: "이제 게임을 시작합니다", emphasize: false },
       ]
@@ -5234,8 +5235,20 @@ function syncPlayTenBrief(container) {
       delete node.dataset.pop;
       return;
     }
-    node.textContent = playTyped(line.text, elapsed - start, PLAY_TEN_BRIEF_CHAR_MS);
+    const typed = playTyped(line.text, elapsed - start, PLAY_TEN_BRIEF_CHAR_MS);
     const typedMs = playIntroChars(line.text).length * PLAY_TEN_BRIEF_CHAR_MS;
+    if (line.highlight) {
+      const highlight = String(line.highlight);
+      const left = typed.slice(0, Math.min(typed.length, highlight.length));
+      const right = typed.slice(highlight.length);
+      node.innerHTML = `<span class="play-ten__time">${escapeHtml(left)}</span>${escapeHtml(right)}`;
+      if (line.emphasize && elapsed - start >= typedMs && node.dataset.pop !== "1") {
+        node.dataset.pop = "1";
+        node.querySelector(".play-ten__time")?.classList.add("is-pop");
+      }
+      return;
+    }
+    node.textContent = typed;
     if (line.emphasize && elapsed - start >= typedMs) {
       if (node.dataset.pop !== "1") {
         node.dataset.pop = "1";
