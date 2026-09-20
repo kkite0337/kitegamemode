@@ -4309,7 +4309,7 @@ const PLAY_TEAM_COLORS = [
 ];
 
 function playModePhrase() {
-  return gameState.playMode === "team" ? "팀" : "개인";
+  return gameState.playMode === "team" ? "팀전" : "개인전";
 }
 
 function playIntroChars(text) {
