@@ -4180,6 +4180,11 @@ function playRunMarkup() {
         </div>
       </div>
       <button class="btn-primary" type="button" data-action="play-start">시작</button>
+      ${
+        currentAccount?.role === "admin"
+          ? `<button class="btn-primary" type="button" data-action="go-mini-main">게임화면으로</button>`
+          : ""
+      }
     </div>
   `;
 }
