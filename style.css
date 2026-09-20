@@ -991,7 +991,7 @@ body.is-admin .app {
 .confirm-layer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 80;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1000,7 +1000,7 @@ body.is-admin .app {
 }
 
 .confirm-layer[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .confirm-card {

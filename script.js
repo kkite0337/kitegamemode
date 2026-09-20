@@ -6523,7 +6523,14 @@ function beginPlayerPick(gameId) {
 }
 
 function isGameInProgress() {
-  return Boolean(gameState.game) && gameState.phase !== "idle";
+  return Boolean(
+    gameState.game ||
+      gameState.scoreView ||
+      gameState.miniMenu ||
+      gameState.playStage ||
+      gameState.playWheelValue ||
+      (gameState.phase && gameState.phase !== "idle"),
+  );
 }
 
 function showGameResetConfirm() {
@@ -6535,7 +6542,9 @@ function showGameResetConfirm() {
     return;
   }
 
-  layer.hidden = false;
+  window.setTimeout(() => {
+    layer.hidden = false;
+  }, 0);
 }
 
 function hideGameResetConfirm() {
@@ -6550,7 +6559,7 @@ function requestGoToMainMenu() {
     return;
   }
 
-  if (!isGameInProgress() && !gameState.scoreView) {
+  if (!isGameInProgress()) {
     goToMainMenu();
     return;
   }
@@ -6917,17 +6926,21 @@ jokePage.addEventListener("click", (event) => {
 });
 document.getElementById("adminLogout").addEventListener("click", logout);
 adminToSettings.addEventListener("click", () => showAdminView("settings"));
-adminToMain.addEventListener("click", () => requestGoToMainMenu());
+adminToMain.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  requestGoToMainMenu();
+});
 resetUsers.addEventListener("click", resetUserProfiles);
 document.getElementById("gameResetLayer")?.addEventListener("click", (event) => {
-  if (event.target.id === "gameResetLayer" || event.target.closest("[data-game-reset='no']")) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.target.closest("[data-game-reset='no']")) {
     hideGameResetConfirm();
     return;
   }
 
   if (event.target.closest("[data-game-reset='yes']")) {
-    event.preventDefault();
-    event.stopPropagation();
     goToMainMenu();
   }
 });
