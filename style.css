@@ -2647,6 +2647,15 @@ body.is-admin .app {
   line-height: 1.4;
 }
 
+.play-intro__game {
+  display: inline-block;
+  color: #2563eb;
+}
+
+.play-intro__game.is-pop {
+  animation: play-pop 0.45s ease;
+}
+
 .play-teams-board {
   display: flex;
   flex-direction: column;

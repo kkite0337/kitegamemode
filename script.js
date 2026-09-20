@@ -4349,7 +4349,8 @@ function nextTypedAt(elapsed, start, text, charMs = PLAY_INTRO_CHAR_MS) {
 
 function playIntroPlan() {
   const line1 = "이번 게임은";
-  const line2 = `${sanitizePlayWheelValue(gameState.playWheelValue)}입니다.`;
+  const gameName = sanitizePlayWheelValue(gameState.playWheelValue);
+  const line2 = `${gameName}입니다.`;
   const modeLines = ["게임은", `${playModePhrase()}으로`, "진행됩니다."];
   const line1Ms = playIntroChars(line1).length * PLAY_INTRO_CHAR_MS;
   const line2Ms = playIntroChars(line2).length * PLAY_INTRO_CHAR_MS;
@@ -4367,7 +4368,7 @@ function playIntroPlan() {
   });
   const modeDoneAt = at;
   const readyAt = gameState.playMode === "team" ? modeDoneAt + PLAY_MODE_TO_TEAM_MS : modeDoneAt;
-  return { line1, line2, modeLines, line2At, clearAt, modeAt, modeStarts, modeDoneAt, readyAt };
+  return { line1, line2, gameName, modeLines, line2At, clearAt, modeAt, modeStarts, modeDoneAt, readyAt };
 }
 
 function nextPlayIntroAt(elapsed, plan) {
@@ -4573,9 +4574,20 @@ function syncPlayIntro(container) {
     if (elapsed < plan.line2At) {
       line2.hidden = true;
       line2.textContent = "";
+      line2.classList.remove("is-pop");
+      delete line2.dataset.pop;
     } else {
       line2.hidden = false;
-      line2.textContent = playIntroTyped(plan.line2, elapsed - plan.line2At);
+      const typed = playIntroTyped(plan.line2, elapsed - plan.line2At);
+      const name = plan.gameName || "";
+      const nameTyped = typed.slice(0, Math.min(typed.length, name.length));
+      const restTyped = typed.slice(name.length);
+      const nameDone = playIntroChars(typed).length >= playIntroChars(name).length;
+      line2.innerHTML = `<span class="play-intro__game">${escapeHtml(nameTyped)}</span>${escapeHtml(restTyped)}`;
+      if (nameDone && line2.dataset.pop !== "1") {
+        line2.dataset.pop = "1";
+        line2.querySelector(".play-intro__game")?.classList.add("is-pop");
+      }
     }
 
     modeLines.forEach((el) => {
@@ -4587,6 +4599,8 @@ function syncPlayIntro(container) {
     line1.textContent = "";
     line2.hidden = true;
     line2.textContent = "";
+    line2.classList.remove("is-pop");
+    delete line2.dataset.pop;
     modeLines.forEach((el, index) => {
       const start = plan.modeStarts[index];
       const text = plan.modeLines[index] || "";
