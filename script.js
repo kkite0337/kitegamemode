@@ -4107,6 +4107,14 @@ function isPlayTenWheel(value = gameState.playWheelValue) {
   return wheel === "10초 맞추기" || wheel === "랜덤 시간 맞추기";
 }
 
+function isGreenSignalWheel(value = gameState.playWheelValue) {
+  return sanitizePlayWheelValue(value) === "초록신호 누르기";
+}
+
+function isTurnPlayWheel(value = gameState.playWheelValue) {
+  return isPlayTenWheel(value) || isGreenSignalWheel(value);
+}
+
 function isRandomTimeWheel(value = gameState.playWheelValue) {
   return sanitizePlayWheelValue(value) === "랜덤 시간 맞추기";
 }
@@ -4581,7 +4589,7 @@ function renderPlayGo(container) {
   delete container.dataset.playIntro;
   delete container.dataset.playReady;
   clearTimeout(container._playIntroTimer);
-  if (isPlayTenWheel()) {
+  if (isTurnPlayWheel()) {
     renderPlayTenGame(container);
     return;
   }
@@ -4759,12 +4767,16 @@ function beginPlayGo() {
   gameState.winnerRound = resetAt;
   gameState.playStage = "go";
   Object.assign(gameState, emptyPlayTenFields());
-  if (isPlayTenWheel()) {
+  if (isTurnPlayWheel()) {
     gameState.playTurnIds = assignPlayTurns();
     gameState.playTurnIndex = 0;
     gameState.playTurnPhase = "brief";
     gameState.playBriefAt = Date.now();
-    gameState.playTargetMs = isRandomTimeWheel() ? rollRandomPlayTargetMs() : PLAY_TEN_TARGET_MS;
+    gameState.playTargetMs = isRandomTimeWheel()
+      ? rollRandomPlayTargetMs()
+      : isGreenSignalWheel()
+        ? 0
+        : PLAY_TEN_TARGET_MS;
     playTenBriefFallbackAt = 0;
     playTenBriefFallbackEpoch = 0;
   }
@@ -4826,7 +4838,12 @@ function sanitizePlayTurnIds(ids) {
 }
 
 function sanitizePlayTurnPhase(phase) {
-  return phase === "brief" || phase === "turn" || phase === "run" || phase === "table" || phase === "announce"
+  return phase === "brief" ||
+    phase === "turn" ||
+    phase === "run" ||
+    phase === "record" ||
+    phase === "table" ||
+    phase === "announce"
     ? phase
     : "";
 }
@@ -4862,7 +4879,7 @@ function emptyPlayTenFields() {
 }
 
 function playTenProgress(state) {
-  const rank = { brief: 1, turn: 2, run: 3, table: 5, announce: 6 };
+  const rank = { brief: 1, turn: 2, run: 3, record: 4, table: 5, announce: 6 };
   const stopped = state?.playTurnPhase === "run" && Number(state?.playStopMs || 0) > 0 ? 1 : 0;
   return Number(state?.playTurnIndex || 0) * 10 + (rank[state?.playTurnPhase] || 0) + stopped;
 }
@@ -4965,6 +4982,10 @@ const PLAY_TEN_TARGET_MS = 10000;
 const PLAY_TEN_TARGET_MIN_MS = 6000;
 const PLAY_TEN_TARGET_MAX_MS = 16000;
 const PLAY_TEN_TABLE_GAP_MS = 2000;
+const PLAY_GREEN_DELAY_MIN_MS = 7000;
+const PLAY_GREEN_DELAY_MAX_MS = 20000;
+const PLAY_GREEN_HOLD_MS = 2000;
+const PLAY_GREEN_RECORD_MS = 3000;
 const PLAY_TEN_RANK_GAP_MS = 800;
 const PLAY_TEN_PLACE_GAP_MS = 2000;
 const PLAY_TEN_CHAR_MS = 36;
@@ -4981,12 +5002,26 @@ function rollRandomPlayTargetMs() {
   );
 }
 
+function rollGreenDelayMs() {
+  return (
+    PLAY_GREEN_DELAY_MIN_MS +
+    Math.floor(Math.random() * (PLAY_GREEN_DELAY_MAX_MS - PLAY_GREEN_DELAY_MIN_MS + 1))
+  );
+}
+
 function sanitizePlayTargetMs(ms, wheel = gameState.playWheelValue) {
   if (sanitizePlayWheelValue(wheel) === "10초 맞추기") {
     return PLAY_TEN_TARGET_MS;
   }
   const next = Math.round(Number(ms || 0));
   if (sanitizePlayWheelValue(wheel) === "랜덤 시간 맞추기" && next >= PLAY_TEN_TARGET_MIN_MS && next <= PLAY_TEN_TARGET_MAX_MS) {
+    return next;
+  }
+  if (
+    sanitizePlayWheelValue(wheel) === "초록신호 누르기" &&
+    next >= PLAY_GREEN_DELAY_MIN_MS &&
+    next <= PLAY_GREEN_DELAY_MAX_MS
+  ) {
     return next;
   }
   return 0;
@@ -4996,6 +5031,9 @@ function playTenTargetMs() {
   const next = sanitizePlayTargetMs(gameState.playTargetMs);
   if (next > 0) {
     return next;
+  }
+  if (isGreenSignalWheel()) {
+    return PLAY_GREEN_DELAY_MIN_MS;
   }
   return isRandomTimeWheel() ? PLAY_TEN_TARGET_MIN_MS : PLAY_TEN_TARGET_MS;
 }
@@ -5032,6 +5070,13 @@ function formatPlayError(ms) {
   return (Math.max(0, Number(ms || 0)) / 1000).toFixed(2);
 }
 
+function formatPlayMilliClock(ms) {
+  const total = Math.max(0, Math.round(Number(ms || 0)));
+  const sec = Math.floor(total / 1000);
+  const milli = total % 1000;
+  return `${String(sec).padStart(2, "0")}:${String(milli).padStart(3, "0")}`;
+}
+
 function playTenPersonName(id) {
   const key = String(id || "");
   if (!key) {
@@ -5049,11 +5094,17 @@ function playTenBriefPlan() {
         { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
         { key: "3", text: "이제 게임을 시작합니다!", emphasize: false },
       ]
-    : [
-        { key: "1", text: "10초일 때, STOP 버튼을 누르세요.", emphasize: false },
-        { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
-        { key: "3", text: "이제 게임을 시작합니다!", emphasize: false },
-      ];
+    : isGreenSignalWheel()
+      ? [
+          { key: "1", text: "초록색이 되면 화면을 누르세요.", emphasize: false },
+          { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
+          { key: "3", text: "이제 게임을 시작합니다!", emphasize: false },
+        ]
+      : [
+          { key: "1", text: "10초일 때, STOP 버튼을 누르세요.", emphasize: false },
+          { key: "2", text: "순서는 랜덤으로 흐릅니다.", emphasize: false },
+          { key: "3", text: "이제 게임을 시작합니다!", emphasize: false },
+        ];
   const starts = [];
   let at = 0;
   lineOrder.forEach((line) => {
@@ -5076,7 +5127,7 @@ function playTenBriefAnchor() {
   }
   if (
     gameState.playStage === "go" &&
-    isPlayTenWheel() &&
+    isTurnPlayWheel() &&
     (sanitizePlayTurnPhase(gameState.playTurnPhase) === "brief" ||
       sanitizePlayTurnPhase(gameState.playTurnPhase) === "turn" ||
       !sanitizePlayTurnPhase(gameState.playTurnPhase))
@@ -5102,8 +5153,31 @@ function playTenBriefElapsed() {
 
 function playTenViewPhase() {
   const phase = sanitizePlayTurnPhase(gameState.playTurnPhase);
-  if (gameState.playStage !== "go" || !isPlayTenWheel()) {
+  if (gameState.playStage !== "go" || !isTurnPlayWheel()) {
     return phase;
+  }
+  if (isGreenSignalWheel()) {
+    if (phase === "announce") {
+      return "announce";
+    }
+    if (phase === "table") {
+      return "table";
+    }
+    if (phase === "run" || phase === "record") {
+      const stopAt = Number(gameState.playStopAt || 0);
+      if (stopAt > 0) {
+        const wait = Date.now() - stopAt;
+        if (wait < PLAY_GREEN_HOLD_MS) {
+          return "run";
+        }
+        if (wait < PLAY_GREEN_HOLD_MS + PLAY_GREEN_RECORD_MS) {
+          return "record";
+        }
+        return "table";
+      }
+      return "run";
+    }
+    return playTenBriefElapsed() >= playTenBriefPlan().readyAt ? "turn" : "brief";
   }
   if (phase === "run" || phase === "table" || phase === "announce") {
     return phase;
@@ -5119,9 +5193,10 @@ function playTenRankRows() {
         const errorMs = sanitizePlayTenBoard(gameState.playTenBoard)
           .filter((row) => pair.includes(row.id))
           .reduce((sum, row) => sum + Number(row.errorMs || 0), 0);
+        const errorText = isGreenSignalWheel() ? formatPlayMilliClock(errorMs) : formatPlayError(errorMs);
         return {
           key: color.label,
-          text: `${color.label}팀 오차범위 ${formatPlayError(errorMs)}`,
+          text: `${color.label}팀 오차범위 ${errorText}`,
           color: color.hex,
           errorMs,
           ids: pair,
@@ -5220,22 +5295,72 @@ function playTenRunMarkup() {
   `;
 }
 
-function playTenTableMarkup() {
-  const rows = sanitizePlayTenBoard(gameState.playTenBoard)
+function playBoardRowsForDisplay(options = {}) {
+  const turnId = currentPlayTurnId();
+  let rows = sanitizePlayTenBoard(gameState.playTenBoard);
+  if (options.hideCurrent) {
+    rows = rows.filter((row) => row.id !== turnId);
+  }
+  if (isGreenSignalWheel()) {
+    rows = rows.slice().sort((left, right) => left.errorMs - right.errorMs || left.timeMs - right.timeMs);
+  }
+  return rows;
+}
+
+function playGreenIsLit() {
+  if (Number(gameState.playStopMs || 0) > 0 || Number(gameState.playStopAt || 0) > 0) {
+    return true;
+  }
+  const started = Number(gameState.playRunAt || 0);
+  if (!started) {
+    return false;
+  }
+  return Date.now() >= started + playTenTargetMs();
+}
+
+function playGreenSignalMarkup() {
+  const stopped = Number(gameState.playStopMs || 0) > 0 || Number(gameState.playStopAt || 0) > 0;
+  const lit = playGreenIsLit();
+  if (!lit) {
+    return `<button class="play-signal play-signal--red" type="button" disabled aria-label="대기"></button>`;
+  }
+  return `<button class="play-signal play-signal--green" type="button" data-action="play-green-tap"${
+    stopped ? " disabled" : ""
+  } aria-label="초록신호"></button>`;
+}
+
+function playGreenRecordMarkup() {
+  const mine = isMyPlayTurn();
+  const name = playTenPersonName(currentPlayTurnId());
+  const who = mine ? "사용자" : name || "사용자";
+  const clock = formatPlayMilliClock(gameState.playStopMs);
+  return `
+    <div class="play-ten play-ten--record">
+      <p class="play-ten__line">${escapeHtml(who)}님의 기록은</p>
+      <p class="play-ten__line play-ten__line--target">${accentMarkup(`${clock}`, "play-ten__time is-pop")}입니다.</p>
+    </div>
+  `;
+}
+
+function playTenTableMarkup(options = {}) {
+  const clock = (ms) => (isGreenSignalWheel() ? formatPlayMilliClock(ms) : formatPlayClock(ms));
+  const error = (ms) => (isGreenSignalWheel() ? formatPlayMilliClock(ms) : formatPlayError(ms));
+  const rows = playBoardRowsForDisplay(options)
     .map(
       (row) => `
         <div class="play-ten-board__row">
           <span>${escapeHtml(row.name || playTenPersonName(row.id))}</span>
-          <span>${escapeHtml(formatPlayClock(row.timeMs))}</span>
-          <span>${escapeHtml(formatPlayError(row.errorMs))}</span>
+          <span>${escapeHtml(clock(row.timeMs))}</span>
+          <span>${escapeHtml(error(row.errorMs))}</span>
         </div>
       `,
     )
     .join("");
-  const next =
-    currentAccount?.role === "admin"
-      ? `<button class="btn-primary next-btn" type="button" data-action="play-ten-next">넘어가기</button>`
-      : "";
+  const showNext =
+    options.showNext !== false && currentAccount?.role === "admin" && playTenViewPhase() === "table";
+  const next = showNext
+    ? `<button class="btn-primary next-btn" type="button" data-action="play-ten-next">넘어가기</button>`
+    : "";
   return `
     <div class="play-ten play-ten--table">
       <div class="play-ten-board">
@@ -5425,7 +5550,15 @@ function syncPlayTenAnnounce(container) {
 
 function renderPlayTenGame(container) {
   const viewPhase = playTenViewPhase();
-  if (viewPhase === "run") {
+  if (isGreenSignalWheel()) {
+    if (viewPhase === "record" && gameState.playTurnPhase === "run") {
+      gameState.playTurnPhase = "record";
+    }
+    if (viewPhase === "table" && gameState.playTurnPhase !== "table" && gameState.playTurnPhase !== "announce") {
+      gameState.playTurnPhase = "table";
+      clearPlayTenHold();
+    }
+  } else if (viewPhase === "run") {
     const stopAt = Number(gameState.playStopAt || 0) || playTenHoldAt;
     if (playTenFrozenMs() > 0 && stopAt && Date.now() >= stopAt + PLAY_TEN_TABLE_GAP_MS) {
       gameState.playTurnPhase = "table";
@@ -5436,6 +5569,7 @@ function renderPlayTenGame(container) {
   const phase = playTenViewPhase();
   const key = [
     phase,
+    isGreenSignalWheel() && isMyPlayTurn() && playGreenIsLit() ? "g1" : "g0",
     gameState.playTurnIndex,
     gameState.playRunAt,
     gameState.playStopAt,
@@ -5451,7 +5585,15 @@ function renderPlayTenGame(container) {
     if (phase === "brief") {
       container.innerHTML = playTenBriefMarkup();
     } else if (phase === "run") {
-      container.innerHTML = playTenRunMarkup();
+      if (isGreenSignalWheel()) {
+        container.innerHTML = isMyPlayTurn()
+          ? playGreenSignalMarkup()
+          : playTenTableMarkup({ hideCurrent: true, showNext: false });
+      } else {
+        container.innerHTML = playTenRunMarkup();
+      }
+    } else if (phase === "record") {
+      container.innerHTML = playGreenRecordMarkup();
     } else if (phase === "table") {
       container.innerHTML = playTenTableMarkup();
     } else if (phase === "announce") {
@@ -5469,6 +5611,19 @@ function renderPlayTenGame(container) {
   }
 
   if (phase === "run") {
+    if (isGreenSignalWheel()) {
+      const stopAt = Number(gameState.playStopAt || 0);
+      if (stopAt > 0) {
+        const remain = stopAt + PLAY_GREEN_HOLD_MS - Date.now();
+        container._playTenTimer = setTimeout(() => renderPlayTenGame(container), Math.max(16, remain));
+        return;
+      }
+      if (isMyPlayTurn() && !playGreenIsLit()) {
+        const greenAt = Number(gameState.playRunAt || 0) + playTenTargetMs();
+        container._playTenTimer = setTimeout(() => renderPlayTenGame(container), Math.max(16, greenAt - Date.now()));
+      }
+      return;
+    }
     syncPlayTenClock(container);
     if (playTenFrozenMs() > 0) {
       const stopAt = Number(gameState.playStopAt || 0) || playTenHoldAt;
@@ -5500,13 +5655,24 @@ function renderPlayTenGame(container) {
     return;
   }
 
+  if (phase === "record") {
+    const stopAt = Number(gameState.playStopAt || 0);
+    const remain = stopAt + PLAY_GREEN_HOLD_MS + PLAY_GREEN_RECORD_MS - Date.now();
+    if (remain <= 0) {
+      renderPlayTenGame(container);
+      return;
+    }
+    container._playTenTimer = setTimeout(() => renderPlayTenGame(container), remain);
+    return;
+  }
+
   if (phase === "announce") {
     syncPlayTenAnnounce(container);
   }
 }
 
 function startPlayTenTurn() {
-  if (!isMyPlayTurn() || playTenViewPhase() !== "turn" || !isPlayTenWheel()) {
+  if (!isMyPlayTurn() || playTenViewPhase() !== "turn" || !isTurnPlayWheel()) {
     return;
   }
 
@@ -5514,9 +5680,45 @@ function startPlayTenTurn() {
   gameState.playRunAt = Date.now();
   gameState.playStopMs = 0;
   gameState.playStopAt = 0;
+  if (isGreenSignalWheel()) {
+    gameState.playTargetMs = rollGreenDelayMs();
+  }
   playTenBriefFallbackAt = 0;
   playTenBriefFallbackEpoch = 0;
   clearPlayTenHold();
+  bumpPlayTen();
+  saveGame({ immediate: true });
+  refreshVisible();
+}
+
+function stopPlayGreenTap() {
+  if (!isMyPlayTurn() || gameState.playTurnPhase !== "run" || !isGreenSignalWheel()) {
+    return;
+  }
+
+  if (Number(gameState.playStopMs || 0) > 0 || Number(gameState.playStopAt || 0) > 0) {
+    return;
+  }
+
+  if (!playGreenIsLit()) {
+    return;
+  }
+
+  const greenAt = Number(gameState.playRunAt || 0) + playTenTargetMs();
+  const elapsed = Math.max(0, Date.now() - greenAt);
+  freezePlayTenClock(elapsed);
+  stopPlayTenTick();
+  gameState.playStopMs = elapsed;
+  gameState.playStopAt = Date.now();
+  gameState.playTenBoard = [
+    ...sanitizePlayTenBoard(gameState.playTenBoard).filter((row) => row.id !== currentAccount.id),
+    {
+      id: currentAccount.id,
+      name: playTenPersonName(currentAccount.id),
+      timeMs: elapsed,
+      errorMs: elapsed,
+    },
+  ];
   bumpPlayTen();
   saveGame({ immediate: true });
   refreshVisible();
@@ -5553,7 +5755,7 @@ function stopPlayTenClock() {
 }
 
 function advancePlayTenTurn() {
-  if (currentAccount?.role !== "admin" || gameState.playTurnPhase !== "table") {
+  if (currentAccount?.role !== "admin" || playTenViewPhase() !== "table") {
     return;
   }
 
@@ -7193,6 +7395,11 @@ function handlePlayClick(event) {
 
   if (button.dataset.action === "play-ten-start") {
     startPlayTenTurn();
+    return;
+  }
+
+  if (button.dataset.action === "play-green-tap") {
+    stopPlayGreenTap();
     return;
   }
 

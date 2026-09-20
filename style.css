@@ -2648,6 +2648,41 @@ body.is-admin .app {
   min-width: 180px;
 }
 
+#adminPlay:has(.play-signal),
+.play-screen:has(.play-signal) {
+  justify-content: stretch;
+  align-items: stretch;
+}
+
+.play-signal {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  cursor: default;
+}
+
+.play-signal--red {
+  background: #dc2626;
+}
+
+.play-signal--green {
+  background: #22c55e;
+  cursor: pointer;
+}
+
+.play-signal--green:disabled {
+  cursor: default;
+}
+
+.play-ten--record {
+  justify-content: center;
+}
+
 .play-ten__result {
   margin: 0;
   font-size: 28px;
