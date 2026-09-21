@@ -4522,6 +4522,10 @@ function playTeamReadyMarkup() {
 }
 
 function syncPlayTeamReady(container) {
+  if (gameState.playStage !== "start") {
+    return;
+  }
+
   const elapsed = Date.now() - Number(gameState.playIntroAt || 0);
   const plan = playTeamAnnouncePlan();
   container.querySelectorAll("[data-play-team-line]").forEach((el) => {
@@ -4586,10 +4590,15 @@ function renderPlayLaunch(container) {
 }
 
 function renderPlayGo(container) {
+  if (!container) {
+    return;
+  }
+
   delete container.dataset.playIntro;
   delete container.dataset.playReady;
+  delete container.dataset.playTen;
   clearTimeout(container._playIntroTimer);
-  if (isTurnPlayWheel()) {
+  if (isTurnPlayWheel() || sanitizePlayTurnIds(gameState.playTurnIds).length) {
     renderPlayTenGame(container);
     return;
   }
@@ -4598,6 +4607,10 @@ function renderPlayGo(container) {
 }
 
 function syncPlayIntro(container) {
+  if (gameState.playStage !== "start") {
+    return;
+  }
+
   const line1 = container.querySelector("[data-play-intro-line1]");
   const line2 = container.querySelector("[data-play-intro-line2]");
   const modeLines = [...container.querySelectorAll("[data-play-intro-mode]")];
@@ -4690,6 +4703,10 @@ function syncPlayIntro(container) {
 }
 
 function renderPlayIntro(container) {
+  if (gameState.playStage !== "start") {
+    return;
+  }
+
   const key = `${Number(gameState.playIntroAt || 0)}|${sanitizePlayWheelValue(gameState.playWheelValue)}|${gameState.playMode || ""}`;
   if (container.dataset.playIntro !== key) {
     container.dataset.playIntro = key;
@@ -4758,6 +4775,12 @@ function beginPlayGo() {
     return;
   }
 
+  if (gameState.playStage === "go") {
+    resetPlayUi();
+    refreshVisible();
+    return;
+  }
+
   if (gameState.playStage !== "start") {
     return;
   }
@@ -4766,6 +4789,7 @@ function beginPlayGo() {
   const resetAt = bumpGameRound();
   gameState.winnerRound = resetAt;
   gameState.playStage = "go";
+  gameState.playIntroAt = 0;
   Object.assign(gameState, emptyPlayTenFields());
   if (isTurnPlayWheel()) {
     gameState.playTurnIds = assignPlayTurns();
@@ -4782,8 +4806,8 @@ function beginPlayGo() {
   }
   resetPlayUi();
   saveGame({ immediate: true });
-  publishMqttGameRound(resetAt);
   refreshVisible();
+  publishMqttGameRound(resetAt);
 }
 
 const PLAY_TEN_COUNTDOWN_MS = 3000;
@@ -5160,10 +5184,10 @@ function playTenViewPhase() {
     if (phase === "announce") {
       return "announce";
     }
-    if (phase === "table") {
+    if (phase === "table" && Number(gameState.playStopAt || 0) > 0) {
       return "table";
     }
-    if (phase === "run" || phase === "record") {
+    if ((phase === "run" || phase === "record") && Number(gameState.playRunAt || 0) > 0) {
       const stopAt = Number(gameState.playStopAt || 0);
       if (stopAt > 0) {
         const wait = Date.now() - stopAt;
@@ -5400,8 +5424,15 @@ function syncPlayTenBrief(container) {
   const plan = playTenBriefPlan();
   const nodes = plan.lines.map((line) => container.querySelector(`[data-play-ten-brief='${line.key}']`));
   if (nodes.some((node) => !node)) {
+    if (container.dataset.playTenBriefRetry === "1") {
+      return;
+    }
+    container.dataset.playTenBriefRetry = "1";
+    delete container.dataset.playTen;
+    renderPlayTenGame(container);
     return;
   }
+  delete container.dataset.playTenBriefRetry;
 
   plan.lines.forEach((line, index) => {
     const node = nodes[index];
@@ -5554,7 +5585,7 @@ function renderPlayTenGame(container) {
     if (viewPhase === "record" && gameState.playTurnPhase === "run") {
       gameState.playTurnPhase = "record";
     }
-    if (viewPhase === "table" && gameState.playTurnPhase !== "table" && gameState.playTurnPhase !== "announce") {
+    if (viewPhase === "table" && Number(gameState.playStopAt || 0) > 0 && gameState.playTurnPhase !== "table" && gameState.playTurnPhase !== "announce") {
       gameState.playTurnPhase = "table";
       clearPlayTenHold();
     }
@@ -7870,16 +7901,19 @@ function applyRemoteState(remote, options = {}) {
       const incomingEpoch = playSyncEpoch(next);
       const localEpoch = playSyncEpoch(gameState);
       const incomingIdle = isIdleGame(next);
+      const localGo = gameState.playStage === "go";
+      const incomingNotGo = next.playStage !== "go";
       const takeIncoming =
-        roundAdvanced ||
-        incomingIdle ||
-        incomingEpoch > localEpoch ||
-        (!localIdle &&
-          incomingEpoch === localEpoch &&
-          (incomingProg > localProg ||
-            (incomingProg === localProg &&
-              (incomingTs > gameUpdatedAt ||
-                (incomingTs === gameUpdatedAt && gameSignature(next) !== lastGameSignature)))));
+        (roundAdvanced ||
+          incomingIdle ||
+          incomingEpoch > localEpoch ||
+          (!localIdle &&
+            incomingEpoch === localEpoch &&
+            (incomingProg > localProg ||
+              (incomingProg === localProg &&
+                (incomingTs > gameUpdatedAt ||
+                  (incomingTs === gameUpdatedAt && gameSignature(next) !== lastGameSignature)))))) &&
+        !(localGo && incomingNotGo && !roundAdvanced && incomingEpoch <= localEpoch);
       if (takeIncoming && (roundAdvanced || gameSignature(next) !== lastGameSignature)) {
         if (roundAdvanced || incomingProg !== localProg || incomingEpoch !== localEpoch) {
           resetPlayUi();
