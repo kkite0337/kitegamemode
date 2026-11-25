@@ -993,9 +993,12 @@ function buildPdfCalendar(year, monthIndex) {
 }
 
 function buildPdfSheet(year, monthIndex) {
+  const host = document.createElement("div");
+  host.className = "pdf-host";
+  host.setAttribute("aria-hidden", "true");
+
   const root = document.createElement("div");
   root.className = "pdf-root";
-  root.setAttribute("aria-hidden", "true");
 
   const title = document.createElement("h1");
   title.className = "pdf-title";
@@ -1135,7 +1138,16 @@ function buildPdfSheet(year, monthIndex) {
   table.appendChild(tbody);
   tableWrap.appendChild(table);
   root.appendChild(tableWrap);
-  return root;
+  host.appendChild(root);
+  return { host, root };
+}
+
+function waitForPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
 }
 
 async function downloadMonthPdf() {
@@ -1145,27 +1157,37 @@ async function downloadMonthPdf() {
   }
 
   pdfBtn.disabled = true;
-  const sheet = buildPdfSheet(viewYear, viewMonth);
-  document.body.appendChild(sheet);
+  const { host, root } = buildPdfSheet(viewYear, viewMonth);
+  document.body.appendChild(host);
   const filename = `kitegamemode-${viewYear}-${pad2(viewMonth + 1)}.pdf`;
 
   try {
+    await waitForPaint();
     await html2pdf()
       .set({
-        margin: 0,
+        margin: [8, 8, 8, 8],
         filename,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: root.scrollWidth,
+          windowHeight: root.scrollHeight,
+        },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"] },
+        pagebreak: { mode: ["avoid-all"] },
       })
-      .from(sheet)
+      .from(root)
       .save();
     showToast("PDF를 저장했습니다");
   } catch (error) {
     showToast("PDF 저장에 실패했습니다");
   } finally {
-    sheet.remove();
+    host.remove();
     pdfBtn.disabled = false;
   }
 }

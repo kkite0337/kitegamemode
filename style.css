@@ -227,13 +227,22 @@ body:has(.home-page:not([hidden])) .app {
   cursor: default;
 }
 
-.pdf-root {
+.pdf-host {
   position: fixed;
-  left: -10000px;
+  left: 0;
   top: 0;
-  width: 210mm;
-  min-height: 297mm;
-  padding: 12mm;
+  width: 794px;
+  max-height: 100vh;
+  overflow: hidden;
+  opacity: 0.02;
+  pointer-events: none;
+  z-index: 2147483000;
+}
+
+.pdf-root {
+  position: relative;
+  width: 794px;
+  padding: 40px;
   background: #fff;
   color: #222;
   font-family: Pretendard, "Apple SD Gothic Neo", sans-serif;
@@ -241,7 +250,7 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .pdf-title {
-  margin: 0 0 10mm;
+  margin: 0 0 28px;
   text-align: center;
   font-size: 22px;
   font-weight: 800;
@@ -251,18 +260,19 @@ body:has(.home-page:not([hidden])) .app {
 .pdf-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4mm;
-  margin-bottom: 8mm;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
 .pdf-card {
   border: 1px solid #ddd4c4;
   border-radius: 10px;
-  padding: 4mm;
-  min-height: 52mm;
+  padding: 12px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
-  gap: 3mm;
+  gap: 10px;
+  background: #fff;
 }
 
 .pdf-card__title {
@@ -304,26 +314,26 @@ body:has(.home-page:not([hidden])) .app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2mm;
+  gap: 8px;
   flex: 1;
 }
 
 .pdf-chart-svg {
-  width: 34mm;
-  height: 34mm;
+  width: 120px;
+  height: 120px;
 }
 
 .pdf-chart-legend {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1mm;
+  gap: 4px;
 }
 
 .pdf-chart-legend__row {
   display: flex;
   justify-content: space-between;
-  gap: 2mm;
+  gap: 8px;
   font-size: 9px;
   font-weight: 700;
 }
@@ -331,7 +341,7 @@ body:has(.home-page:not([hidden])) .app {
 .pdf-chart-legend__name {
   display: inline-flex;
   align-items: center;
-  gap: 1.5mm;
+  gap: 6px;
 }
 
 .pdf-empty {
@@ -346,7 +356,7 @@ body:has(.home-page:not([hidden])) .app {
 .pdf-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 1mm;
+  gap: 3px;
 }
 
 .pdf-cal-weekdays span {
@@ -378,6 +388,7 @@ body:has(.home-page:not([hidden])) .app {
   border: 1px solid #ddd4c4;
   border-radius: 10px;
   overflow: hidden;
+  background: #fff;
 }
 
 .pdf-table {
@@ -390,7 +401,7 @@ body:has(.home-page:not([hidden])) .app {
 .pdf-table th,
 .pdf-table td {
   border-bottom: 1px solid #efe8da;
-  padding: 2.5mm 2mm;
+  padding: 8px 6px;
   text-align: left;
   vertical-align: top;
   word-break: break-word;
@@ -420,14 +431,14 @@ body:has(.home-page:not([hidden])) .app {
 .pdf-cat {
   display: inline-flex;
   align-items: center;
-  gap: 1.5mm;
+  gap: 6px;
   font-weight: 700;
 }
 
 .pdf-memo-detail {
   display: flex;
   flex-direction: column;
-  gap: 1mm;
+  gap: 4px;
 }
 
 .pdf-memo-url {
