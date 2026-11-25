@@ -1798,7 +1798,7 @@ function buildLanguagePdfSheet(year, monthIndex) {
   table.className = "pdf-table pdf-table--language";
   const thead = document.createElement("thead");
   thead.innerHTML =
-    "<tr><th>날짜</th><th>분류</th><th>시작시간~끝난시간(공부시간)</th><th>메모 상세</th></tr>";
+    "<tr><th>날짜</th><th>분류</th><th>시작시간</th><th>끝난시간</th><th>공부시간</th><th>메모 상세</th></tr>";
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
@@ -1807,7 +1807,7 @@ function buildLanguagePdfSheet(year, monthIndex) {
   if (!monthEntries.length) {
     const emptyRow = document.createElement("tr");
     emptyRow.innerHTML =
-      '<td colspan="4" style="text-align:center;color:#8a8174;font-weight:700;">이번 달 작성된 기록이 없습니다.</td>';
+      '<td colspan="6" style="text-align:center;color:#8a8174;font-weight:700;">이번 달 작성된 기록이 없습니다.</td>';
     tbody.appendChild(emptyRow);
   } else {
     monthEntries.forEach((entry) => {
@@ -1828,11 +1828,15 @@ function buildLanguagePdfSheet(year, monthIndex) {
       cat.append(dot, label);
       catCell.appendChild(cat);
 
-      const timeCell = document.createElement("td");
-      const duration = formatStudyDuration(entry.startTime, entry.endTime);
-      timeCell.textContent = duration
-        ? `${entry.startTime}~${entry.endTime} (${duration})`
-        : `${entry.startTime || "--:--"}~${entry.endTime || "--:--"}`;
+      const startCell = document.createElement("td");
+      startCell.textContent = entry.startTime || "-";
+
+      const endCell = document.createElement("td");
+      endCell.textContent = entry.endTime || "-";
+
+      const durationCell = document.createElement("td");
+      durationCell.textContent =
+        formatStudyDuration(entry.startTime, entry.endTime) || "-";
 
       const detailCell = document.createElement("td");
       const detail = document.createElement("div");
@@ -1847,7 +1851,7 @@ function buildLanguagePdfSheet(year, monthIndex) {
       }
       detailCell.appendChild(detail);
 
-      tr.append(dateCell, catCell, timeCell, detailCell);
+      tr.append(dateCell, catCell, startCell, endCell, durationCell, detailCell);
       tbody.appendChild(tr);
     });
   }

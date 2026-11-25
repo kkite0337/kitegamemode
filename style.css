@@ -541,22 +541,32 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-table--language th:nth-child(1),
 .pdf-table--language td:nth-child(1) {
-  width: 56px;
+  width: 48px;
+  white-space: nowrap;
 }
 
 .pdf-table--language th:nth-child(2),
 .pdf-table--language td:nth-child(2) {
-  width: 72px;
-}
-
-.pdf-table--language th:nth-child(3),
-.pdf-table--language td:nth-child(3) {
-  width: 170px;
+  width: 64px;
   white-space: nowrap;
 }
 
+.pdf-table--language th:nth-child(3),
+.pdf-table--language td:nth-child(3),
 .pdf-table--language th:nth-child(4),
 .pdf-table--language td:nth-child(4) {
+  width: 58px;
+  white-space: nowrap;
+}
+
+.pdf-table--language th:nth-child(5),
+.pdf-table--language td:nth-child(5) {
+  width: 72px;
+  white-space: nowrap;
+}
+
+.pdf-table--language th:nth-child(6),
+.pdf-table--language td:nth-child(6) {
   width: auto;
 }
 
