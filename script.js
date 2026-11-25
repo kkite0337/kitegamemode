@@ -85,11 +85,9 @@ const dayDetailHint = document.getElementById("dayDetailHint");
 const dayDetailContent = document.getElementById("dayDetailContent");
 const dayDetailTitle = document.getElementById("dayDetailTitle");
 const dayDetailList = document.getElementById("dayDetailList");
-const achieveMonth = document.getElementById("achieveMonth");
 const achievePercent = document.getElementById("achievePercent");
 const achieveCount = document.getElementById("achieveCount");
 const achieveBarFill = document.getElementById("achieveBarFill");
-const chartMonth = document.getElementById("chartMonth");
 const chartBody = document.getElementById("chartBody");
 const memoBackBtn = document.getElementById("memoBackBtn");
 const draftListBtn = document.getElementById("draftListBtn");
@@ -784,7 +782,6 @@ function renderAchievePanel() {
   const achieved = achievedDaysInMonth(viewYear, viewMonth);
   const percent = totalDays ? Math.round((achieved / totalDays) * 100) : 0;
 
-  achieveMonth.textContent = `${viewYear}년 ${viewMonth + 1}월`;
   achievePercent.textContent = String(percent);
   achieveCount.textContent = `${achieved}일 / ${totalDays}일`;
   achieveBarFill.style.width = `${percent}%`;
@@ -972,7 +969,6 @@ function describeSlice(cx, cy, radius, startAngle, endAngle) {
 }
 
 function renderChartPanel() {
-  chartMonth.textContent = `${viewYear}년 ${viewMonth + 1}월`;
   chartBody.replaceChildren();
 
   const { counts, total } = categoryCountsInMonth(viewYear, viewMonth);
