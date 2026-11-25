@@ -68,11 +68,9 @@ const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
 const calendarPrev = document.getElementById("calendarPrev");
 const calendarNext = document.getElementById("calendarNext");
-const langAchieveMonth = document.getElementById("langAchieveMonth");
 const langAchievePercent = document.getElementById("langAchievePercent");
 const langAchieveCount = document.getElementById("langAchieveCount");
 const langAchieveBarFill = document.getElementById("langAchieveBarFill");
-const langStudyMonth = document.getElementById("langStudyMonth");
 const langStudyTotal = document.getElementById("langStudyTotal");
 const langStudyHint = document.getElementById("langStudyHint");
 const langCalendarTitle = document.getElementById("langCalendarTitle");
@@ -825,7 +823,6 @@ function renderLanguageAchievePanel() {
   const achieved = languageDaysInMonth(langViewYear, langViewMonth).size;
   const percent = totalDays ? Math.round((achieved / totalDays) * 100) : 0;
 
-  langAchieveMonth.textContent = `${langViewYear}년 ${langViewMonth + 1}월`;
   langAchievePercent.textContent = String(percent);
   langAchieveCount.textContent = `${achieved}일 / ${totalDays}일`;
   langAchieveBarFill.style.width = `${percent}%`;
@@ -848,7 +845,6 @@ function languageMinutesInMonth(year, monthIndex) {
 
 function renderLanguageStudyTimePanel() {
   const totalMinutes = languageMinutesInMonth(langViewYear, langViewMonth);
-  langStudyMonth.textContent = `${langViewYear}년 ${langViewMonth + 1}월`;
   langStudyTotal.textContent = formatMinutesLabel(totalMinutes);
   langStudyHint.textContent =
     totalMinutes > 0 ? "이번 달 총 공부시간" : "아직 기록된 공부시간이 없습니다";
