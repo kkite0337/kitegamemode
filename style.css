@@ -347,6 +347,14 @@ body:has(.home-page:not([hidden])) .app {
   align-items: stretch;
 }
 
+.pdf-row--language {
+  grid-template-columns: 0.28fr 0.28fr 0.44fr;
+}
+
+.pdf-card--study {
+  justify-content: center;
+}
+
 .pdf-card {
   border: 1px solid #ddd4c4;
   border-radius: 10px;
@@ -528,6 +536,27 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-table th:nth-child(3),
 .pdf-table td:nth-child(3) {
+  width: auto;
+}
+
+.pdf-table--language th:nth-child(1),
+.pdf-table--language td:nth-child(1) {
+  width: 56px;
+}
+
+.pdf-table--language th:nth-child(2),
+.pdf-table--language td:nth-child(2) {
+  width: 72px;
+}
+
+.pdf-table--language th:nth-child(3),
+.pdf-table--language td:nth-child(3) {
+  width: 170px;
+  white-space: nowrap;
+}
+
+.pdf-table--language th:nth-child(4),
+.pdf-table--language td:nth-child(4) {
   width: auto;
 }
 
