@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=224">
+  <link rel="stylesheet" href="style.css?v=225">
 </head>
 <body>
   <main class="app">
@@ -58,6 +58,13 @@
             <span>토</span>
           </div>
           <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+        <div class="day-detail" id="dayDetail">
+          <p class="day-detail__hint" id="dayDetailHint">날짜를 선택하면 저장된 내용이 여기에 표시됩니다.</p>
+          <div class="day-detail__content" id="dayDetailContent" hidden>
+            <h2 class="day-detail__title" id="dayDetailTitle"></h2>
+            <div class="day-detail__list" id="dayDetailList"></div>
+          </div>
         </div>
       </div>
 
@@ -121,7 +128,7 @@
 
     <p class="toast" id="toast" hidden></p>
   </main>
-  <script src="accounts.js?v=224"></script>
-  <script src="script.js?v=224"></script>
+  <script src="accounts.js?v=225"></script>
+  <script src="script.js?v=225"></script>
 </body>
 </html>

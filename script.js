@@ -3,13 +3,13 @@ const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
 
 const CATEGORIES = [
-  { id: "finance", label: "금융", color: "#ef4444" },
-  { id: "invest", label: "투자", color: "#f97316" },
-  { id: "estate", label: "부동산", color: "#eab308" },
-  { id: "industry", label: "산업", color: "#22c55e" },
-  { id: "global", label: "국제", color: "#3b82f6" },
-  { id: "policy", label: "정책", color: "#6366f1" },
-  { id: "trend", label: "동향", color: "#a855f7" },
+  { id: "finance", label: "금융", color: "#ef4444", soft: "#c47b6f" },
+  { id: "invest", label: "투자", color: "#f97316", soft: "#c98a4e" },
+  { id: "estate", label: "부동산", color: "#eab308", soft: "#c4ae5a" },
+  { id: "industry", label: "산업", color: "#22c55e", soft: "#7a9e72" },
+  { id: "global", label: "국제", color: "#3b82f6", soft: "#6f8fb5" },
+  { id: "policy", label: "정책", color: "#6366f1", soft: "#7a7eaf" },
+  { id: "trend", label: "동향", color: "#a855f7", soft: "#9a78ad" },
 ];
 
 const loginPage = document.getElementById("loginPage");
@@ -28,6 +28,10 @@ const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
 const calendarPrev = document.getElementById("calendarPrev");
 const calendarNext = document.getElementById("calendarNext");
+const dayDetailHint = document.getElementById("dayDetailHint");
+const dayDetailContent = document.getElementById("dayDetailContent");
+const dayDetailTitle = document.getElementById("dayDetailTitle");
+const dayDetailList = document.getElementById("dayDetailList");
 const memoBackBtn = document.getElementById("memoBackBtn");
 const draftListBtn = document.getElementById("draftListBtn");
 const draftSaveBtn = document.getElementById("draftSaveBtn");
@@ -53,6 +57,7 @@ const toast = document.getElementById("toast");
 let currentAccount = null;
 let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth();
+let selectedDateKey = null;
 let editingDraftId = null;
 let formDate = yesterdayDate();
 let selectedCategory = "";
@@ -153,6 +158,86 @@ function categoryById(id) {
   return CATEGORIES.find((item) => item.id === id) || null;
 }
 
+function primaryMemoCategory(dayMemos) {
+  const latest = dayMemos[dayMemos.length - 1];
+  return categoryById(latest?.category) || null;
+}
+
+function renderDayDetail() {
+  if (!selectedDateKey) {
+    dayDetailHint.hidden = false;
+    dayDetailHint.textContent = "날짜를 선택하면 저장된 내용이 여기에 표시됩니다.";
+    dayDetailContent.hidden = true;
+    dayDetailList.replaceChildren();
+    return;
+  }
+
+  const date = parseDateKey(selectedDateKey);
+  const dayMemos = loadMemos().filter((memo) => memo.date === selectedDateKey);
+  dayDetailTitle.textContent = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+
+  if (!dayMemos.length) {
+    dayDetailHint.hidden = false;
+    dayDetailHint.textContent = "이 날짜에 저장된 내용이 없습니다.";
+    dayDetailContent.hidden = true;
+    dayDetailList.replaceChildren();
+    return;
+  }
+
+  dayDetailHint.hidden = true;
+  dayDetailContent.hidden = false;
+  dayDetailList.replaceChildren();
+
+  dayMemos
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .forEach((memo) => {
+      const category = categoryById(memo.category);
+      const card = document.createElement("article");
+      card.className = "day-memo";
+
+      const head = document.createElement("div");
+      head.className = "day-memo__head";
+
+      const badge = document.createElement("span");
+      badge.className = "day-memo__badge";
+      const dot = document.createElement("span");
+      dot.className = "category-dot";
+      dot.style.background = category?.color || "#8a8174";
+      const label = document.createElement("span");
+      label.textContent = category?.label || "미분류";
+      badge.append(dot, label);
+      head.appendChild(badge);
+
+      if (memo.url) {
+        const link = document.createElement("a");
+        link.className = "day-memo__url";
+        link.href = memo.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = memo.url;
+        head.appendChild(link);
+      }
+
+      card.appendChild(head);
+
+      if (memo.body) {
+        const body = document.createElement("p");
+        body.className = "day-memo__body";
+        body.textContent = memo.body;
+        card.appendChild(body);
+      }
+
+      dayDetailList.appendChild(card);
+    });
+}
+
+function selectDay(year, monthIndex, day) {
+  selectedDateKey = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+  renderCalendar();
+  renderDayDetail();
+}
+
 function renderCalendar() {
   const today = new Date();
   const firstDay = new Date(viewYear, viewMonth, 1);
@@ -170,6 +255,7 @@ function renderCalendar() {
 
   for (let day = 1; day <= totalDays; day += 1) {
     const date = new Date(viewYear, viewMonth, day);
+    const key = dateKey(date);
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = "calendar-cell";
@@ -181,32 +267,31 @@ function renderCalendar() {
     cell.appendChild(number);
 
     const dayMemos = memosForDay(viewYear, viewMonth, day);
-    if (dayMemos.length) {
-      const dots = document.createElement("span");
-      dots.className = "calendar-dots";
-      dayMemos.slice(0, 4).forEach((memo) => {
-        const category = categoryById(memo.category);
-        const dot = document.createElement("span");
-        dot.className = "calendar-dot";
-        dot.style.background = category?.color || "#8a8174";
-        dots.appendChild(dot);
-      });
-      cell.appendChild(dots);
-      cell.classList.add("has-memo");
-    }
+    const category = dayMemos.length ? primaryMemoCategory(dayMemos) : null;
 
-    if (sameDay(date, today)) {
+    if (category) {
+      cell.classList.add("has-memo");
+      cell.style.background = category.soft;
+    } else if (sameDay(date, today)) {
       cell.classList.add("is-today");
     }
 
+    if (selectedDateKey === key) {
+      cell.classList.add("is-selected");
+    }
+
+    cell.addEventListener("click", () => selectDay(viewYear, viewMonth, day));
     calendarGrid.appendChild(cell);
   }
+
+  renderDayDetail();
 }
 
 function shiftMonth(delta) {
   const next = new Date(viewYear, viewMonth + delta, 1);
   viewYear = next.getFullYear();
   viewMonth = next.getMonth();
+  selectedDateKey = null;
   renderCalendar();
 }
 
@@ -495,6 +580,7 @@ function saveMemo() {
   const savedDate = parseDateKey(values.date);
   viewYear = savedDate.getFullYear();
   viewMonth = savedDate.getMonth();
+  selectedDateKey = values.date;
   showToast("캘린더에 저장했습니다");
   closeMemoForm();
 }
