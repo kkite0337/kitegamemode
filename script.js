@@ -1,6 +1,8 @@
 const SESSION_KEY = "kitegamemode-session";
 const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
+const LANGUAGE_DAYS_KEY = "kitegamemode-language-days";
+const LANGUAGE_SOFT = "#6f8fb5";
 
 const CATEGORIES = [
   { id: "finance", label: "금융", color: "#ef4444", soft: "#c47b6f" },
@@ -34,6 +36,14 @@ const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
 const calendarPrev = document.getElementById("calendarPrev");
 const calendarNext = document.getElementById("calendarNext");
+const langAchieveMonth = document.getElementById("langAchieveMonth");
+const langAchievePercent = document.getElementById("langAchievePercent");
+const langAchieveCount = document.getElementById("langAchieveCount");
+const langAchieveBarFill = document.getElementById("langAchieveBarFill");
+const langCalendarTitle = document.getElementById("langCalendarTitle");
+const langCalendarGrid = document.getElementById("langCalendarGrid");
+const langCalendarPrev = document.getElementById("langCalendarPrev");
+const langCalendarNext = document.getElementById("langCalendarNext");
 const dayDetailHint = document.getElementById("dayDetailHint");
 const dayDetailContent = document.getElementById("dayDetailContent");
 const dayDetailTitle = document.getElementById("dayDetailTitle");
@@ -70,6 +80,8 @@ let currentAccount = null;
 let activeSection = "economy";
 let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth();
+let langViewYear = new Date().getFullYear();
+let langViewMonth = new Date().getMonth();
 let selectedDateKey = null;
 let editingDraftId = null;
 let editingMemoId = null;
@@ -174,6 +186,10 @@ function setActiveSection(section) {
   if (section === "economy") {
     renderCalendar();
   }
+
+  if (section === "language") {
+    renderLanguageCalendar();
+  }
 }
 
 function sameDay(left, right) {
@@ -221,6 +237,95 @@ function renderAchievePanel() {
   achievePercent.textContent = String(percent);
   achieveCount.textContent = `${achieved}일 / ${totalDays}일`;
   achieveBarFill.style.width = `${percent}%`;
+}
+
+function loadLanguageDays() {
+  const days = readJson(LANGUAGE_DAYS_KEY, []);
+  return Array.isArray(days) ? days : [];
+}
+
+function saveLanguageDays(days) {
+  writeJson(LANGUAGE_DAYS_KEY, days);
+}
+
+function languageDaysInMonth(year, monthIndex) {
+  const prefix = monthPrefix(year, monthIndex);
+  return new Set(loadLanguageDays().filter((day) => day.startsWith(prefix)));
+}
+
+function renderLanguageAchievePanel() {
+  const totalDays = daysInMonth(langViewYear, langViewMonth);
+  const achieved = languageDaysInMonth(langViewYear, langViewMonth).size;
+  const percent = totalDays ? Math.round((achieved / totalDays) * 100) : 0;
+
+  langAchieveMonth.textContent = `${langViewYear}년 ${langViewMonth + 1}월`;
+  langAchievePercent.textContent = String(percent);
+  langAchieveCount.textContent = `${achieved}일 / ${totalDays}일`;
+  langAchieveBarFill.style.width = `${percent}%`;
+}
+
+function renderLanguageCalendar() {
+  const today = new Date();
+  const firstDay = new Date(langViewYear, langViewMonth, 1);
+  const totalDays = daysInMonth(langViewYear, langViewMonth);
+  const startWeekday = firstDay.getDay();
+  const achievedDays = languageDaysInMonth(langViewYear, langViewMonth);
+
+  langCalendarTitle.textContent = `${langViewYear}년 ${langViewMonth + 1}월`;
+  langCalendarGrid.replaceChildren();
+
+  for (let i = 0; i < startWeekday; i += 1) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell is-empty";
+    langCalendarGrid.appendChild(cell);
+  }
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    const date = new Date(langViewYear, langViewMonth, day);
+    const key = dateKey(date);
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "calendar-cell";
+    cell.setAttribute(
+      "aria-label",
+      `${langViewYear}년 ${langViewMonth + 1}월 ${day}일`,
+    );
+
+    const number = document.createElement("span");
+    number.className = "calendar-day";
+    number.textContent = String(day);
+    cell.appendChild(number);
+
+    if (achievedDays.has(key)) {
+      cell.classList.add("has-memo");
+      cell.style.background = LANGUAGE_SOFT;
+    } else if (sameDay(date, today)) {
+      cell.classList.add("is-today");
+    }
+
+    cell.addEventListener("click", () => {
+      const days = loadLanguageDays();
+      const index = days.indexOf(key);
+      if (index >= 0) {
+        days.splice(index, 1);
+      } else {
+        days.push(key);
+      }
+      saveLanguageDays(days);
+      renderLanguageCalendar();
+    });
+
+    langCalendarGrid.appendChild(cell);
+  }
+
+  renderLanguageAchievePanel();
+}
+
+function shiftLanguageMonth(delta) {
+  const next = new Date(langViewYear, langViewMonth + delta, 1);
+  langViewYear = next.getFullYear();
+  langViewMonth = next.getMonth();
+  renderLanguageCalendar();
 }
 
 function categoryCountsInMonth(year, monthIndex) {
@@ -1258,5 +1363,7 @@ categoryBtn.addEventListener("click", () =>
 
 calendarPrev.addEventListener("click", () => shiftMonth(-1));
 calendarNext.addEventListener("click", () => shiftMonth(1));
+langCalendarPrev.addEventListener("click", () => shiftLanguageMonth(-1));
+langCalendarNext.addEventListener("click", () => shiftLanguageMonth(1));
 
 restoreSession();

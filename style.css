@@ -580,9 +580,18 @@ body:has(.home-page:not([hidden])) .app {
   flex: 0 0 auto;
 }
 
+.side-panel__box--solo {
+  flex: 1;
+}
+
 .side-panel__box--chart {
   flex: 1;
   min-height: 220px;
+}
+
+.home-main--simple .home-right {
+  justify-content: flex-start;
+  padding-top: 0;
 }
 
 .side-box-head {
