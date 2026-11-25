@@ -400,12 +400,13 @@ body:has(.home-page:not([hidden])) .app {
 
   .home-main {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
   }
 
-  .side-panel {
+  .side-panel,
+  .home-right {
     width: 100%;
-    order: 2;
+    flex: none;
   }
 
   .side-panel__box--chart {
@@ -413,9 +414,13 @@ body:has(.home-page:not([hidden])) .app {
   }
 
   .home-right {
-    width: 100%;
-    max-width: 360px;
-    order: 1;
+    max-width: none;
+    align-items: stretch;
+  }
+
+  .calendar,
+  .day-detail {
+    max-width: none;
   }
 }
 
