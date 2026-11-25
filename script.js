@@ -894,64 +894,62 @@ function memosInMonth(year, monthIndex) {
     });
 }
 
-function buildPdfPieSvg(year, monthIndex) {
+function buildPdfPieChart(year, monthIndex) {
   const { counts, total } = categoryCountsInMonth(year, monthIndex);
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 160 160");
-  svg.setAttribute("class", "pdf-chart-svg");
-
-  if (!total) {
-    const emptyCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    emptyCircle.setAttribute("cx", "80");
-    emptyCircle.setAttribute("cy", "80");
-    emptyCircle.setAttribute("r", "70");
-    emptyCircle.setAttribute("fill", "#efe8da");
-    svg.appendChild(emptyCircle);
-    return { svg, total: 0, slices: [] };
-  }
-
   const slices = CATEGORIES.map((category) => ({
     ...category,
     count: counts[category.id] || 0,
   })).filter((item) => item.count > 0);
 
-  let angle = 0;
-  slices.forEach((slice) => {
-    const sweep = (slice.count / total) * 360;
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", describeSlice(80, 80, 70, angle, angle + sweep));
-    path.setAttribute("fill", slice.soft || slice.color);
-    svg.appendChild(path);
-    angle += sweep;
-  });
+  const wrap = document.createElement("div");
+  wrap.className = "pdf-pie";
 
-  const hole = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  hole.setAttribute("cx", "80");
-  hole.setAttribute("cy", "80");
-  hole.setAttribute("r", "38");
-  hole.setAttribute("fill", "#fff");
-  svg.appendChild(hole);
+  const canvas = document.createElement("canvas");
+  canvas.className = "pdf-chart-canvas";
+  canvas.width = 240;
+  canvas.height = 240;
+  const ctx = canvas.getContext("2d");
+  const cx = 120;
+  const cy = 120;
+  const radius = 104;
+  const hole = 56;
 
-  const centerText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  centerText.setAttribute("x", "80");
-  centerText.setAttribute("y", "76");
-  centerText.setAttribute("text-anchor", "middle");
-  centerText.setAttribute("fill", "#222");
-  centerText.setAttribute("font-size", "22");
-  centerText.setAttribute("font-weight", "800");
-  centerText.textContent = String(total);
+  if (!total) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#efe8da";
+    ctx.fill();
+  } else {
+    let angle = -Math.PI / 2;
+    slices.forEach((slice) => {
+      const sweep = (slice.count / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, angle, angle + sweep);
+      ctx.closePath();
+      ctx.fillStyle = slice.soft || slice.color;
+      ctx.fill();
+      angle += sweep;
+    });
+  }
 
-  const centerLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  centerLabel.setAttribute("x", "80");
-  centerLabel.setAttribute("y", "94");
-  centerLabel.setAttribute("text-anchor", "middle");
-  centerLabel.setAttribute("fill", "#8a8174");
-  centerLabel.setAttribute("font-size", "11");
-  centerLabel.setAttribute("font-weight", "700");
-  centerLabel.textContent = "건";
+  ctx.beginPath();
+  ctx.arc(cx, cy, hole, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
 
-  svg.append(centerText, centerLabel);
-  return { svg, total, slices };
+  ctx.fillStyle = "#222222";
+  ctx.font = "800 34px Pretendard, Apple SD Gothic Neo, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(total), cx, cy - 8);
+
+  ctx.fillStyle = "#8a8174";
+  ctx.font = "700 16px Pretendard, Apple SD Gothic Neo, sans-serif";
+  ctx.fillText("건", cx, cy + 18);
+
+  wrap.appendChild(canvas);
+  return { wrap, total, slices };
 }
 
 function buildPdfCalendar(year, monthIndex) {
@@ -1037,8 +1035,8 @@ function buildPdfSheet(year, monthIndex) {
   chartTitle.textContent = "원형 도표";
   const chartWrap = document.createElement("div");
   chartWrap.className = "pdf-chart-wrap";
-  const pie = buildPdfPieSvg(year, monthIndex);
-  chartWrap.appendChild(pie.svg);
+  const pie = buildPdfPieChart(year, monthIndex);
+  chartWrap.appendChild(pie.wrap);
   if (!pie.total) {
     const empty = document.createElement("p");
     empty.className = "pdf-empty";
@@ -1081,8 +1079,17 @@ function buildPdfSheet(year, monthIndex) {
   tableWrap.className = "pdf-table-wrap";
   const table = document.createElement("table");
   table.className = "pdf-table";
-  table.innerHTML =
-    "<thead><tr><th>날짜</th><th>분류</th><th>메모 상세</th></tr></thead>";
+  const colgroup = document.createElement("colgroup");
+  ["112px", "128px", "auto"].forEach((width) => {
+    const col = document.createElement("col");
+    col.style.width = width;
+    colgroup.appendChild(col);
+  });
+  table.appendChild(colgroup);
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th>날짜</th><th>분류</th><th>메모 상세</th></tr>";
+  table.appendChild(thead);
   const tbody = document.createElement("tbody");
   const monthMemos = memosInMonth(year, monthIndex);
 

@@ -318,9 +318,15 @@ body:has(.home-page:not([hidden])) .app {
   flex: 1;
 }
 
-.pdf-chart-svg {
+.pdf-pie {
   width: 120px;
   height: 120px;
+}
+
+.pdf-chart-canvas {
+  width: 120px;
+  height: 120px;
+  display: block;
 }
 
 .pdf-chart-legend {
@@ -420,12 +426,19 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-table th:nth-child(1),
 .pdf-table td:nth-child(1) {
-  width: 14%;
+  width: 112px;
+  white-space: nowrap;
 }
 
 .pdf-table th:nth-child(2),
 .pdf-table td:nth-child(2) {
-  width: 16%;
+  width: 128px;
+  white-space: nowrap;
+}
+
+.pdf-table th:nth-child(3),
+.pdf-table td:nth-child(3) {
+  width: auto;
 }
 
 .pdf-cat {
