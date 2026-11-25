@@ -1746,7 +1746,7 @@ function buildPdfSheet(year, monthIndex) {
   chartCard.className = "pdf-card pdf-card--chart";
   const chartTitle = document.createElement("h2");
   chartTitle.className = "pdf-card__title";
-  chartTitle.textContent = "원형 도표";
+  chartTitle.textContent = "통계";
   const chartWrap = document.createElement("div");
   chartWrap.className = "pdf-chart-wrap";
   const pie = buildPdfPieChart(year, monthIndex);
