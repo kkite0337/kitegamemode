@@ -72,6 +72,9 @@ const langAchieveMonth = document.getElementById("langAchieveMonth");
 const langAchievePercent = document.getElementById("langAchievePercent");
 const langAchieveCount = document.getElementById("langAchieveCount");
 const langAchieveBarFill = document.getElementById("langAchieveBarFill");
+const langStudyMonth = document.getElementById("langStudyMonth");
+const langStudyTotal = document.getElementById("langStudyTotal");
+const langStudyHint = document.getElementById("langStudyHint");
 const langCalendarTitle = document.getElementById("langCalendarTitle");
 const langCalendarGrid = document.getElementById("langCalendarGrid");
 const langCalendarPrev = document.getElementById("langCalendarPrev");
@@ -152,14 +155,8 @@ function timeToMinutes(value) {
   return hours * 60 + minutes;
 }
 
-function formatStudyDuration(startTime, endTime) {
-  const start = timeToMinutes(startTime);
-  const end = timeToMinutes(endTime);
-  if (start === null || end === null || end <= start) {
-    return "";
-  }
-
-  const total = end - start;
+function formatMinutesLabel(totalMinutes) {
+  const total = Math.max(0, Math.floor(totalMinutes));
   const hours = Math.floor(total / 60);
   const minutes = total % 60;
 
@@ -170,6 +167,15 @@ function formatStudyDuration(startTime, endTime) {
     return `${hours}시간`;
   }
   return `${minutes}분`;
+}
+
+function formatStudyDuration(startTime, endTime) {
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  if (start === null || end === null || end <= start) {
+    return "";
+  }
+  return formatMinutesLabel(end - start);
 }
 
 function dateKey(date) {
@@ -825,6 +831,29 @@ function renderLanguageAchievePanel() {
   langAchieveBarFill.style.width = `${percent}%`;
 }
 
+function languageMinutesInMonth(year, monthIndex) {
+  const prefix = monthPrefix(year, monthIndex);
+  return loadLanguageEntries().reduce((sum, entry) => {
+    if (typeof entry.date !== "string" || !entry.date.startsWith(prefix)) {
+      return sum;
+    }
+    const start = timeToMinutes(entry.startTime);
+    const end = timeToMinutes(entry.endTime);
+    if (start === null || end === null || end <= start) {
+      return sum;
+    }
+    return sum + (end - start);
+  }, 0);
+}
+
+function renderLanguageStudyTimePanel() {
+  const totalMinutes = languageMinutesInMonth(langViewYear, langViewMonth);
+  langStudyMonth.textContent = `${langViewYear}년 ${langViewMonth + 1}월`;
+  langStudyTotal.textContent = formatMinutesLabel(totalMinutes);
+  langStudyHint.textContent =
+    totalMinutes > 0 ? "이번 달 총 공부시간" : "아직 기록된 공부시간이 없습니다";
+}
+
 function renderLanguageCalendar() {
   const today = new Date();
   const firstDay = new Date(langViewYear, langViewMonth, 1);
@@ -877,6 +906,7 @@ function renderLanguageCalendar() {
   }
 
   renderLanguageAchievePanel();
+  renderLanguageStudyTimePanel();
   renderLanguageDayDetail();
 }
 
