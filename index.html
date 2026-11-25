@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=243">
+  <link rel="stylesheet" href="style.css?v=244">
 </head>
 <body>
   <main class="app">
@@ -47,9 +47,14 @@
           <button class="page-tab is-active" type="button" data-section="economy">경제</button>
           <button class="page-tab" type="button" data-section="language">언어</button>
         </nav>
-        <div class="page-top-right" id="economyActions">
-          <button class="btn-plus" type="button" id="addMemoBtn" aria-label="메모 추가">+</button>
-          <button class="btn-pdf" type="button" id="pdfBtn">PDF</button>
+        <div class="page-top-right" id="headerActions">
+          <div class="header-actions" id="economyActions">
+            <button class="btn-plus" type="button" id="addMemoBtn" aria-label="메모 추가">+</button>
+            <button class="btn-pdf" type="button" id="pdfBtn">PDF</button>
+          </div>
+          <div class="header-actions is-hidden" id="languageActions">
+            <button class="btn-plus" type="button" id="addLangBtn" aria-label="언어 추가">+</button>
+          </div>
         </div>
       </header>
 
@@ -96,6 +101,20 @@
               <div class="calendar-grid" id="langCalendarGrid"></div>
             </div>
           </div>
+        </div>
+
+        <div class="memo-view" id="langFormView" hidden>
+          <header class="memo-top">
+            <button class="btn-text" type="button" id="langFormBackBtn">닫기</button>
+            <div class="memo-actions">
+              <button class="btn-action is-strong" type="button" id="langFormSaveBtn">저장</button>
+            </div>
+          </header>
+          <form class="memo-form" id="langForm">
+            <div class="memo-field memo-field--grow" id="langFormFields">
+              <!-- 언어 작성 항목은 이후 구성합니다. -->
+            </div>
+          </form>
         </div>
       </div>
 
@@ -213,7 +232,7 @@
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=243"></script>
-  <script src="script.js?v=243"></script>
+  <script src="accounts.js?v=244"></script>
+  <script src="script.js?v=244"></script>
 </body>
 </html>

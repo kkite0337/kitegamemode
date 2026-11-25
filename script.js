@@ -30,7 +30,14 @@ const memoView = document.getElementById("memoView");
 const sectionRoutine = document.getElementById("sectionRoutine");
 const sectionEconomy = document.getElementById("sectionEconomy");
 const sectionLanguage = document.getElementById("sectionLanguage");
+const headerActions = document.getElementById("headerActions");
 const economyActions = document.getElementById("economyActions");
+const languageActions = document.getElementById("languageActions");
+const addLangBtn = document.getElementById("addLangBtn");
+const languageView = document.getElementById("languageView");
+const langFormView = document.getElementById("langFormView");
+const langFormBackBtn = document.getElementById("langFormBackBtn");
+const langFormSaveBtn = document.getElementById("langFormSaveBtn");
 const pageTabs = Array.from(document.querySelectorAll(".page-tab"));
 const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
@@ -174,6 +181,11 @@ function setActiveSection(section) {
   sectionEconomy.hidden = section !== "economy";
   sectionLanguage.hidden = section !== "language";
   economyActions.classList.toggle("is-hidden", section !== "economy");
+  languageActions.classList.toggle("is-hidden", section !== "language");
+  headerActions.classList.toggle(
+    "is-empty",
+    section !== "economy" && section !== "language",
+  );
 
   pageTabs.forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.section === section);
@@ -183,6 +195,10 @@ function setActiveSection(section) {
     closeMemoForm();
   }
 
+  if (section !== "language" && langFormView && !langFormView.hidden) {
+    closeLangForm();
+  }
+
   if (section === "economy") {
     renderCalendar();
   }
@@ -190,6 +206,19 @@ function setActiveSection(section) {
   if (section === "language") {
     renderLanguageCalendar();
   }
+}
+
+function openLangForm() {
+  homeHeader.hidden = true;
+  languageView.hidden = true;
+  langFormView.hidden = false;
+}
+
+function closeLangForm() {
+  langFormView.hidden = true;
+  homeHeader.hidden = false;
+  languageView.hidden = false;
+  renderLanguageCalendar();
 }
 
 function sameDay(left, right) {
@@ -1338,10 +1367,16 @@ pageTabs.forEach((tab) => {
   });
 });
 addMemoBtn.addEventListener("click", () => openMemoForm());
+addLangBtn.addEventListener("click", () => openLangForm());
 pdfBtn.addEventListener("click", () => {
   downloadMonthPdf();
 });
 memoBackBtn.addEventListener("click", closeMemoForm);
+langFormBackBtn.addEventListener("click", closeLangForm);
+langFormSaveBtn.addEventListener("click", () => {
+  // 언어 저장 항목은 이후 연결합니다.
+  showToast("언어 작성 항목을 구성해 주세요");
+});
 draftListBtn.addEventListener("click", openDraftSheet);
 draftSaveBtn.addEventListener("click", saveDraft);
 memoSaveBtn.addEventListener("click", saveMemo);
