@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=219">
+  <link rel="stylesheet" href="style.css?v=221">
 </head>
 <body>
   <main class="app">
@@ -32,117 +32,15 @@
       </form>
     </section>
 
-    <section class="page user-page" id="userPage" hidden>
+    <section class="page home-page" id="homePage" hidden>
       <header class="page-top">
-        <p class="page-role" id="userLabel"></p>
-        <button class="btn-text" type="button" id="userLogout">로그아웃</button>
+        <p class="page-role" id="homeLabel"></p>
+        <button class="btn-text" type="button" id="logoutBtn">로그아웃</button>
       </header>
-      <form id="registerForm" class="register-form">
-        <div id="registerStage"></div>
-      </form>
-      <div class="wait-screen" id="userMain" hidden>
-        <p>관리자의 선택을 기다리는중..</p>
-      </div>
-      <div class="play-screen" id="userPlay" hidden></div>
-    </section>
-
-    <section class="page joke-page is-intro" id="jokePage" hidden>
-      <header class="page-top">
-        <p class="page-role">USER100</p>
-        <button class="btn-text" type="button" id="jokeLogout">로그아웃</button>
-      </header>
-      <div class="joke-intro" id="jokeIntro">
-        <p class="joke-intro__title"><span>기프티콘 사냥꾼,</span></p>
-        <button class="joke-intro__go" type="button" id="jokeChallenge">도전!</button>
-      </div>
-      <div class="joke-stage"></div>
-      <p class="joke-unwrap">클릭으로 선물을 풀어보세요!</p>
-      <p class="joke-nudge" id="jokeNudge">한번만 하면 정없으니까~</p>
-      <p class="joke-line">이민호 바보</p>
-      <div class="joke-drum" id="jokeDrum" hidden aria-hidden="true">
-        <div class="joke-drum__kit">
-          <span class="joke-drum__stick is-left"></span>
-          <span class="joke-drum__stick is-right"></span>
-          <img class="joke-drum__img" src="assets/snare.png?v=219" alt="">
-        </div>
-        <p class="joke-suspense" id="jokeSuspense"></p>
-      </div>
-      <div class="joke-party" id="jokeParty" hidden aria-hidden="true"></div>
-      <div class="joke-gift-fly" id="jokeGiftFly" hidden>
-        <div class="joke-gift-wiggle">
-        <img class="joke-gift-photo" id="jokeGiftPhoto" src="assets/gift-4.png?v=219" alt="">
-        <div class="gift" id="jokeGift" data-step="0" data-layer="0">
-          <div class="gift-inner"></div>
-          <div class="gift-paper">
-            <div class="gift-paper__body"></div>
-            <div class="gift-paper__flap"></div>
-          </div>
-          <div class="gift-ribbon gift-ribbon--v"></div>
-          <div class="gift-ribbon gift-ribbon--h"></div>
-          <div class="gift-bow">
-            <span class="gift-bow__loop is-left"></span>
-            <span class="gift-bow__loop is-right"></span>
-            <span class="gift-bow__knot"></span>
-            <span class="gift-bow__tail is-left"></span>
-            <span class="gift-bow__tail is-right"></span>
-          </div>
-        </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="page admin-page" id="adminPage" hidden>
-      <header class="page-top">
-        <p class="page-role">관리자</p>
-        <button class="btn-text" type="button" id="adminLogout">로그아웃</button>
-      </header>
-      <nav class="admin-nav">
-        <button type="button" id="adminToSettings">참가자 설정</button>
-        <button type="button" id="adminToMain">메인</button>
-      </nav>
-      <div id="adminSettings">
-        <div class="admin-list admin-list--people" id="adminList"></div>
-        <p class="admin-refresh-status" id="refreshStatus" hidden></p>
-        <button class="btn-refresh" type="button" id="refreshUsers">새로고침</button>
-        <button class="btn-reset" type="button" id="resetUsers">사용자 초기화</button>
-      </div>
-      <div class="admin-main" id="adminMain" hidden>
-        <div id="adminPlay"></div>
-      </div>
-      <div class="confirm-layer" id="gameResetLayer" hidden>
-        <div class="confirm-card">
-          <p class="confirm-card__title">게임을 초기화하겠습니까?</p>
-          <div class="confirm-card__choices confirm-card__choices--two">
-            <button class="btn-primary" type="button" data-game-reset="yes">예</button>
-            <button class="btn-primary" type="button" data-game-reset="no">아니오</button>
-          </div>
-        </div>
-      </div>
-      <div class="confirm-layer" id="recordScoreLayer" hidden>
-        <div class="confirm-card">
-          <p class="confirm-card__title">기록하시겠습니까?</p>
-          <div class="confirm-card__choices confirm-card__choices--two">
-            <button class="btn-primary" type="button" data-record-score="yes">예</button>
-            <button class="btn-primary" type="button" data-record-score="no">아니오</button>
-          </div>
-        </div>
-      </div>
-      <div class="confirm-layer" id="participantCountLayer" hidden>
-        <div class="confirm-card">
-          <p class="confirm-card__title">참가자를 몇명으로 설정할까요?</p>
-          <div class="confirm-card__choices">
-            <button class="btn-primary" type="button" data-participant-count="2">2</button>
-            <button class="btn-primary" type="button" data-participant-count="3">3</button>
-            <button class="btn-primary" type="button" data-participant-count="4">4</button>
-            <button class="btn-primary" type="button" data-participant-count="5">5</button>
-          </div>
-        </div>
-      </div>
+      <div class="home-blank" id="homeBlank"></div>
     </section>
   </main>
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
-  <script src="accounts.js?v=219"></script>
-  <script src="script.js?v=219"></script>
+  <script src="accounts.js?v=221"></script>
+  <script src="script.js?v=221"></script>
 </body>
 </html>
