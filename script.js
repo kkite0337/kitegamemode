@@ -1080,7 +1080,7 @@ function buildPdfSheet(year, monthIndex) {
   const table = document.createElement("table");
   table.className = "pdf-table";
   const colgroup = document.createElement("colgroup");
-  ["112px", "128px", "auto"].forEach((width) => {
+  ["72px", "96px", "auto"].forEach((width) => {
     const col = document.createElement("col");
     col.style.width = width;
     colgroup.appendChild(col);
