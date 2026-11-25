@@ -259,19 +259,10 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-row {
   display: grid;
+  grid-template-columns: 0.24fr 0.44fr 0.32fr;
   gap: 12px;
-  margin-bottom: 16px;
-}
-
-.pdf-row--top {
-  grid-template-columns: 0.28fr 0.72fr;
+  margin-bottom: 20px;
   align-items: stretch;
-}
-
-.pdf-row--bottom {
-  grid-template-columns: 0.34fr 0.66fr;
-  align-items: stretch;
-  margin-bottom: 0;
 }
 
 .pdf-card {
@@ -280,20 +271,13 @@ body:has(.home-page:not([hidden])) .app {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: #fff;
   min-height: 0;
 }
 
 .pdf-card--achieve {
   justify-content: center;
-  gap: 8px;
-  padding: 14px 12px;
-}
-
-.pdf-card--calendar,
-.pdf-card--chart {
-  min-height: 200px;
 }
 
 .pdf-card__title {
@@ -305,7 +289,7 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-achieve-value {
   margin: 0;
-  font-size: 34px;
+  font-size: 28px;
   font-weight: 800;
   color: #d97706;
   line-height: 1;
@@ -333,25 +317,28 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-chart-wrap {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 12px;
   flex: 1;
 }
 
 .pdf-pie {
-  width: 120px;
-  height: 120px;
+  width: 108px;
+  height: 108px;
+  flex-shrink: 0;
 }
 
 .pdf-chart-canvas {
-  width: 120px;
-  height: 120px;
+  width: 108px;
+  height: 108px;
   display: block;
 }
 
 .pdf-chart-legend {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -416,7 +403,6 @@ body:has(.home-page:not([hidden])) .app {
   border-radius: 10px;
   overflow: hidden;
   background: #fff;
-  min-height: 200px;
 }
 
 .pdf-table {
@@ -448,13 +434,13 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-table th:nth-child(1),
 .pdf-table td:nth-child(1) {
-  width: 72px;
+  width: 112px;
   white-space: nowrap;
 }
 
 .pdf-table th:nth-child(2),
 .pdf-table td:nth-child(2) {
-  width: 96px;
+  width: 128px;
   white-space: nowrap;
 }
 

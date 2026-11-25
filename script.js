@@ -1003,8 +1003,8 @@ function buildPdfSheet(year, monthIndex) {
   title.textContent = `${year}년 ${monthIndex + 1}월`;
   root.appendChild(title);
 
-  const topRow = document.createElement("div");
-  topRow.className = "pdf-row pdf-row--top";
+  const row = document.createElement("div");
+  row.className = "pdf-row";
 
   const achieveCard = document.createElement("section");
   achieveCard.className = "pdf-card pdf-card--achieve";
@@ -1027,19 +1027,6 @@ function buildPdfSheet(year, monthIndex) {
   fill.style.width = `${percent}%`;
   bar.appendChild(fill);
   achieveCard.append(achieveTitle, achieveValue, achieveCountText, bar);
-
-  const calendarCard = document.createElement("section");
-  calendarCard.className = "pdf-card pdf-card--calendar";
-  const calendarTitleEl = document.createElement("h2");
-  calendarTitleEl.className = "pdf-card__title";
-  calendarTitleEl.textContent = "캘린더";
-  calendarCard.append(calendarTitleEl, buildPdfCalendar(year, monthIndex));
-
-  topRow.append(achieveCard, calendarCard);
-  root.appendChild(topRow);
-
-  const bottomRow = document.createElement("div");
-  bottomRow.className = "pdf-row pdf-row--bottom";
 
   const chartCard = document.createElement("section");
   chartCard.className = "pdf-card pdf-card--chart";
@@ -1078,12 +1065,22 @@ function buildPdfSheet(year, monthIndex) {
   }
   chartCard.append(chartTitle, chartWrap);
 
+  const calendarCard = document.createElement("section");
+  calendarCard.className = "pdf-card pdf-card--calendar";
+  const calendarTitleEl = document.createElement("h2");
+  calendarTitleEl.className = "pdf-card__title";
+  calendarTitleEl.textContent = "캘린더";
+  calendarCard.append(calendarTitleEl, buildPdfCalendar(year, monthIndex));
+
+  row.append(achieveCard, chartCard, calendarCard);
+  root.appendChild(row);
+
   const tableWrap = document.createElement("div");
   tableWrap.className = "pdf-table-wrap";
   const table = document.createElement("table");
   table.className = "pdf-table";
   const colgroup = document.createElement("colgroup");
-  ["72px", "96px", "auto"].forEach((width) => {
+  ["112px", "128px", "auto"].forEach((width) => {
     const col = document.createElement("col");
     col.style.width = width;
     colgroup.appendChild(col);
@@ -1147,9 +1144,7 @@ function buildPdfSheet(year, monthIndex) {
 
   table.appendChild(tbody);
   tableWrap.appendChild(table);
-
-  bottomRow.append(chartCard, tableWrap);
-  root.appendChild(bottomRow);
+  root.appendChild(tableWrap);
   host.appendChild(root);
   return { host, root };
 }
