@@ -294,13 +294,14 @@ textarea {
 }
 
 .calendar-cell.is-today {
-  background: #d97706;
-  color: #fff;
+  color: #d97706;
+  font-weight: 800;
 }
 
 .calendar-cell.is-today:hover,
 .calendar-cell.is-today:focus-visible {
-  background: #b45309;
+  background: #efe8da;
+  color: #b45309;
 }
 
 .calendar-cell.has-memo {
@@ -317,8 +318,7 @@ textarea {
   box-shadow: inset 0 0 0 2px #222;
 }
 
-.calendar-cell.is-selected.has-memo,
-.calendar-cell.is-selected.is-today {
+.calendar-cell.is-selected.has-memo {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.95);
 }
 
