@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=223">
+  <link rel="stylesheet" href="style.css?v=224">
 </head>
 <body>
   <main class="app">
@@ -33,14 +33,15 @@
     </section>
 
     <section class="page home-page" id="homePage" hidden>
-      <header class="page-top">
+      <header class="page-top" id="homeHeader">
         <div class="page-top-left">
           <p class="page-role" id="homeLabel"></p>
           <button class="btn-text" type="button" id="logoutBtn">로그아웃</button>
         </div>
         <button class="btn-plus" type="button" id="addMemoBtn" aria-label="메모 추가">+</button>
       </header>
-      <div class="home-main">
+
+      <div class="home-main" id="calendarView">
         <div class="calendar" id="calendar" aria-label="캘린더">
           <div class="calendar-header">
             <button class="calendar-nav" type="button" id="calendarPrev" aria-label="이전 달">‹</button>
@@ -59,9 +60,68 @@
           <div class="calendar-grid" id="calendarGrid"></div>
         </div>
       </div>
+
+      <div class="memo-view" id="memoView" hidden>
+        <header class="memo-top">
+          <button class="btn-text" type="button" id="memoBackBtn">닫기</button>
+          <div class="memo-actions">
+            <button class="btn-action" type="button" id="draftListBtn">저장목록</button>
+            <span class="memo-actions__sep" aria-hidden="true">|</span>
+            <button class="btn-action" type="button" id="draftSaveBtn">임시저장</button>
+            <span class="memo-actions__sep" aria-hidden="true">|</span>
+            <button class="btn-action is-strong" type="button" id="memoSaveBtn">저장</button>
+          </div>
+        </header>
+
+        <form class="memo-form" id="memoForm">
+          <div class="memo-field">
+            <span class="memo-label">날짜</span>
+            <div class="date-pickers">
+              <button class="date-picker" type="button" id="yearPickerBtn" aria-haspopup="listbox"></button>
+              <button class="date-picker" type="button" id="monthPickerBtn" aria-haspopup="listbox"></button>
+              <button class="date-picker" type="button" id="dayPickerBtn" aria-haspopup="listbox"></button>
+            </div>
+            <div class="picker-panel" id="yearPickerPanel" hidden></div>
+            <div class="picker-panel" id="monthPickerPanel" hidden></div>
+            <div class="picker-panel" id="dayPickerPanel" hidden></div>
+          </div>
+
+          <div class="memo-field">
+            <label class="memo-label" for="memoUrl">URL</label>
+            <input id="memoUrl" type="url" inputmode="url" placeholder="https://" autocomplete="off">
+          </div>
+
+          <div class="memo-field">
+            <span class="memo-label">분류</span>
+            <button class="category-trigger" type="button" id="categoryBtn">
+              <span class="category-dot is-empty" id="categoryDot"></span>
+              <span id="categoryLabel">분류 선택</span>
+            </button>
+            <div class="category-panel" id="categoryPanel" hidden></div>
+          </div>
+
+          <div class="memo-field memo-field--grow">
+            <label class="memo-label" for="memoBody">메모 작성</label>
+            <textarea id="memoBody" placeholder="메모를 작성하세요" rows="8"></textarea>
+          </div>
+        </form>
+      </div>
     </section>
+
+    <div class="sheet" id="draftSheet" hidden>
+      <div class="sheet-backdrop" id="draftSheetBackdrop"></div>
+      <div class="sheet-panel" role="dialog" aria-labelledby="draftSheetTitle">
+        <div class="sheet-header">
+          <h2 class="sheet-title" id="draftSheetTitle">저장목록</h2>
+          <button class="btn-text" type="button" id="draftSheetClose">닫기</button>
+        </div>
+        <div class="draft-list" id="draftList"></div>
+      </div>
+    </div>
+
+    <p class="toast" id="toast" hidden></p>
   </main>
-  <script src="accounts.js?v=223"></script>
-  <script src="script.js?v=223"></script>
+  <script src="accounts.js?v=224"></script>
+  <script src="script.js?v=224"></script>
 </body>
 </html>
