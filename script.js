@@ -141,6 +141,37 @@ function pad2(value) {
   return String(value).padStart(2, "0");
 }
 
+function timeToMinutes(value) {
+  if (typeof value !== "string" || !value.includes(":")) {
+    return null;
+  }
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+function formatStudyDuration(startTime, endTime) {
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  if (start === null || end === null || end <= start) {
+    return "";
+  }
+
+  const total = end - start;
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+
+  if (hours && minutes) {
+    return `${hours}시간 ${minutes}분`;
+  }
+  if (hours) {
+    return `${hours}시간`;
+  }
+  return `${minutes}분`;
+}
+
 function dateKey(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
@@ -658,8 +689,16 @@ function renderLanguageDayDetail() {
 
     const time = document.createElement("p");
     time.className = "day-memo__time";
-    time.textContent = `${entry.startTime} - ${entry.endTime}`;
+    time.textContent = `${entry.startTime}~${entry.endTime}`;
     head.appendChild(time);
+
+    const durationText = formatStudyDuration(entry.startTime, entry.endTime);
+    if (durationText) {
+      const duration = document.createElement("p");
+      duration.className = "day-memo__duration";
+      duration.textContent = durationText;
+      head.appendChild(duration);
+    }
 
     card.appendChild(head);
 

@@ -1025,9 +1025,17 @@ body:has(.home-page:not([hidden])) .app {
 
 .day-memo__time {
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b6358;
+  font-size: 16px;
+  font-weight: 700;
+  color: #4a443c;
+  letter-spacing: 0.01em;
+}
+
+.day-memo__duration {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b45309;
 }
 
 .day-memo__url {
