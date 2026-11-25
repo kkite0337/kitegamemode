@@ -596,8 +596,7 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .side-panel__box--chart {
-  flex: 1;
-  min-height: 220px;
+  flex: 0 0 auto;
 }
 
 .home-main--simple .home-right {
@@ -673,10 +672,8 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .chart-body {
-  flex: 1;
-  min-height: 160px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 }
 
@@ -719,7 +716,7 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .chart-svg {
-  width: min(180px, 70%);
+  width: min(140px, 58%);
   aspect-ratio: 1;
   display: block;
 }
@@ -799,10 +796,6 @@ body:has(.home-page:not([hidden])) .app {
   .home-right {
     width: 100%;
     flex: none;
-  }
-
-  .side-panel__box--chart {
-    min-height: 220px;
   }
 
   .home-right {
