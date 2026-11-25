@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=228">
+  <link rel="stylesheet" href="style.css?v=229">
 </head>
 <body>
   <main class="app">
@@ -42,28 +42,33 @@
       </header>
 
       <div class="home-main" id="calendarView">
-        <div class="calendar" id="calendar" aria-label="캘린더">
-          <div class="calendar-header">
-            <button class="calendar-nav" type="button" id="calendarPrev" aria-label="이전 달">‹</button>
-            <h1 class="calendar-title" id="calendarTitle"></h1>
-            <button class="calendar-nav" type="button" id="calendarNext" aria-label="다음 달">›</button>
+        <aside class="side-panel" aria-label="표 영역">
+          <div class="side-panel__box" id="sideTableBox"></div>
+        </aside>
+        <div class="home-right">
+          <div class="calendar" id="calendar" aria-label="캘린더">
+            <div class="calendar-header">
+              <button class="calendar-nav" type="button" id="calendarPrev" aria-label="이전 달">‹</button>
+              <h1 class="calendar-title" id="calendarTitle"></h1>
+              <button class="calendar-nav" type="button" id="calendarNext" aria-label="다음 달">›</button>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>일</span>
+              <span>월</span>
+              <span>화</span>
+              <span>수</span>
+              <span>목</span>
+              <span>금</span>
+              <span>토</span>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
           </div>
-          <div class="calendar-weekdays" aria-hidden="true">
-            <span>일</span>
-            <span>월</span>
-            <span>화</span>
-            <span>수</span>
-            <span>목</span>
-            <span>금</span>
-            <span>토</span>
-          </div>
-          <div class="calendar-grid" id="calendarGrid"></div>
-        </div>
-        <div class="day-detail" id="dayDetail">
-          <p class="day-detail__hint" id="dayDetailHint">날짜를 선택하면 저장된 내용이 여기에 표시됩니다.</p>
-          <div class="day-detail__content" id="dayDetailContent" hidden>
-            <h2 class="day-detail__title" id="dayDetailTitle"></h2>
-            <div class="day-detail__list" id="dayDetailList"></div>
+          <div class="day-detail" id="dayDetail">
+            <p class="day-detail__hint" id="dayDetailHint">날짜를 선택하면 저장된 내용이 여기에 표시됩니다.</p>
+            <div class="day-detail__content" id="dayDetailContent" hidden>
+              <h2 class="day-detail__title" id="dayDetailTitle"></h2>
+              <div class="day-detail__list" id="dayDetailList"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -128,7 +133,7 @@
 
     <p class="toast" id="toast" hidden></p>
   </main>
-  <script src="accounts.js?v=228"></script>
-  <script src="script.js?v=228"></script>
+  <script src="accounts.js?v=229"></script>
+  <script src="script.js?v=229"></script>
 </body>
 </html>

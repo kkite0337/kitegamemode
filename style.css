@@ -40,6 +40,10 @@ textarea {
   padding: 24px 16px;
 }
 
+body:has(.home-page:not([hidden])) .app {
+  width: min(980px, 100%);
+}
+
 .page[hidden],
 [hidden] {
   display: none !important;
@@ -193,11 +197,36 @@ textarea {
   flex: 1;
   width: 100%;
   display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 16px;
+  padding-top: 8px;
+  min-height: 0;
+}
+
+.side-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.side-panel__box {
+  flex: 1;
+  width: 100%;
+  min-height: 320px;
+  border: 1px solid #ddd4c4;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.home-right {
+  width: min(360px, 100%);
+  flex-shrink: 0;
+  display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
   gap: 20px;
-  padding-top: 8px;
   min-height: 0;
 }
 
@@ -205,6 +234,32 @@ textarea {
   width: 100%;
   max-width: 360px;
   flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  body:has(.home-page:not([hidden])) .app {
+    width: min(400px, 100%);
+  }
+
+  .home-main {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .side-panel {
+    width: 100%;
+    order: 2;
+  }
+
+  .side-panel__box {
+    min-height: 220px;
+  }
+
+  .home-right {
+    width: 100%;
+    max-width: 360px;
+    order: 1;
+  }
 }
 
 .calendar-header {
