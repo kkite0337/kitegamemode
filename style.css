@@ -259,20 +259,41 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+
+.pdf-row--top {
+  grid-template-columns: 0.28fr 0.72fr;
+  align-items: stretch;
+}
+
+.pdf-row--bottom {
+  grid-template-columns: 0.34fr 0.66fr;
+  align-items: stretch;
+  margin-bottom: 0;
 }
 
 .pdf-card {
   border: 1px solid #ddd4c4;
   border-radius: 10px;
   padding: 12px;
-  min-height: 180px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   background: #fff;
+  min-height: 0;
+}
+
+.pdf-card--achieve {
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 12px;
+}
+
+.pdf-card--calendar,
+.pdf-card--chart {
+  min-height: 200px;
 }
 
 .pdf-card__title {
@@ -284,7 +305,7 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-achieve-value {
   margin: 0;
-  font-size: 28px;
+  font-size: 34px;
   font-weight: 800;
   color: #d97706;
   line-height: 1;
@@ -395,6 +416,7 @@ body:has(.home-page:not([hidden])) .app {
   border-radius: 10px;
   overflow: hidden;
   background: #fff;
+  min-height: 200px;
 }
 
 .pdf-table {
@@ -426,13 +448,13 @@ body:has(.home-page:not([hidden])) .app {
 
 .pdf-table th:nth-child(1),
 .pdf-table td:nth-child(1) {
-  width: 112px;
+  width: 72px;
   white-space: nowrap;
 }
 
 .pdf-table th:nth-child(2),
 .pdf-table td:nth-child(2) {
-  width: 128px;
+  width: 96px;
   white-space: nowrap;
 }
 
