@@ -169,6 +169,14 @@ body:has(.home-page:not([hidden])) .app {
   outline: none;
 }
 
+.page-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .btn-plus {
   width: 40px;
   height: 40px;
@@ -191,6 +199,245 @@ body:has(.home-page:not([hidden])) .app {
 .btn-plus:focus-visible {
   background: #b45309;
   outline: none;
+}
+
+.btn-pdf {
+  width: 40px;
+  min-height: 28px;
+  border: 0;
+  border-radius: 10px;
+  background: #efe8da;
+  color: #5c574e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.btn-pdf:hover,
+.btn-pdf:focus-visible {
+  background: #e5dcc8;
+  color: #222;
+  outline: none;
+}
+
+.btn-pdf:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pdf-root {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 12mm;
+  background: #fff;
+  color: #222;
+  font-family: Pretendard, "Apple SD Gothic Neo", sans-serif;
+  box-sizing: border-box;
+}
+
+.pdf-title {
+  margin: 0 0 10mm;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.pdf-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4mm;
+  margin-bottom: 8mm;
+}
+
+.pdf-card {
+  border: 1px solid #ddd4c4;
+  border-radius: 10px;
+  padding: 4mm;
+  min-height: 52mm;
+  display: flex;
+  flex-direction: column;
+  gap: 3mm;
+}
+
+.pdf-card__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #5c574e;
+}
+
+.pdf-achieve-value {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #d97706;
+  line-height: 1;
+}
+
+.pdf-achieve-count {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5c574e;
+}
+
+.pdf-achieve-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #efe8da;
+  overflow: hidden;
+}
+
+.pdf-achieve-bar__fill {
+  height: 100%;
+  background: #d97706;
+}
+
+.pdf-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2mm;
+  flex: 1;
+}
+
+.pdf-chart-svg {
+  width: 34mm;
+  height: 34mm;
+}
+
+.pdf-chart-legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.pdf-chart-legend__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.pdf-chart-legend__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5mm;
+}
+
+.pdf-empty {
+  margin: auto 0;
+  text-align: center;
+  color: #8a8174;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pdf-cal-weekdays,
+.pdf-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1mm;
+}
+
+.pdf-cal-weekdays span {
+  text-align: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #8a8174;
+}
+
+.pdf-cal-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.pdf-cal-cell.is-empty {
+  visibility: hidden;
+}
+
+.pdf-cal-cell.has-memo {
+  color: #fff;
+}
+
+.pdf-table-wrap {
+  border: 1px solid #ddd4c4;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pdf-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10px;
+}
+
+.pdf-table th,
+.pdf-table td {
+  border-bottom: 1px solid #efe8da;
+  padding: 2.5mm 2mm;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.pdf-table th {
+  background: #f6f4ef;
+  font-size: 10px;
+  font-weight: 800;
+  color: #5c574e;
+}
+
+.pdf-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.pdf-table th:nth-child(1),
+.pdf-table td:nth-child(1) {
+  width: 14%;
+}
+
+.pdf-table th:nth-child(2),
+.pdf-table td:nth-child(2) {
+  width: 16%;
+}
+
+.pdf-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5mm;
+  font-weight: 700;
+}
+
+.pdf-memo-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.pdf-memo-url {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.pdf-memo-body {
+  white-space: pre-wrap;
+  line-height: 1.45;
 }
 
 .home-main {

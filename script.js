@@ -21,6 +21,7 @@ const loginError = document.getElementById("loginError");
 const homeLabel = document.getElementById("homeLabel");
 const logoutBtn = document.getElementById("logoutBtn");
 const addMemoBtn = document.getElementById("addMemoBtn");
+const pdfBtn = document.getElementById("pdfBtn");
 const homeHeader = document.getElementById("homeHeader");
 const calendarView = document.getElementById("calendarView");
 const memoView = document.getElementById("memoView");
@@ -880,8 +881,300 @@ loginForm.addEventListener("submit", (event) => {
   enterHome(account);
 });
 
+function memosInMonth(year, monthIndex) {
+  const prefix = monthPrefix(year, monthIndex);
+  return loadMemos()
+    .filter((memo) => typeof memo.date === "string" && memo.date.startsWith(prefix))
+    .slice()
+    .sort((a, b) => {
+      if (a.date === b.date) {
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      }
+      return a.date.localeCompare(b.date);
+    });
+}
+
+function buildPdfPieSvg(year, monthIndex) {
+  const { counts, total } = categoryCountsInMonth(year, monthIndex);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 160 160");
+  svg.setAttribute("class", "pdf-chart-svg");
+
+  if (!total) {
+    const emptyCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    emptyCircle.setAttribute("cx", "80");
+    emptyCircle.setAttribute("cy", "80");
+    emptyCircle.setAttribute("r", "70");
+    emptyCircle.setAttribute("fill", "#efe8da");
+    svg.appendChild(emptyCircle);
+    return { svg, total: 0, slices: [] };
+  }
+
+  const slices = CATEGORIES.map((category) => ({
+    ...category,
+    count: counts[category.id] || 0,
+  })).filter((item) => item.count > 0);
+
+  let angle = 0;
+  slices.forEach((slice) => {
+    const sweep = (slice.count / total) * 360;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", describeSlice(80, 80, 70, angle, angle + sweep));
+    path.setAttribute("fill", slice.soft || slice.color);
+    svg.appendChild(path);
+    angle += sweep;
+  });
+
+  const hole = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  hole.setAttribute("cx", "80");
+  hole.setAttribute("cy", "80");
+  hole.setAttribute("r", "38");
+  hole.setAttribute("fill", "#fff");
+  svg.appendChild(hole);
+
+  const centerText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  centerText.setAttribute("x", "80");
+  centerText.setAttribute("y", "76");
+  centerText.setAttribute("text-anchor", "middle");
+  centerText.setAttribute("fill", "#222");
+  centerText.setAttribute("font-size", "22");
+  centerText.setAttribute("font-weight", "800");
+  centerText.textContent = String(total);
+
+  const centerLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  centerLabel.setAttribute("x", "80");
+  centerLabel.setAttribute("y", "94");
+  centerLabel.setAttribute("text-anchor", "middle");
+  centerLabel.setAttribute("fill", "#8a8174");
+  centerLabel.setAttribute("font-size", "11");
+  centerLabel.setAttribute("font-weight", "700");
+  centerLabel.textContent = "건";
+
+  svg.append(centerText, centerLabel);
+  return { svg, total, slices };
+}
+
+function buildPdfCalendar(year, monthIndex) {
+  const wrap = document.createElement("div");
+  const weekdays = document.createElement("div");
+  weekdays.className = "pdf-cal-weekdays";
+  ["일", "월", "화", "수", "목", "금", "토"].forEach((label) => {
+    const span = document.createElement("span");
+    span.textContent = label;
+    weekdays.appendChild(span);
+  });
+
+  const grid = document.createElement("div");
+  grid.className = "pdf-cal-grid";
+  const startWeekday = new Date(year, monthIndex, 1).getDay();
+  const totalDays = daysInMonth(year, monthIndex);
+
+  for (let i = 0; i < startWeekday; i += 1) {
+    const empty = document.createElement("div");
+    empty.className = "pdf-cal-cell is-empty";
+    grid.appendChild(empty);
+  }
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    const cell = document.createElement("div");
+    cell.className = "pdf-cal-cell";
+    cell.textContent = String(day);
+    const dayMemos = memosForDay(year, monthIndex, day);
+    const category = dayMemos.length ? primaryMemoCategory(dayMemos) : null;
+    if (category) {
+      cell.classList.add("has-memo");
+      cell.style.background = category.soft;
+    }
+    grid.appendChild(cell);
+  }
+
+  wrap.append(weekdays, grid);
+  return wrap;
+}
+
+function buildPdfSheet(year, monthIndex) {
+  const root = document.createElement("div");
+  root.className = "pdf-root";
+  root.setAttribute("aria-hidden", "true");
+
+  const title = document.createElement("h1");
+  title.className = "pdf-title";
+  title.textContent = `${year}년 ${monthIndex + 1}월`;
+  root.appendChild(title);
+
+  const row = document.createElement("div");
+  row.className = "pdf-row";
+
+  const achieveCard = document.createElement("section");
+  achieveCard.className = "pdf-card";
+  const achieveTitle = document.createElement("h2");
+  achieveTitle.className = "pdf-card__title";
+  achieveTitle.textContent = "달성률";
+  const totalDays = daysInMonth(year, monthIndex);
+  const achieved = achievedDaysInMonth(year, monthIndex);
+  const percent = totalDays ? Math.round((achieved / totalDays) * 100) : 0;
+  const achieveValue = document.createElement("p");
+  achieveValue.className = "pdf-achieve-value";
+  achieveValue.textContent = `${percent}%`;
+  const achieveCountText = document.createElement("p");
+  achieveCountText.className = "pdf-achieve-count";
+  achieveCountText.textContent = `${achieved}일 / ${totalDays}일`;
+  const bar = document.createElement("div");
+  bar.className = "pdf-achieve-bar";
+  const fill = document.createElement("div");
+  fill.className = "pdf-achieve-bar__fill";
+  fill.style.width = `${percent}%`;
+  bar.appendChild(fill);
+  achieveCard.append(achieveTitle, achieveValue, achieveCountText, bar);
+
+  const chartCard = document.createElement("section");
+  chartCard.className = "pdf-card";
+  const chartTitle = document.createElement("h2");
+  chartTitle.className = "pdf-card__title";
+  chartTitle.textContent = "원형 도표";
+  const chartWrap = document.createElement("div");
+  chartWrap.className = "pdf-chart-wrap";
+  const pie = buildPdfPieSvg(year, monthIndex);
+  chartWrap.appendChild(pie.svg);
+  if (!pie.total) {
+    const empty = document.createElement("p");
+    empty.className = "pdf-empty";
+    empty.textContent = "작성된 메모 없음";
+    chartWrap.appendChild(empty);
+  } else {
+    const legend = document.createElement("div");
+    legend.className = "pdf-chart-legend";
+    pie.slices.forEach((slice) => {
+      const legendRow = document.createElement("div");
+      legendRow.className = "pdf-chart-legend__row";
+      const name = document.createElement("span");
+      name.className = "pdf-chart-legend__name";
+      const dot = document.createElement("span");
+      dot.className = "category-dot";
+      dot.style.background = slice.color;
+      const label = document.createElement("span");
+      label.textContent = slice.label;
+      name.append(dot, label);
+      const value = document.createElement("span");
+      value.textContent = `${Math.round((slice.count / pie.total) * 100)}%`;
+      legendRow.append(name, value);
+      legend.appendChild(legendRow);
+    });
+    chartWrap.appendChild(legend);
+  }
+  chartCard.append(chartTitle, chartWrap);
+
+  const calendarCard = document.createElement("section");
+  calendarCard.className = "pdf-card";
+  const calendarTitleEl = document.createElement("h2");
+  calendarTitleEl.className = "pdf-card__title";
+  calendarTitleEl.textContent = "캘린더";
+  calendarCard.append(calendarTitleEl, buildPdfCalendar(year, monthIndex));
+
+  row.append(achieveCard, chartCard, calendarCard);
+  root.appendChild(row);
+
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "pdf-table-wrap";
+  const table = document.createElement("table");
+  table.className = "pdf-table";
+  table.innerHTML =
+    "<thead><tr><th>날짜</th><th>분류</th><th>메모 상세</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  const monthMemos = memosInMonth(year, monthIndex);
+
+  if (!monthMemos.length) {
+    const emptyRow = document.createElement("tr");
+    emptyRow.innerHTML =
+      '<td colspan="3" style="text-align:center;color:#8a8174;font-weight:700;">이번 달 작성된 메모가 없습니다.</td>';
+    tbody.appendChild(emptyRow);
+  } else {
+    monthMemos.forEach((memo) => {
+      const category = categoryById(memo.category);
+      const tr = document.createElement("tr");
+
+      const dateCell = document.createElement("td");
+      dateCell.textContent = `${Number(memo.date.slice(-2))}일`;
+
+      const catCell = document.createElement("td");
+      const cat = document.createElement("span");
+      cat.className = "pdf-cat";
+      const dot = document.createElement("span");
+      dot.className = "category-dot";
+      dot.style.background = category?.color || "#8a8174";
+      const label = document.createElement("span");
+      label.textContent = category?.label || "미분류";
+      cat.append(dot, label);
+      catCell.appendChild(cat);
+
+      const detailCell = document.createElement("td");
+      const detail = document.createElement("div");
+      detail.className = "pdf-memo-detail";
+      if (memo.url) {
+        const url = document.createElement("div");
+        url.className = "pdf-memo-url";
+        url.textContent = memo.url;
+        detail.appendChild(url);
+      }
+      if (memo.body) {
+        const body = document.createElement("div");
+        body.className = "pdf-memo-body";
+        body.textContent = memo.body;
+        detail.appendChild(body);
+      }
+      if (!memo.url && !memo.body) {
+        detail.textContent = "-";
+      }
+      detailCell.appendChild(detail);
+
+      tr.append(dateCell, catCell, detailCell);
+      tbody.appendChild(tr);
+    });
+  }
+
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  root.appendChild(tableWrap);
+  return root;
+}
+
+async function downloadMonthPdf() {
+  if (typeof html2pdf === "undefined") {
+    showToast("PDF 기능을 불러오지 못했습니다");
+    return;
+  }
+
+  pdfBtn.disabled = true;
+  const sheet = buildPdfSheet(viewYear, viewMonth);
+  document.body.appendChild(sheet);
+  const filename = `kitegamemode-${viewYear}-${pad2(viewMonth + 1)}.pdf`;
+
+  try {
+    await html2pdf()
+      .set({
+        margin: 0,
+        filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] },
+      })
+      .from(sheet)
+      .save();
+    showToast("PDF를 저장했습니다");
+  } catch (error) {
+    showToast("PDF 저장에 실패했습니다");
+  } finally {
+    sheet.remove();
+    pdfBtn.disabled = false;
+  }
+}
+
 logoutBtn.addEventListener("click", logout);
 addMemoBtn.addEventListener("click", () => openMemoForm());
+pdfBtn.addEventListener("click", () => {
+  downloadMonthPdf();
+});
 memoBackBtn.addEventListener("click", closeMemoForm);
 draftListBtn.addEventListener("click", openDraftSheet);
 draftSaveBtn.addEventListener("click", saveDraft);

@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=233">
+  <link rel="stylesheet" href="style.css?v=234">
 </head>
 <body>
   <main class="app">
@@ -38,7 +38,10 @@
           <p class="page-role" id="homeLabel"></p>
           <button class="btn-text" type="button" id="logoutBtn">로그아웃</button>
         </div>
-        <button class="btn-plus" type="button" id="addMemoBtn" aria-label="메모 추가">+</button>
+        <div class="page-top-right">
+          <button class="btn-plus" type="button" id="addMemoBtn" aria-label="메모 추가">+</button>
+          <button class="btn-pdf" type="button" id="pdfBtn">PDF</button>
+        </div>
       </header>
 
       <div class="home-main" id="calendarView">
@@ -153,7 +156,8 @@
 
     <p class="toast" id="toast" hidden></p>
   </main>
-  <script src="accounts.js?v=233"></script>
-  <script src="script.js?v=233"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+  <script src="accounts.js?v=234"></script>
+  <script src="script.js?v=234"></script>
 </body>
 </html>
