@@ -130,7 +130,8 @@ input {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .page-role {
@@ -154,7 +155,123 @@ input {
   outline: none;
 }
 
-.home-blank {
+.home-main {
   flex: 1;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar {
+  width: 100%;
+  max-width: 360px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.calendar-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.calendar-nav {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: #efe8da;
+  color: #5c574e;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calendar-nav:hover,
+.calendar-nav:focus-visible {
+  background: #e5dcc8;
+  color: #222;
+  outline: none;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 8px;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a8174;
+  padding: 4px 0;
+}
+
+.calendar-weekdays span:first-child {
+  color: #c2410c;
+}
+
+.calendar-weekdays span:last-child {
+  color: #2563eb;
+}
+
+.calendar-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #222;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.calendar-cell.is-empty {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.calendar-cell:hover,
+.calendar-cell:focus-visible {
+  background: #efe8da;
+  outline: none;
+}
+
+.calendar-cell.is-today {
+  background: #d97706;
+  color: #fff;
+}
+
+.calendar-cell.is-today:hover,
+.calendar-cell.is-today:focus-visible {
+  background: #b45309;
+}
+
+.calendar-grid .calendar-cell:nth-child(7n + 1) {
+  color: #c2410c;
+}
+
+.calendar-grid .calendar-cell:nth-child(7n) {
+  color: #2563eb;
+}
+
+.calendar-grid .calendar-cell.is-today:nth-child(7n + 1),
+.calendar-grid .calendar-cell.is-today:nth-child(7n) {
+  color: #fff;
 }
