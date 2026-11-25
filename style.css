@@ -1132,6 +1132,36 @@ body:has(.home-page:not([hidden])) .app {
   gap: 8px;
 }
 
+.time-pickers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a8174;
+}
+
+.time-field input {
+  width: 100%;
+  border: 1px solid #ddd4c4;
+  border-radius: 12px;
+  background: #fff;
+  color: #222;
+  padding: 12px 14px;
+}
+
+.time-field input:focus {
+  border-color: #d97706;
+  outline: 2px solid rgba(217, 119, 6, 0.2);
+}
+
 .date-picker,
 .category-trigger,
 .memo-form input,

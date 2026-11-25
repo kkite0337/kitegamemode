@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=244">
+  <link rel="stylesheet" href="style.css?v=245">
 </head>
 <body>
   <main class="app">
@@ -111,8 +111,44 @@
             </div>
           </header>
           <form class="memo-form" id="langForm">
-            <div class="memo-field memo-field--grow" id="langFormFields">
-              <!-- 언어 작성 항목은 이후 구성합니다. -->
+            <div class="memo-field">
+              <span class="memo-label">날짜</span>
+              <div class="date-pickers">
+                <button class="date-picker" type="button" id="langYearPickerBtn" aria-haspopup="listbox"></button>
+                <button class="date-picker" type="button" id="langMonthPickerBtn" aria-haspopup="listbox"></button>
+                <button class="date-picker" type="button" id="langDayPickerBtn" aria-haspopup="listbox"></button>
+              </div>
+              <div class="picker-panel" id="langYearPickerPanel" hidden></div>
+              <div class="picker-panel" id="langMonthPickerPanel" hidden></div>
+              <div class="picker-panel" id="langDayPickerPanel" hidden></div>
+            </div>
+
+            <div class="memo-field">
+              <span class="memo-label">시간</span>
+              <div class="time-pickers">
+                <label class="time-field">
+                  <span>시작</span>
+                  <input id="langStartTime" type="time" required>
+                </label>
+                <label class="time-field">
+                  <span>종료</span>
+                  <input id="langEndTime" type="time" required>
+                </label>
+              </div>
+            </div>
+
+            <div class="memo-field">
+              <span class="memo-label">분류</span>
+              <button class="category-trigger" type="button" id="langCategoryBtn">
+                <span class="category-dot is-empty" id="langCategoryDot"></span>
+                <span id="langCategoryLabel">분류 선택</span>
+              </button>
+              <div class="category-panel" id="langCategoryPanel" hidden></div>
+            </div>
+
+            <div class="memo-field memo-field--grow">
+              <label class="memo-label" for="langBody">메모 작성</label>
+              <textarea id="langBody" placeholder="메모를 작성하세요" rows="8"></textarea>
             </div>
           </form>
         </div>
@@ -232,7 +268,7 @@
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=244"></script>
-  <script src="script.js?v=244"></script>
+  <script src="accounts.js?v=245"></script>
+  <script src="script.js?v=245"></script>
 </body>
 </html>
