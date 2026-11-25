@@ -32,6 +32,12 @@ const dayDetailHint = document.getElementById("dayDetailHint");
 const dayDetailContent = document.getElementById("dayDetailContent");
 const dayDetailTitle = document.getElementById("dayDetailTitle");
 const dayDetailList = document.getElementById("dayDetailList");
+const achieveMonth = document.getElementById("achieveMonth");
+const achievePercent = document.getElementById("achievePercent");
+const achieveCount = document.getElementById("achieveCount");
+const achieveBarFill = document.getElementById("achieveBarFill");
+const chartMonth = document.getElementById("chartMonth");
+const chartBody = document.getElementById("chartBody");
 const memoBackBtn = document.getElementById("memoBackBtn");
 const draftListBtn = document.getElementById("draftListBtn");
 const draftSaveBtn = document.getElementById("draftSaveBtn");
@@ -162,6 +168,180 @@ function categoryById(id) {
 function primaryMemoCategory(dayMemos) {
   const latest = dayMemos[dayMemos.length - 1];
   return categoryById(latest?.category) || null;
+}
+
+function monthPrefix(year, monthIndex) {
+  return `${year}-${pad2(monthIndex + 1)}-`;
+}
+
+function achievedDaysInMonth(year, monthIndex) {
+  const prefix = monthPrefix(year, monthIndex);
+  const days = new Set(
+    loadMemos()
+      .filter((memo) => typeof memo.date === "string" && memo.date.startsWith(prefix))
+      .map((memo) => memo.date),
+  );
+  return days.size;
+}
+
+function renderAchievePanel() {
+  const totalDays = daysInMonth(viewYear, viewMonth);
+  const achieved = achievedDaysInMonth(viewYear, viewMonth);
+  const percent = totalDays ? Math.round((achieved / totalDays) * 100) : 0;
+
+  achieveMonth.textContent = `${viewYear}년 ${viewMonth + 1}월`;
+  achievePercent.textContent = String(percent);
+  achieveCount.textContent = `${achieved}일 / ${totalDays}일`;
+  achieveBarFill.style.width = `${percent}%`;
+}
+
+function categoryCountsInMonth(year, monthIndex) {
+  const prefix = monthPrefix(year, monthIndex);
+  const counts = Object.fromEntries(CATEGORIES.map((item) => [item.id, 0]));
+  let total = 0;
+
+  loadMemos().forEach((memo) => {
+    if (typeof memo.date !== "string" || !memo.date.startsWith(prefix)) {
+      return;
+    }
+    if (!counts.hasOwnProperty(memo.category)) {
+      return;
+    }
+    counts[memo.category] += 1;
+    total += 1;
+  });
+
+  return { counts, total };
+}
+
+function polarToCartesian(cx, cy, radius, angleDeg) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(rad),
+    y: cy + radius * Math.sin(rad),
+  };
+}
+
+function describeSlice(cx, cy, radius, startAngle, endAngle) {
+  if (endAngle - startAngle >= 359.999) {
+    const mid = startAngle + 180;
+    const first = describeSlice(cx, cy, radius, startAngle, mid);
+    const second = describeSlice(cx, cy, radius, mid, endAngle);
+    return `${first} ${second}`;
+  }
+
+  const start = polarToCartesian(cx, cy, radius, endAngle);
+  const end = polarToCartesian(cx, cy, radius, startAngle);
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return [
+    "M",
+    start.x,
+    start.y,
+    "A",
+    radius,
+    radius,
+    0,
+    largeArc,
+    0,
+    end.x,
+    end.y,
+    "L",
+    cx,
+    cy,
+    "Z",
+  ].join(" ");
+}
+
+function renderChartPanel() {
+  chartMonth.textContent = `${viewYear}년 ${viewMonth + 1}월`;
+  chartBody.replaceChildren();
+
+  const { counts, total } = categoryCountsInMonth(viewYear, viewMonth);
+  const slices = CATEGORIES.map((category) => ({
+    ...category,
+    count: counts[category.id] || 0,
+  })).filter((item) => item.count > 0);
+
+  if (!total) {
+    const empty = document.createElement("p");
+    empty.className = "chart-empty";
+    empty.textContent = "이번 달 작성된 메모가 없습니다.";
+    chartBody.appendChild(empty);
+    return;
+  }
+
+  const layout = document.createElement("div");
+  layout.className = "chart-layout";
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 160 160");
+  svg.setAttribute("class", "chart-svg");
+  svg.setAttribute("aria-hidden", "true");
+
+  const cx = 80;
+  const cy = 80;
+  const radius = 70;
+  let angle = 0;
+
+  slices.forEach((slice) => {
+    const sweep = (slice.count / total) * 360;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", describeSlice(cx, cy, radius, angle, angle + sweep));
+    path.setAttribute("fill", slice.soft || slice.color);
+    svg.appendChild(path);
+    angle += sweep;
+  });
+
+  const hole = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  hole.setAttribute("cx", String(cx));
+  hole.setAttribute("cy", String(cy));
+  hole.setAttribute("r", "38");
+  hole.setAttribute("fill", "#fff");
+  svg.appendChild(hole);
+
+  const centerText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  centerText.setAttribute("x", String(cx));
+  centerText.setAttribute("y", String(cy - 4));
+  centerText.setAttribute("text-anchor", "middle");
+  centerText.setAttribute("class", "chart-center-value");
+  centerText.textContent = String(total);
+
+  const centerLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  centerLabel.setAttribute("x", String(cx));
+  centerLabel.setAttribute("y", String(cy + 14));
+  centerLabel.setAttribute("text-anchor", "middle");
+  centerLabel.setAttribute("class", "chart-center-label");
+  centerLabel.textContent = "건";
+
+  svg.append(centerText, centerLabel);
+
+  const legend = document.createElement("div");
+  legend.className = "chart-legend";
+
+  slices.forEach((slice) => {
+    const row = document.createElement("div");
+    row.className = "chart-legend__row";
+
+    const left = document.createElement("span");
+    left.className = "chart-legend__name";
+    const dot = document.createElement("span");
+    dot.className = "category-dot";
+    dot.style.background = slice.color;
+    const name = document.createElement("span");
+    name.textContent = slice.label;
+    left.append(dot, name);
+
+    const right = document.createElement("span");
+    right.className = "chart-legend__value";
+    const percent = Math.round((slice.count / total) * 100);
+    right.textContent = `${slice.count}건 · ${percent}%`;
+
+    row.append(left, right);
+    legend.appendChild(row);
+  });
+
+  layout.append(svg, legend);
+  chartBody.appendChild(layout);
 }
 
 function renderDayDetail() {
@@ -321,6 +501,8 @@ function renderCalendar() {
     calendarGrid.appendChild(cell);
   }
 
+  renderAchievePanel();
+  renderChartPanel();
   renderDayDetail();
 }
 

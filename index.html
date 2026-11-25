@@ -13,7 +13,7 @@
   <title>kitegamemode.kr</title>
   <link rel="canonical" href="https://kitegamemode.kr/">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=229">
+  <link rel="stylesheet" href="style.css?v=231">
 </head>
 <body>
   <main class="app">
@@ -43,7 +43,27 @@
 
       <div class="home-main" id="calendarView">
         <aside class="side-panel" aria-label="표 영역">
-          <div class="side-panel__box" id="sideTableBox"></div>
+          <div class="side-panel__box side-panel__box--rate" id="achieveBox">
+            <div class="side-box-head">
+              <h2 class="side-box-title">달성률</h2>
+              <p class="side-box-month" id="achieveMonth"></p>
+            </div>
+            <div class="achieve-body">
+              <p class="achieve-percent"><span id="achievePercent">0</span>%</p>
+              <p class="achieve-count" id="achieveCount">0일 / 0일</p>
+              <div class="achieve-bar" aria-hidden="true">
+                <div class="achieve-bar__fill" id="achieveBarFill"></div>
+              </div>
+              <p class="achieve-note">메모를 작성한 날을 달성일로 계산합니다.</p>
+            </div>
+          </div>
+          <div class="side-panel__box side-panel__box--chart" id="chartBox">
+            <div class="side-box-head">
+              <h2 class="side-box-title">원형 도표</h2>
+              <p class="side-box-month" id="chartMonth"></p>
+            </div>
+            <div class="chart-body" id="chartBody"></div>
+          </div>
         </aside>
         <div class="home-right">
           <div class="calendar" id="calendar" aria-label="캘린더">
@@ -133,7 +153,7 @@
 
     <p class="toast" id="toast" hidden></p>
   </main>
-  <script src="accounts.js?v=229"></script>
-  <script src="script.js?v=229"></script>
+  <script src="accounts.js?v=231"></script>
+  <script src="script.js?v=231"></script>
 </body>
 </html>
