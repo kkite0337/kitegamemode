@@ -25,6 +25,11 @@ const pdfBtn = document.getElementById("pdfBtn");
 const homeHeader = document.getElementById("homeHeader");
 const calendarView = document.getElementById("calendarView");
 const memoView = document.getElementById("memoView");
+const sectionRoutine = document.getElementById("sectionRoutine");
+const sectionEconomy = document.getElementById("sectionEconomy");
+const sectionLanguage = document.getElementById("sectionLanguage");
+const economyActions = document.getElementById("economyActions");
+const pageTabs = Array.from(document.querySelectorAll(".page-tab"));
 const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
 const calendarPrev = document.getElementById("calendarPrev");
@@ -62,6 +67,7 @@ const draftList = document.getElementById("draftList");
 const toast = document.getElementById("toast");
 
 let currentAccount = null;
+let activeSection = "economy";
 let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth();
 let selectedDateKey = null;
@@ -147,6 +153,27 @@ function showToast(message) {
 function showPage(page) {
   loginPage.hidden = page !== "login";
   homePage.hidden = page !== "home";
+}
+
+function setActiveSection(section) {
+  activeSection = section;
+
+  sectionRoutine.hidden = section !== "routine";
+  sectionEconomy.hidden = section !== "economy";
+  sectionLanguage.hidden = section !== "language";
+  economyActions.classList.toggle("is-hidden", section !== "economy");
+
+  pageTabs.forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.section === section);
+  });
+
+  if (section !== "economy" && !memoView.hidden) {
+    closeMemoForm();
+  }
+
+  if (section === "economy") {
+    renderCalendar();
+  }
 }
 
 function sameDay(left, right) {
@@ -837,7 +864,7 @@ function enterHome(account) {
   loginForm.reset();
   closeMemoForm();
   closeDraftSheet();
-  renderCalendar();
+  setActiveSection("economy");
   showPage("home");
 }
 
@@ -1200,6 +1227,11 @@ async function downloadMonthPdf() {
 }
 
 logoutBtn.addEventListener("click", logout);
+pageTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    setActiveSection(tab.dataset.section);
+  });
+});
 addMemoBtn.addEventListener("click", () => openMemoForm());
 pdfBtn.addEventListener("click", () => {
   downloadMonthPdf();

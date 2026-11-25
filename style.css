@@ -132,9 +132,9 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .page-top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   width: 100%;
   margin-bottom: 8px;
   flex-shrink: 0;
@@ -146,6 +146,69 @@ body:has(.home-page:not([hidden])) .app {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  justify-self: start;
+}
+
+.page-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.page-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #8a8174;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.page-tab:hover,
+.page-tab:focus-visible {
+  color: #222;
+  background: #efe8da;
+  outline: none;
+}
+
+.page-tab.is-active {
+  background: #d97706;
+  color: #fff;
+}
+
+.home-section {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.section-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  color: #8a8174;
+}
+
+.section-placeholder h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #222;
+}
+
+.section-placeholder p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .page-role {
@@ -175,6 +238,14 @@ body:has(.home-page:not([hidden])) .app {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  justify-self: end;
+  min-width: 40px;
+  min-height: 76px;
+}
+
+.page-top-right.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .btn-plus {

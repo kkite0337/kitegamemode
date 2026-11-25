@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=240">
+  <link rel="stylesheet" href="style.css?v=241">
 </head>
 <body>
   <main class="app">
@@ -42,12 +42,32 @@
           <p class="page-role" id="homeLabel"></p>
           <button class="btn-text" type="button" id="logoutBtn">로그아웃</button>
         </div>
-        <div class="page-top-right">
+        <nav class="page-tabs" aria-label="페이지 전환">
+          <button class="page-tab" type="button" data-section="routine">루틴</button>
+          <button class="page-tab is-active" type="button" data-section="economy">경제</button>
+          <button class="page-tab" type="button" data-section="language">언어</button>
+        </nav>
+        <div class="page-top-right" id="economyActions">
           <button class="btn-plus" type="button" id="addMemoBtn" aria-label="메모 추가">+</button>
           <button class="btn-pdf" type="button" id="pdfBtn">PDF</button>
         </div>
       </header>
 
+      <div class="home-section" id="sectionRoutine" hidden>
+        <div class="section-placeholder">
+          <h2>루틴</h2>
+          <p>루틴 페이지를 준비 중입니다.</p>
+        </div>
+      </div>
+
+      <div class="home-section" id="sectionLanguage" hidden>
+        <div class="section-placeholder">
+          <h2>언어</h2>
+          <p>언어 페이지를 준비 중입니다.</p>
+        </div>
+      </div>
+
+      <div class="home-section" id="sectionEconomy">
       <div class="home-main" id="calendarView">
         <aside class="side-panel" aria-label="표 영역">
           <div class="side-panel__box side-panel__box--rate" id="achieveBox">
@@ -145,6 +165,7 @@
           </div>
         </form>
       </div>
+      </div>
     </section>
 
     <div class="sheet" id="draftSheet" hidden>
@@ -161,7 +182,7 @@
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=240"></script>
-  <script src="script.js?v=240"></script>
+  <script src="accounts.js?v=241"></script>
+  <script src="script.js?v=241"></script>
 </body>
 </html>
