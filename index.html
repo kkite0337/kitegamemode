@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=245">
+  <link rel="stylesheet" href="style.css?v=247">
 </head>
 <body>
   <main class="app">
@@ -66,7 +66,7 @@
       </div>
 
       <div class="home-section" id="sectionLanguage" hidden>
-        <div class="home-main home-main--simple" id="languageView">
+        <div class="home-main" id="languageView">
           <aside class="side-panel" aria-label="언어 달성률">
             <div class="side-panel__box side-panel__box--rate side-panel__box--solo">
               <div class="side-box-head">
@@ -76,10 +76,10 @@
               <div class="achieve-body">
                 <p class="achieve-percent"><span id="langAchievePercent">0</span>%</p>
                 <p class="achieve-count" id="langAchieveCount">0일 / 0일</p>
-              <div class="achieve-bar" aria-hidden="true">
-                <div class="achieve-bar__fill" id="langAchieveBarFill"></div>
+                <div class="achieve-bar" aria-hidden="true">
+                  <div class="achieve-bar__fill" id="langAchieveBarFill"></div>
+                </div>
               </div>
-            </div>
             </div>
           </aside>
           <div class="home-right">
@@ -100,6 +100,13 @@
               </div>
               <div class="calendar-grid" id="langCalendarGrid"></div>
             </div>
+            <div class="day-detail" id="langDayDetail">
+              <p class="day-detail__hint" id="langDayDetailHint">날짜를 선택하면 저장된 내용이 여기에 표시됩니다.</p>
+              <div class="day-detail__content" id="langDayDetailContent" hidden>
+                <h2 class="day-detail__title" id="langDayDetailTitle"></h2>
+                <div class="day-detail__list" id="langDayDetailList"></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -107,6 +114,10 @@
           <header class="memo-top">
             <button class="btn-text" type="button" id="langFormBackBtn">닫기</button>
             <div class="memo-actions">
+              <button class="btn-action" type="button" id="langDraftListBtn">저장목록</button>
+              <span class="memo-actions__sep" aria-hidden="true">|</span>
+              <button class="btn-action" type="button" id="langDraftSaveBtn">임시저장</button>
+              <span class="memo-actions__sep" aria-hidden="true">|</span>
               <button class="btn-action is-strong" type="button" id="langFormSaveBtn">저장</button>
             </div>
           </header>
@@ -265,10 +276,21 @@
       </div>
     </div>
 
+    <div class="sheet" id="langDraftSheet" hidden>
+      <div class="sheet-backdrop" id="langDraftSheetBackdrop"></div>
+      <div class="sheet-panel" role="dialog" aria-labelledby="langDraftSheetTitle">
+        <div class="sheet-header">
+          <h2 class="sheet-title" id="langDraftSheetTitle">저장목록</h2>
+          <button class="btn-text" type="button" id="langDraftSheetClose">닫기</button>
+        </div>
+        <div class="draft-list" id="langDraftList"></div>
+      </div>
+    </div>
+
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=245"></script>
-  <script src="script.js?v=245"></script>
+  <script src="accounts.js?v=247"></script>
+  <script src="script.js?v=247"></script>
 </body>
 </html>

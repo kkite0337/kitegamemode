@@ -2,6 +2,7 @@ const SESSION_KEY = "kitegamemode-session";
 const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
 const LANGUAGE_ENTRIES_KEY = "kitegamemode-language-entries";
+const LANGUAGE_DRAFTS_KEY = "kitegamemode-language-drafts";
 
 const LANG_CATEGORIES = [
   { id: "study", label: "학습", color: "#ef4444", soft: "#c47b6f" },
@@ -43,6 +44,12 @@ const languageView = document.getElementById("languageView");
 const langFormView = document.getElementById("langFormView");
 const langFormBackBtn = document.getElementById("langFormBackBtn");
 const langFormSaveBtn = document.getElementById("langFormSaveBtn");
+const langDraftListBtn = document.getElementById("langDraftListBtn");
+const langDraftSaveBtn = document.getElementById("langDraftSaveBtn");
+const langDraftSheet = document.getElementById("langDraftSheet");
+const langDraftSheetBackdrop = document.getElementById("langDraftSheetBackdrop");
+const langDraftSheetClose = document.getElementById("langDraftSheetClose");
+const langDraftList = document.getElementById("langDraftList");
 const langYearPickerBtn = document.getElementById("langYearPickerBtn");
 const langMonthPickerBtn = document.getElementById("langMonthPickerBtn");
 const langDayPickerBtn = document.getElementById("langDayPickerBtn");
@@ -69,6 +76,10 @@ const langCalendarTitle = document.getElementById("langCalendarTitle");
 const langCalendarGrid = document.getElementById("langCalendarGrid");
 const langCalendarPrev = document.getElementById("langCalendarPrev");
 const langCalendarNext = document.getElementById("langCalendarNext");
+const langDayDetailHint = document.getElementById("langDayDetailHint");
+const langDayDetailContent = document.getElementById("langDayDetailContent");
+const langDayDetailTitle = document.getElementById("langDayDetailTitle");
+const langDayDetailList = document.getElementById("langDayDetailList");
 const dayDetailHint = document.getElementById("dayDetailHint");
 const dayDetailContent = document.getElementById("dayDetailContent");
 const dayDetailTitle = document.getElementById("dayDetailTitle");
@@ -114,6 +125,9 @@ let formDate = yesterdayDate();
 let selectedCategory = "";
 let langFormDate = new Date();
 let selectedLangCategory = "";
+let selectedLangDateKey = null;
+let editingLangDraftId = null;
+let editingLangEntryId = null;
 let toastTimer = 0;
 
 function yesterdayDate() {
@@ -384,30 +398,146 @@ function toggleLangPicker(panel, render) {
   panel.hidden = false;
 }
 
-function resetLangForm() {
-  langFormDate = todayDate();
-  selectedLangCategory = "";
-  langStartTime.value = "";
-  langEndTime.value = "";
-  langBody.value = "";
+function fillLangForm(values = null) {
+  langFormDate = values?.date ? parseDateKey(values.date) : todayDate();
+  selectedLangCategory = values?.category || "";
+  langStartTime.value = values?.startTime || "";
+  langEndTime.value = values?.endTime || "";
+  langBody.value = values?.body || "";
   syncLangDateButtons();
   syncLangCategoryButton();
   closeLangPickers();
 }
 
-function openLangForm() {
-  resetLangForm();
+function resetLangForm() {
+  editingLangDraftId = null;
+  editingLangEntryId = null;
+  fillLangForm(null);
+}
+
+function getLangFormValues() {
+  return {
+    date: dateKey(langFormDate),
+    startTime: langStartTime.value,
+    endTime: langEndTime.value,
+    category: selectedLangCategory,
+    body: langBody.value.trim(),
+  };
+}
+
+function openLangForm(values = null, draftId = null, entryId = null) {
+  editingLangDraftId = draftId;
+  editingLangEntryId = entryId;
+  fillLangForm(values);
   homeHeader.hidden = true;
   languageView.hidden = true;
   langFormView.hidden = false;
 }
 
 function closeLangForm() {
+  editingLangDraftId = null;
+  editingLangEntryId = null;
   closeLangPickers();
   langFormView.hidden = true;
   homeHeader.hidden = false;
   languageView.hidden = false;
   renderLanguageCalendar();
+}
+
+function loadLanguageDrafts() {
+  const drafts = readJson(LANGUAGE_DRAFTS_KEY, []);
+  return Array.isArray(drafts) ? drafts : [];
+}
+
+function saveLanguageDrafts(drafts) {
+  writeJson(LANGUAGE_DRAFTS_KEY, drafts);
+}
+
+function saveLangDraft() {
+  const values = getLangFormValues();
+  if (!values.startTime && !values.endTime && !values.category && !values.body) {
+    showToast("저장할 내용을 입력해 주세요");
+    return;
+  }
+
+  const drafts = loadLanguageDrafts();
+  const now = Date.now();
+
+  if (editingLangDraftId) {
+    const index = drafts.findIndex((item) => item.id === editingLangDraftId);
+    if (index >= 0) {
+      drafts[index] = { ...drafts[index], ...values, updatedAt: now };
+      saveLanguageDrafts(drafts);
+      showToast("임시저장했습니다");
+      return;
+    }
+  }
+
+  const draft = {
+    id: `lang-draft-${now}`,
+    ...values,
+    updatedAt: now,
+  };
+  drafts.unshift(draft);
+  editingLangDraftId = draft.id;
+  saveLanguageDrafts(drafts);
+  showToast("임시저장했습니다");
+}
+
+function openLangDraftSheet() {
+  closeLangPickers();
+  renderLangDraftList();
+  langDraftSheet.hidden = false;
+}
+
+function closeLangDraftSheet() {
+  langDraftSheet.hidden = true;
+}
+
+function renderLangDraftList() {
+  const drafts = loadLanguageDrafts()
+    .slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  langDraftList.replaceChildren();
+
+  if (!drafts.length) {
+    const empty = document.createElement("p");
+    empty.className = "draft-empty";
+    empty.textContent = "임시저장된 내용이 없습니다.";
+    langDraftList.appendChild(empty);
+    return;
+  }
+
+  drafts.forEach((draft) => {
+    const row = document.createElement("div");
+    row.className = "draft-item";
+
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "draft-item__main";
+    const category = langCategoryById(draft.category);
+    const title = draft.body || `${draft.startTime || "--:--"}-${draft.endTime || "--:--"}`;
+    const previewTitle = title.length > 40 ? `${title.slice(0, 40)}…` : title;
+    const meta = `${draft.date || ""}${category ? ` · ${category.label}` : ""}`;
+    loadBtn.innerHTML = `<strong>${previewTitle}</strong><span>${meta}</span>`;
+    loadBtn.addEventListener("click", () => {
+      closeLangDraftSheet();
+      openLangForm(draft, draft.id, null);
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "draft-item__delete";
+    deleteBtn.textContent = "삭제";
+    deleteBtn.addEventListener("click", () => {
+      saveLanguageDrafts(loadLanguageDrafts().filter((item) => item.id !== draft.id));
+      renderLangDraftList();
+      showToast("임시저장을 삭제했습니다");
+    });
+
+    row.append(loadBtn, deleteBtn);
+    langDraftList.appendChild(row);
+  });
 }
 
 function saveLangEntry() {
@@ -428,24 +558,146 @@ function saveLangEntry() {
     return;
   }
 
+  const values = getLangFormValues();
   const entries = loadLanguageEntries();
-  const entryDate = dateKey(langFormDate);
-  entries.push({
-    id: `lang-${Date.now()}`,
-    date: entryDate,
-    startTime: langStartTime.value,
-    endTime: langEndTime.value,
-    category: selectedLangCategory,
-    body: langBody.value.trim(),
-    createdAt: Date.now(),
-  });
-  saveLanguageEntries(entries);
+  const now = Date.now();
 
-  const savedDate = parseDateKey(entryDate);
+  if (editingLangEntryId) {
+    const index = entries.findIndex((item) => item.id === editingLangEntryId);
+    if (index >= 0) {
+      entries[index] = {
+        ...entries[index],
+        ...values,
+        updatedAt: now,
+      };
+      saveLanguageEntries(entries);
+      editingLangEntryId = null;
+    }
+  } else {
+    entries.push({
+      id: `lang-${now}`,
+      ...values,
+      createdAt: now,
+    });
+    saveLanguageEntries(entries);
+  }
+
+  if (editingLangDraftId) {
+    saveLanguageDrafts(
+      loadLanguageDrafts().filter((item) => item.id !== editingLangDraftId),
+    );
+    editingLangDraftId = null;
+  }
+
+  const savedDate = parseDateKey(values.date);
   langViewYear = savedDate.getFullYear();
   langViewMonth = savedDate.getMonth();
+  selectedLangDateKey = values.date;
   showToast("저장했습니다");
   closeLangForm();
+}
+
+function deleteLangEntry(entryId) {
+  if (!window.confirm("이 내용을 삭제할까요?")) {
+    return;
+  }
+  saveLanguageEntries(loadLanguageEntries().filter((item) => item.id !== entryId));
+  showToast("삭제했습니다");
+  renderLanguageCalendar();
+}
+
+function renderLanguageDayDetail() {
+  if (!selectedLangDateKey) {
+    langDayDetailHint.hidden = false;
+    langDayDetailHint.textContent = "날짜를 선택하면 저장된 내용이 여기에 표시됩니다.";
+    langDayDetailContent.hidden = true;
+    langDayDetailList.replaceChildren();
+    return;
+  }
+
+  const date = parseDateKey(selectedLangDateKey);
+  const dayEntries = loadLanguageEntries()
+    .filter((entry) => entry.date === selectedLangDateKey)
+    .slice()
+    .sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+
+  langDayDetailTitle.textContent = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+
+  if (!dayEntries.length) {
+    langDayDetailHint.hidden = false;
+    langDayDetailHint.textContent = "이 날짜에 저장된 내용이 없습니다.";
+    langDayDetailContent.hidden = true;
+    langDayDetailList.replaceChildren();
+    return;
+  }
+
+  langDayDetailHint.hidden = true;
+  langDayDetailContent.hidden = false;
+  langDayDetailList.replaceChildren();
+
+  dayEntries.forEach((entry) => {
+    const category = langCategoryById(entry.category);
+    const block = document.createElement("div");
+    block.className = "day-memo-block";
+
+    const card = document.createElement("article");
+    card.className = "day-memo";
+
+    const head = document.createElement("div");
+    head.className = "day-memo__head";
+
+    const badge = document.createElement("span");
+    badge.className = "day-memo__badge";
+    const dot = document.createElement("span");
+    dot.className = "category-dot";
+    dot.style.background = category?.color || "#8a8174";
+    const label = document.createElement("span");
+    label.textContent = category?.label || "미분류";
+    badge.append(dot, label);
+    head.appendChild(badge);
+
+    const time = document.createElement("p");
+    time.className = "day-memo__time";
+    time.textContent = `${entry.startTime} - ${entry.endTime}`;
+    head.appendChild(time);
+
+    card.appendChild(head);
+
+    if (entry.body) {
+      const body = document.createElement("p");
+      body.className = "day-memo__body";
+      body.textContent = entry.body;
+      card.appendChild(body);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "day-memo__actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "day-memo__action";
+    editBtn.textContent = "수정";
+    editBtn.addEventListener("click", () => {
+      openLangForm(entry, null, entry.id);
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "day-memo__action is-danger";
+    deleteBtn.textContent = "삭제";
+    deleteBtn.addEventListener("click", () => {
+      deleteLangEntry(entry.id);
+    });
+
+    actions.append(editBtn, deleteBtn);
+    block.append(card, actions);
+    langDayDetailList.appendChild(block);
+  });
+}
+
+function selectLangDay(year, monthIndex, day) {
+  selectedLangDateKey = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+  renderLanguageCalendar();
 }
 
 function sameDay(left, right) {
@@ -551,6 +803,7 @@ function renderLanguageCalendar() {
 
   for (let day = 1; day <= totalDays; day += 1) {
     const date = new Date(langViewYear, langViewMonth, day);
+    const key = dateKey(date);
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = "calendar-cell";
@@ -574,16 +827,25 @@ function renderLanguageCalendar() {
       cell.classList.add("is-today");
     }
 
+    if (selectedLangDateKey === key) {
+      cell.classList.add("is-selected");
+    }
+
+    cell.addEventListener("click", () =>
+      selectLangDay(langViewYear, langViewMonth, day),
+    );
     langCalendarGrid.appendChild(cell);
   }
 
   renderLanguageAchievePanel();
+  renderLanguageDayDetail();
 }
 
 function shiftLanguageMonth(delta) {
   const next = new Date(langViewYear, langViewMonth + delta, 1);
   langViewYear = next.getFullYear();
   langViewMonth = next.getMonth();
+  selectedLangDateKey = null;
   renderLanguageCalendar();
 }
 
@@ -1604,6 +1866,10 @@ pdfBtn.addEventListener("click", () => {
 memoBackBtn.addEventListener("click", closeMemoForm);
 langFormBackBtn.addEventListener("click", closeLangForm);
 langFormSaveBtn.addEventListener("click", saveLangEntry);
+langDraftListBtn.addEventListener("click", openLangDraftSheet);
+langDraftSaveBtn.addEventListener("click", saveLangDraft);
+langDraftSheetBackdrop.addEventListener("click", closeLangDraftSheet);
+langDraftSheetClose.addEventListener("click", closeLangDraftSheet);
 langYearPickerBtn.addEventListener("click", () =>
   toggleLangPicker(langYearPickerPanel, renderLangYearPanel),
 );

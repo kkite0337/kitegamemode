@@ -1023,6 +1023,13 @@ body:has(.home-page:not([hidden])) .app {
   color: #222;
 }
 
+.day-memo__time {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6358;
+}
+
 .day-memo__url {
   color: #b45309;
   font-size: 12px;
