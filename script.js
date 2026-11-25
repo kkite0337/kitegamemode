@@ -8,6 +8,7 @@ const loginPassword = document.getElementById("loginPassword");
 const loginError = document.getElementById("loginError");
 const homeLabel = document.getElementById("homeLabel");
 const logoutBtn = document.getElementById("logoutBtn");
+const addMemoBtn = document.getElementById("addMemoBtn");
 const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
 const calendarPrev = document.getElementById("calendarPrev");
@@ -125,6 +126,9 @@ loginForm.addEventListener("submit", (event) => {
 });
 
 logoutBtn.addEventListener("click", logout);
+addMemoBtn.addEventListener("click", () => {
+  // 메모 작성 UI는 다음 단계에서 연결합니다.
+});
 calendarPrev.addEventListener("click", () => shiftMonth(-1));
 calendarNext.addEventListener("click", () => shiftMonth(1));
 
