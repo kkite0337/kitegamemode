@@ -59,6 +59,7 @@ let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth();
 let selectedDateKey = null;
 let editingDraftId = null;
+let editingMemoId = null;
 let formDate = yesterdayDate();
 let selectedCategory = "";
 let toastTimer = 0;
@@ -193,6 +194,9 @@ function renderDayDetail() {
     .sort((a, b) => a.createdAt - b.createdAt)
     .forEach((memo) => {
       const category = categoryById(memo.category);
+      const block = document.createElement("div");
+      block.className = "day-memo-block";
+
       const card = document.createElement("article");
       card.className = "day-memo";
 
@@ -228,8 +232,41 @@ function renderDayDetail() {
         card.appendChild(body);
       }
 
-      dayDetailList.appendChild(card);
+      const actions = document.createElement("div");
+      actions.className = "day-memo__actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "day-memo__action";
+      editBtn.textContent = "수정";
+      editBtn.addEventListener("click", () => {
+        openMemoForm(memo, null, memo.id);
+      });
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "day-memo__action is-danger";
+      deleteBtn.textContent = "삭제";
+      deleteBtn.addEventListener("click", () => {
+        deleteMemo(memo.id);
+      });
+
+      actions.append(editBtn, deleteBtn);
+      block.append(card, actions);
+      dayDetailList.appendChild(block);
     });
+}
+
+function deleteMemo(memoId) {
+  if (!window.confirm("이 메모를 삭제할까요?")) {
+    return;
+  }
+
+  const next = loadMemos().filter((item) => item.id !== memoId);
+  saveMemos(next);
+  showToast("삭제했습니다");
+  renderCalendar();
+  renderDayDetail();
 }
 
 function selectDay(year, monthIndex, day) {
@@ -445,8 +482,9 @@ function fillForm(values) {
   closeAllPickers();
 }
 
-function openMemoForm(values = null, draftId = null) {
+function openMemoForm(values = null, draftId = null, memoId = null) {
   editingDraftId = draftId;
+  editingMemoId = memoId;
   fillForm(values || { date: dateKey(yesterdayDate()) });
   homeHeader.hidden = true;
   calendarView.hidden = true;
@@ -455,6 +493,7 @@ function openMemoForm(values = null, draftId = null) {
 
 function closeMemoForm() {
   editingDraftId = null;
+  editingMemoId = null;
   closeAllPickers();
   memoView.hidden = true;
   homeHeader.hidden = false;
@@ -565,10 +604,32 @@ function saveMemo() {
   }
 
   const memos = loadMemos();
+  const now = Date.now();
+
+  if (editingMemoId) {
+    const index = memos.findIndex((item) => item.id === editingMemoId);
+    if (index >= 0) {
+      memos[index] = {
+        ...memos[index],
+        ...values,
+        updatedAt: now,
+      };
+      saveMemos(memos);
+      editingMemoId = null;
+      const savedDate = parseDateKey(values.date);
+      viewYear = savedDate.getFullYear();
+      viewMonth = savedDate.getMonth();
+      selectedDateKey = values.date;
+      showToast("수정했습니다");
+      closeMemoForm();
+      return;
+    }
+  }
+
   memos.push({
-    id: `memo-${Date.now()}`,
+    id: `memo-${now}`,
     ...values,
-    createdAt: Date.now(),
+    createdAt: now,
   });
   saveMemos(memos);
 

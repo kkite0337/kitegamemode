@@ -371,7 +371,13 @@ textarea {
 .day-detail__list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+}
+
+.day-memo-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .day-memo {
@@ -382,6 +388,37 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.day-memo__actions {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+.day-memo__action {
+  border: 0;
+  background: transparent;
+  color: #5c574e;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.day-memo__action:hover,
+.day-memo__action:focus-visible {
+  color: #222;
+  outline: none;
+}
+
+.day-memo__action.is-danger {
+  color: #b42318;
+}
+
+.day-memo__action.is-danger:hover,
+.day-memo__action.is-danger:focus-visible {
+  color: #912018;
 }
 
 .day-memo__head {
