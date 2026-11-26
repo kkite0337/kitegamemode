@@ -513,7 +513,18 @@ body:has(.shared-page:not([hidden])) {
 .shared-quote__actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 4px;
+}
+
+.shared-quote__delete {
+  margin-right: auto;
+  color: #b45309;
+}
+
+.shared-page .shared-quote__delete:hover,
+.shared-page .shared-quote__delete:focus-visible {
+  color: #9a3412;
 }
 
 .shared-quote__viewer {

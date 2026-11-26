@@ -1066,6 +1066,7 @@ function setSharedQuoteFormOpen(panel, { open, mode = "create", quote = null } =
   const editIdInput = panel.querySelector("[data-quote-edit-id]");
   const addBtn = panel.querySelector("[data-quote-add]");
   const editBtn = panel.querySelector("[data-quote-edit]");
+  const deleteBtn = panel.querySelector("[data-quote-delete]");
   const viewer = panel.querySelector("[data-quote-viewer]");
 
   if (!open) {
@@ -1073,6 +1074,7 @@ function setSharedQuoteFormOpen(panel, { open, mode = "create", quote = null } =
     viewer.hidden = false;
     editIdInput.value = "";
     sharedQuoteFormMode[memberId] = "";
+    deleteBtn.hidden = true;
     addBtn.setAttribute("aria-expanded", "false");
     editBtn.setAttribute("aria-expanded", "false");
     return;
@@ -1085,12 +1087,14 @@ function setSharedQuoteFormOpen(panel, { open, mode = "create", quote = null } =
     editIdInput.value = quote.id;
     dateInput.value = quote.date || todaySharedDateKey();
     textInput.value = quote.text || "";
+    deleteBtn.hidden = false;
     editBtn.setAttribute("aria-expanded", "true");
     addBtn.setAttribute("aria-expanded", "false");
   } else {
     editIdInput.value = "";
     dateInput.value = todaySharedDateKey();
     textInput.value = "";
+    deleteBtn.hidden = true;
     addBtn.setAttribute("aria-expanded", "true");
     editBtn.setAttribute("aria-expanded", "false");
   }
@@ -1153,6 +1157,31 @@ function shiftSharedQuote(memberId, delta) {
     setSharedQuoteFormOpen(panel, { open: false });
     renderSharedQuotePanel(panel);
   }
+}
+
+function removeSharedQuote(memberId, quoteId) {
+  if (!canEditSharedMemberQuotes(memberId)) {
+    showToast("본인 한마디만 삭제할 수 있습니다");
+    return false;
+  }
+  if (!quoteId) {
+    return false;
+  }
+  const page = getActiveSharedPage();
+  const list = page.quotes?.[memberId] || [];
+  if (!list.some((item) => item.id === quoteId)) {
+    showToast("삭제할 메모를 찾지 못했습니다");
+    return false;
+  }
+  page.quotes[memberId] = list.filter((item) => item.id !== quoteId);
+  const nextItems = getSharedQuoteItems(memberId);
+  sharedQuoteViewIndex[memberId] = nextItems.length
+    ? Math.min(sharedQuoteViewIndex[memberId] || 0, nextItems.length - 1)
+    : 0;
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+  showToast("한마디를 삭제했습니다");
+  return true;
 }
 
 function saveSharedQuote(memberId, dateValue, textValue, editId = "") {
@@ -4101,6 +4130,7 @@ sharedQuotePanels.forEach((panel) => {
   const editBtn = panel.querySelector("[data-quote-edit]");
   const form = panel.querySelector("[data-quote-form]");
   const cancelBtn = panel.querySelector("[data-quote-cancel]");
+  const deleteBtn = panel.querySelector("[data-quote-delete]");
   const dateInput = panel.querySelector("[data-quote-date]");
   const textInput = panel.querySelector("[data-quote-text]");
   const editIdInput = panel.querySelector("[data-quote-edit-id]");
@@ -4141,6 +4171,21 @@ sharedQuotePanels.forEach((panel) => {
   cancelBtn.addEventListener("click", () => {
     setSharedQuoteFormOpen(panel, { open: false });
     renderSharedQuotePanel(panel);
+  });
+
+  deleteBtn.addEventListener("click", () => {
+    if (!canEditSharedMemberQuotes(memberId)) {
+      return;
+    }
+    const quoteId = editIdInput.value;
+    if (!quoteId) {
+      showToast("삭제할 메모가 없습니다");
+      return;
+    }
+    if (removeSharedQuote(memberId, quoteId)) {
+      setSharedQuoteFormOpen(panel, { open: false });
+      renderSharedQuotePanel(panel);
+    }
   });
 
   form.addEventListener("submit", (event) => {
