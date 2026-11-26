@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "kitegamemode": {
+      "shared": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}

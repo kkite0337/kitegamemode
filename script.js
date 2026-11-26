@@ -83,6 +83,8 @@ const sharedLogoutBtn = document.getElementById("sharedLogoutBtn");
 const sharedMembersList = document.getElementById("sharedMembersList");
 const sharedMemoInput = document.getElementById("sharedMemoInput");
 const sharedMemoSaveBtn = document.getElementById("sharedMemoSaveBtn");
+const sharedSyncStatus = document.getElementById("sharedSyncStatus");
+const sharedSetupHint = document.getElementById("sharedSetupHint");
 const addMemoBtn = document.getElementById("addMemoBtn");
 const pdfBtn = document.getElementById("pdfBtn");
 const langPdfBtn = document.getElementById("langPdfBtn");
@@ -204,6 +206,10 @@ let toastTimer = 0;
 let routineWeekTimer = 0;
 let routineViewMonday = null;
 let routineMemoLoadedWeek = "";
+let sharedDbRef = null;
+let sharedMemoSaveTimer = 0;
+let sharedMemoApplyingRemote = false;
+let sharedSyncReady = false;
 
 function yesterdayDate() {
   const date = new Date();
@@ -340,13 +346,145 @@ function renderSharedMembers(activeId) {
   });
 }
 
-function loadSharedMemo() {
+function loadSharedMemoLocal() {
   const value = localStorage.getItem(SHARED_MEMO_KEY);
   return typeof value === "string" ? value : "";
 }
 
-function saveSharedMemo(text) {
+function saveSharedMemoLocal(text) {
   localStorage.setItem(SHARED_MEMO_KEY, text);
+}
+
+function isFirebaseConfigured() {
+  return Boolean(
+    typeof FIREBASE_CONFIG !== "undefined" &&
+      FIREBASE_CONFIG &&
+      FIREBASE_CONFIG.apiKey &&
+      FIREBASE_CONFIG.databaseURL &&
+      typeof firebase !== "undefined",
+  );
+}
+
+function updateSharedSyncStatus(mode) {
+  if (!sharedSyncStatus) {
+    return;
+  }
+  if (mode === "live") {
+    sharedSyncStatus.textContent = "실시간 동기화";
+    sharedSyncStatus.className = "shared-sync is-live";
+    sharedSetupHint.hidden = true;
+    return;
+  }
+  if (mode === "error") {
+    sharedSyncStatus.textContent = "동기화 오류";
+    sharedSyncStatus.className = "shared-sync is-error";
+    sharedSetupHint.hidden = false;
+    return;
+  }
+  sharedSyncStatus.textContent = "로컬 전용";
+  sharedSyncStatus.className = "shared-sync is-local";
+  sharedSetupHint.hidden = false;
+}
+
+function stopSharedMemoSync() {
+  if (sharedDbRef) {
+    sharedDbRef.off();
+  }
+  sharedDbRef = null;
+  sharedSyncReady = false;
+  window.clearTimeout(sharedMemoSaveTimer);
+}
+
+function initSharedDatabase() {
+  if (!isFirebaseConfigured()) {
+    return false;
+  }
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    sharedDbRef = firebase.database().ref("kitegamemode/shared/memo");
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+function applySharedMemoFromRemote(payload) {
+  const text =
+    typeof payload === "string"
+      ? payload
+      : payload && typeof payload.text === "string"
+        ? payload.text
+        : "";
+  sharedMemoApplyingRemote = true;
+  if (document.activeElement !== sharedMemoInput) {
+    sharedMemoInput.value = text;
+  }
+  saveSharedMemoLocal(text);
+  sharedMemoApplyingRemote = false;
+}
+
+function startSharedMemoSync() {
+  stopSharedMemoSync();
+
+  if (!initSharedDatabase()) {
+    sharedMemoInput.value = loadSharedMemoLocal();
+    updateSharedSyncStatus("local");
+    return;
+  }
+
+  updateSharedSyncStatus("live");
+  sharedSyncReady = true;
+  sharedDbRef.on(
+    "value",
+    (snapshot) => {
+      applySharedMemoFromRemote(snapshot.val());
+    },
+    () => {
+      updateSharedSyncStatus("error");
+      sharedMemoInput.value = loadSharedMemoLocal();
+    },
+  );
+}
+
+function pushSharedMemo(text, { silent = false } = {}) {
+  saveSharedMemoLocal(text);
+  if (!sharedDbRef || !sharedSyncReady) {
+    if (!silent) {
+      showToast("로컬에 저장했습니다. Firebase 설정 후 실시간 공유됩니다");
+    }
+    return;
+  }
+
+  sharedDbRef
+    .set({
+      text,
+      updatedBy: currentAccount?.id || "",
+      updatedAt: Date.now(),
+    })
+    .then(() => {
+      if (!silent) {
+        showToast("공유 메모를 저장했습니다");
+      }
+    })
+    .catch(() => {
+      updateSharedSyncStatus("error");
+      if (!silent) {
+        showToast("공유 저장에 실패했습니다");
+      }
+    });
+}
+
+function queueSharedMemoPush() {
+  if (sharedMemoApplyingRemote) {
+    return;
+  }
+  window.clearTimeout(sharedMemoSaveTimer);
+  sharedMemoSaveTimer = window.setTimeout(() => {
+    pushSharedMemo(sharedMemoInput.value, { silent: true });
+  }, 450);
 }
 
 function enterShared(account) {
@@ -356,8 +494,9 @@ function enterShared(account) {
   loginError.hidden = true;
   loginForm.reset();
   renderSharedMembers(account.id);
-  sharedMemoInput.value = loadSharedMemo();
+  sharedMemoInput.value = loadSharedMemoLocal();
   showPage("shared");
+  startSharedMemoSync();
 }
 
 function normalizeSection(section) {
@@ -2200,6 +2339,7 @@ function enterHome(account, { section } = {}) {
 
 function logout() {
   currentAccount = null;
+  stopSharedMemoSync();
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SECTION_KEY);
   loginError.hidden = true;
@@ -2900,9 +3040,9 @@ async function downloadLanguageMonthPdf() {
 logoutBtn.addEventListener("click", logout);
 sharedLogoutBtn.addEventListener("click", logout);
 sharedMemoSaveBtn.addEventListener("click", () => {
-  saveSharedMemo(sharedMemoInput.value);
-  showToast("공유 메모를 저장했습니다");
+  pushSharedMemo(sharedMemoInput.value);
 });
+sharedMemoInput.addEventListener("input", queueSharedMemoPush);
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     setActiveSection(tab.dataset.section);

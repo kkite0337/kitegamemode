@@ -53,7 +53,10 @@
         <div class="side-panel__box side-panel__box--memo shared-memo-box">
           <div class="side-box-head">
             <h2 class="side-box-title">공유 메모</h2>
-            <button class="btn-text is-strong" type="button" id="sharedMemoSaveBtn">저장</button>
+            <div class="side-box-actions">
+              <p class="shared-sync" id="sharedSyncStatus">동기화 확인 중</p>
+              <button class="btn-text is-strong" type="button" id="sharedMemoSaveBtn">저장</button>
+            </div>
           </div>
           <textarea
             id="sharedMemoInput"
@@ -61,6 +64,9 @@
             rows="12"
             placeholder="세 명이 함께 보는 메모를 작성하세요"
           ></textarea>
+          <p class="shared-setup-hint" id="sharedSetupHint" hidden>
+            다른 폰·PC와 실시간 공유하려면 Firebase 설정이 필요합니다. `firebase-config.js`에 프로젝트 값을 넣어 주세요.
+          </p>
         </div>
       </div>
     </section>

@@ -142,6 +142,30 @@ body:has(.shared-page:not([hidden])) .app {
   min-height: 280px;
 }
 
+.shared-sync {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a8174;
+}
+
+.shared-sync.is-live {
+  color: #16a34a;
+}
+
+.shared-sync.is-local,
+.shared-sync.is-error {
+  color: #b45309;
+}
+
+.shared-setup-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #8a8174;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
