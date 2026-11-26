@@ -388,21 +388,6 @@ body:has(.shared-page:not([hidden])) .app {
   gap: 8px;
 }
 
-.shared-cal-row__label {
-  margin: 0;
-  width: 42px;
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #222;
-}
-
-.shared-cal-row.is-done .shared-cal-row__label {
-  color: #8a8174;
-  text-decoration: line-through;
-  text-decoration-thickness: 1.5px;
-}
-
 .shared-cal-row__days {
   flex: 1;
   min-width: 0;

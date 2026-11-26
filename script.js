@@ -4,11 +4,7 @@ const SHARED_BOARD_KEY = "kitegamemode-shared-board";
 const SHARED_PAGE_VIEW_KEY = "kitegamemode-shared-page-view";
 const SHARED_ADMIN_ID = "kite";
 const SHARED_DEFAULT_TITLE = "제목을 입력하세요";
-const SHARED_CALENDAR_ITEMS = [
-  { id: "cal1", label: "1" },
-  { id: "cal2", label: "2" },
-  { id: "cal3", label: "3" },
-];
+const SHARED_CALENDAR_ITEMS = [{ id: "cal1", label: "" }];
 const SHARED_CALENDAR_DONE_MIN = 3;
 const SHARED_PERIOD_MAX_DAYS = 62;
 const SECTIONS = ["routine", "economy", "language"];
@@ -858,11 +854,6 @@ function renderSharedCalPanel(panel) {
       row.classList.add("is-done");
     }
 
-    const label = document.createElement("p");
-    label.className = "shared-cal-row__label";
-    label.textContent = item.label;
-    row.appendChild(label);
-
     const dayGroup = document.createElement("div");
     dayGroup.className = "shared-cal-row__days";
 
@@ -874,7 +865,10 @@ function renderSharedCalPanel(panel) {
       button.className = "shared-cal-check";
       button.textContent = checked ? "✓" : sharedCalendarDayLabel(date, spansMonths);
       button.disabled = !canEdit;
-      button.setAttribute("aria-label", `${item.label} ${dayKey}`);
+      button.setAttribute(
+        "aria-label",
+        `${sharedCalendarDayLabel(date, spansMonths)}일`,
+      );
       button.setAttribute("aria-pressed", checked ? "true" : "false");
       if (checked) {
         button.classList.add("is-checked");
