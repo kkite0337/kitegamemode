@@ -38,7 +38,18 @@ const CLEANING_ITEMS = [
   { id: "bedding", label: "침구•침대" },
   { id: "car", label: "자동차" },
 ];
-const EXERCISE_ITEMS = [{ id: "cardio", label: "유산소" }];
+const EXERCISE_MATRIX_GROUPS = [
+  [{ id: "cardio", label: "유산소" }],
+  [
+    { id: "stretch", label: "스트레칭" },
+    { id: "swelling", label: "붓기" },
+  ],
+  [
+    { id: "upper", label: "상체" },
+    { id: "abs", label: "복부" },
+    { id: "diet", label: "다이어트" },
+  ],
+];
 const EXERCISE_DONE_MIN = 3;
 
 const LANG_CATEGORIES = [
@@ -660,47 +671,56 @@ function renderExerciseList() {
   const days = weekDateList(routineViewMonday);
   exerciseList.replaceChildren();
 
-  EXERCISE_ITEMS.forEach((item) => {
-    const count = exerciseCheckedCount(item.id, weekKey);
-    const done = count >= EXERCISE_DONE_MIN;
-    const row = document.createElement("div");
-    row.className = "exercise-row";
-    if (done) {
-      row.classList.add("is-done");
+  EXERCISE_MATRIX_GROUPS.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      const divider = document.createElement("div");
+      divider.className = "exercise-divider";
+      divider.setAttribute("aria-hidden", "true");
+      exerciseList.appendChild(divider);
     }
 
-    const label = document.createElement("p");
-    label.className = "exercise-row__label";
-    label.textContent = item.label;
-    row.appendChild(label);
-
-    const dayGroup = document.createElement("div");
-    dayGroup.className = "exercise-row__days";
-
-    days.forEach((day, index) => {
-      const dayKey = dateKey(day);
-      const checked = isExerciseDayChecked(item.id, dayKey, weekKey);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "exercise-check";
-      button.textContent = checked ? "✓" : ROUTINE_DAY_LABELS[index];
-      button.setAttribute(
-        "aria-label",
-        `${item.label} ${ROUTINE_DAY_LABELS[index]}`,
-      );
-      button.setAttribute("aria-pressed", checked ? "true" : "false");
-      if (checked) {
-        button.classList.add("is-checked");
+    group.forEach((item) => {
+      const count = exerciseCheckedCount(item.id, weekKey);
+      const done = count >= EXERCISE_DONE_MIN;
+      const row = document.createElement("div");
+      row.className = "exercise-row";
+      if (done) {
+        row.classList.add("is-done");
       }
-      button.addEventListener("click", () => {
-        setExerciseDayChecked(item.id, dayKey, !checked);
-        renderExerciseList();
-      });
-      dayGroup.appendChild(button);
-    });
 
-    row.appendChild(dayGroup);
-    exerciseList.appendChild(row);
+      const label = document.createElement("p");
+      label.className = "exercise-row__label";
+      label.textContent = item.label;
+      row.appendChild(label);
+
+      const dayGroup = document.createElement("div");
+      dayGroup.className = "exercise-row__days";
+
+      days.forEach((day, index) => {
+        const dayKey = dateKey(day);
+        const checked = isExerciseDayChecked(item.id, dayKey, weekKey);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "exercise-check";
+        button.textContent = checked ? "✓" : ROUTINE_DAY_LABELS[index];
+        button.setAttribute(
+          "aria-label",
+          `${item.label} ${ROUTINE_DAY_LABELS[index]}`,
+        );
+        button.setAttribute("aria-pressed", checked ? "true" : "false");
+        if (checked) {
+          button.classList.add("is-checked");
+        }
+        button.addEventListener("click", () => {
+          setExerciseDayChecked(item.id, dayKey, !checked);
+          renderExerciseList();
+        });
+        dayGroup.appendChild(button);
+      });
+
+      row.appendChild(dayGroup);
+      exerciseList.appendChild(row);
+    });
   });
 }
 

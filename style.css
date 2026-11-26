@@ -326,20 +326,26 @@ body:has(.home-page:not([hidden])) .app {
 .exercise-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+}
+
+.exercise-divider {
+  height: 1px;
+  background: #e7dfd0;
+  margin: 4px 0;
 }
 
 .exercise-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .exercise-row__label {
   margin: 0;
-  width: 48px;
+  width: 58px;
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #222;
 }
