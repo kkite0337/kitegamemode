@@ -769,8 +769,8 @@ body:has(.shared-page:not([hidden])) {
 
 @media (min-width: 761px) {
   .shared-cal-check {
-    font-size: 16px;
-    min-height: 36px;
+    font-size: 20px;
+    min-height: 44px;
   }
 }
 
