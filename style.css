@@ -360,9 +360,16 @@ body:has(.shared-page:not([hidden])) .app {
 
 .shared-subsection__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.shared-subsection__head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .shared-subsection__title {
@@ -370,6 +377,131 @@ body:has(.shared-page:not([hidden])) .app {
   font-size: 14px;
   font-weight: 800;
   color: #5c574e;
+}
+
+.shared-quote__add {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.shared-quote__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #ebe4d7;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.shared-quote__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.shared-quote__field-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a8174;
+}
+
+.shared-quote__date,
+.shared-quote__text {
+  width: 100%;
+  border: 1px solid #ddd4c4;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  background: #fff;
+}
+
+.shared-quote__text {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.45;
+}
+
+.shared-quote__date:focus,
+.shared-quote__text:focus {
+  outline: 2px solid #d97706;
+  outline-offset: 1px;
+}
+
+.shared-quote__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.shared-quote__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shared-quote__empty {
+  margin: 0;
+  padding: 12px 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #a39a8c;
+}
+
+.shared-quote-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid #ebe4d7;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.shared-quote-item__date {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #8a8174;
+}
+
+.shared-quote-item__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #3f3a32;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.shared-quote-item__remove {
+  border: 0;
+  background: transparent;
+  color: #a39a8c;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.shared-quote-item__remove:hover,
+.shared-quote-item__remove:focus-visible {
+  color: #b45309;
+  outline: none;
 }
 
 .shared-subsection__body {

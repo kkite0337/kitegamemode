@@ -90,6 +90,7 @@ const sharedSyncStatus = document.getElementById("sharedSyncStatus");
 const sharedSetupHint = document.getElementById("sharedSetupHint");
 const sharedTodoPanels = Array.from(document.querySelectorAll(".shared-todo"));
 const sharedCalPanels = Array.from(document.querySelectorAll(".shared-cal"));
+const sharedQuotePanels = Array.from(document.querySelectorAll(".shared-quote"));
 const sharedTitleText = document.getElementById("sharedTitleText");
 const sharedTitleEditBtn = document.getElementById("sharedTitleEditBtn");
 const sharedTitleDisplay = document.getElementById("sharedTitleDisplay");
@@ -384,6 +385,14 @@ function createSharedTodoId() {
   return `todo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function createSharedQuoteId() {
+  return `quote-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function todaySharedDateKey() {
+  return dateKey(new Date());
+}
+
 function createSharedPageId() {
   return `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -466,6 +475,7 @@ function createEmptySharedPage(overrides = {}) {
     meetDate: normalizeSharedDateValue(overrides.meetDate),
     todos: normalizeSharedTodosMap(overrides.todos),
     calendars: normalizeSharedCalendarsMap(overrides.calendars),
+    quotes: normalizeSharedQuotesMap(overrides.quotes),
     createdAt: Number(overrides.createdAt) || Date.now(),
   };
 }
@@ -580,6 +590,57 @@ function normalizeSharedTodosMap(rawTodos) {
   return next;
 }
 
+function emptySharedQuotes() {
+  return sharedMemberIds().reduce((acc, memberId) => {
+    acc[memberId] = [];
+    return acc;
+  }, {});
+}
+
+function normalizeSharedQuote(raw, fallbackMember) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const text = typeof raw.text === "string" ? raw.text.trim() : "";
+  if (!text) {
+    return null;
+  }
+  const date = normalizeSharedDateValue(raw.date) || todaySharedDateKey();
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : createSharedQuoteId(),
+    date,
+    text,
+    createdBy:
+      typeof raw.createdBy === "string" && raw.createdBy
+        ? raw.createdBy
+        : fallbackMember,
+    createdAt: Number(raw.createdAt) || Date.now(),
+  };
+}
+
+function normalizeSharedQuotesMap(rawQuotes) {
+  const next = emptySharedQuotes();
+  sharedMemberIds().forEach((memberId) => {
+    const source = rawQuotes && typeof rawQuotes === "object" ? rawQuotes[memberId] : null;
+    let list = [];
+    if (Array.isArray(source)) {
+      list = source;
+    } else if (source && typeof source === "object") {
+      list = Object.values(source);
+    }
+    next[memberId] = list
+      .map((item) => normalizeSharedQuote(item, memberId))
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.date === b.date) {
+          return b.createdAt - a.createdAt;
+        }
+        return a.date < b.date ? 1 : -1;
+      });
+  });
+  return next;
+}
+
 function normalizeSharedPage(raw) {
   if (!raw || typeof raw !== "object") {
     return createEmptySharedPage();
@@ -638,6 +699,10 @@ function cloneSharedBoard(board = sharedBoard) {
           itemAcc[item.id] = { ...(page.calendars?.[memberId]?.[item.id] || {}) };
           return itemAcc;
         }, {});
+        return acc;
+      }, {}),
+      quotes: sharedMemberIds().reduce((acc, memberId) => {
+        acc[memberId] = (page.quotes?.[memberId] || []).map((item) => ({ ...item }));
         return acc;
       }, {}),
     })),
@@ -926,6 +991,124 @@ function renderSharedCalPanel(panel) {
   listEl.appendChild(board);
 }
 
+function setSharedQuoteFormOpen(panel, open) {
+  const form = panel.querySelector("[data-quote-form]");
+  const dateInput = panel.querySelector("[data-quote-date]");
+  const textInput = panel.querySelector("[data-quote-text]");
+  const addBtn = panel.querySelector("[data-quote-add]");
+  form.hidden = !open;
+  if (open) {
+    dateInput.value = todaySharedDateKey();
+    textInput.value = "";
+    addBtn.setAttribute("aria-expanded", "true");
+    dateInput.focus();
+  } else {
+    addBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+function renderSharedQuotePanel(panel) {
+  const memberId = panel.dataset.member;
+  const listEl = panel.querySelector("[data-quote-list]");
+  const addBtn = panel.querySelector("[data-quote-add]");
+  const form = panel.querySelector("[data-quote-form]");
+  const page = getActiveSharedPage();
+  const items = page.quotes?.[memberId] || [];
+  const canAdd = canEditSharedMemberTodos(memberId);
+
+  addBtn.hidden = !canAdd;
+  if (!canAdd) {
+    form.hidden = true;
+  }
+
+  listEl.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "shared-quote__empty";
+    empty.textContent = "아직 한마디가 없습니다";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = "shared-quote-item";
+
+    const body = document.createElement("div");
+    body.className = "shared-quote-item__body";
+
+    const date = document.createElement("p");
+    date.className = "shared-quote-item__date";
+    date.textContent = formatSharedMeetDate(item.date) || item.date;
+
+    const text = document.createElement("p");
+    text.className = "shared-quote-item__text";
+    text.textContent = item.text;
+
+    body.append(date, text);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "shared-quote-item__remove";
+    removeBtn.dataset.action = "remove-quote";
+    removeBtn.dataset.member = memberId;
+    removeBtn.dataset.id = item.id;
+    removeBtn.setAttribute("aria-label", "삭제");
+    removeBtn.textContent = "×";
+    removeBtn.hidden = !(canAdd || isSharedAdmin());
+
+    row.append(body, removeBtn);
+    listEl.appendChild(row);
+  });
+}
+
+function addSharedQuote(memberId, dateValue, textValue) {
+  if (!canEditSharedMemberTodos(memberId)) {
+    showToast("본인 한마디만 추가할 수 있습니다");
+    return false;
+  }
+  const text = String(textValue || "").trim();
+  if (!text) {
+    showToast("메모를 입력해 주세요");
+    return false;
+  }
+  const date = normalizeSharedDateValue(dateValue) || todaySharedDateKey();
+  const page = getActiveSharedPage();
+  if (!page.quotes) {
+    page.quotes = emptySharedQuotes();
+  }
+  const nextItem = {
+    id: createSharedQuoteId(),
+    date,
+    text,
+    createdBy: currentAccount?.id || memberId,
+    createdAt: Date.now(),
+  };
+  page.quotes[memberId] = [nextItem, ...(page.quotes[memberId] || [])].sort((a, b) => {
+    if (a.date === b.date) {
+      return b.createdAt - a.createdAt;
+    }
+    return a.date < b.date ? 1 : -1;
+  });
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+  showToast("한마디를 저장했습니다");
+  return true;
+}
+
+function removeSharedQuote(memberId, quoteId) {
+  if (!(canEditSharedMemberTodos(memberId) || isSharedAdmin())) {
+    showToast("삭제 권한이 없습니다");
+    return;
+  }
+  const page = getActiveSharedPage();
+  page.quotes[memberId] = (page.quotes?.[memberId] || []).filter(
+    (item) => item.id !== quoteId,
+  );
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+}
+
 function renderSharedTodoPanel(panel) {
   const memberId = panel.dataset.member;
   const listEl = panel.querySelector("[data-todo-list]");
@@ -999,6 +1182,7 @@ function renderSharedBoard() {
   highlightSharedSection(currentAccount?.id);
   renderSharedTitle();
   sharedCalPanels.forEach((panel) => renderSharedCalPanel(panel));
+  sharedQuotePanels.forEach((panel) => renderSharedQuotePanel(panel));
   sharedTodoPanels.forEach((panel) => renderSharedTodoPanel(panel));
 }
 
@@ -3812,6 +3996,40 @@ sharedMeetDateInput.addEventListener("change", () => {
 });
 sharedMeetDateInput.addEventListener("blur", () => {
   saveSharedMeetDate(sharedMeetDateInput.value);
+});
+sharedQuotePanels.forEach((panel) => {
+  const addBtn = panel.querySelector("[data-quote-add]");
+  const form = panel.querySelector("[data-quote-form]");
+  const cancelBtn = panel.querySelector("[data-quote-cancel]");
+  const dateInput = panel.querySelector("[data-quote-date]");
+  const textInput = panel.querySelector("[data-quote-text]");
+  const list = panel.querySelector("[data-quote-list]");
+
+  addBtn.addEventListener("click", () => {
+    if (!canEditSharedMemberTodos(panel.dataset.member)) {
+      return;
+    }
+    setSharedQuoteFormOpen(panel, form.hidden);
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    setSharedQuoteFormOpen(panel, false);
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (addSharedQuote(panel.dataset.member, dateInput.value, textInput.value)) {
+      setSharedQuoteFormOpen(panel, false);
+    }
+  });
+
+  list.addEventListener("click", (event) => {
+    const actionEl = event.target.closest("[data-action='remove-quote']");
+    if (!actionEl || !list.contains(actionEl)) {
+      return;
+    }
+    removeSharedQuote(actionEl.dataset.member, actionEl.dataset.id);
+  });
 });
 sharedTodoPanels.forEach((panel) => {
   const form = panel.querySelector("[data-todo-form]");
