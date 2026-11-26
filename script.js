@@ -1,6 +1,8 @@
 const SESSION_KEY = "kitegamemode-session";
 const SECTION_KEY = "kitegamemode-section";
-const SHARED_MEMO_KEY = "kitegamemode-shared-memo";
+const SHARED_BOARD_KEY = "kitegamemode-shared-board";
+const SHARED_ADMIN_ID = "kite";
+const SHARED_DEFAULT_TITLE = "제목을 입력하세요";
 const SECTIONS = ["routine", "economy", "language"];
 const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
@@ -80,11 +82,15 @@ const homeLabel = document.getElementById("homeLabel");
 const logoutBtn = document.getElementById("logoutBtn");
 const sharedLabel = document.getElementById("sharedLabel");
 const sharedLogoutBtn = document.getElementById("sharedLogoutBtn");
-const sharedMembersList = document.getElementById("sharedMembersList");
-const sharedMemoInput = document.getElementById("sharedMemoInput");
-const sharedMemoSaveBtn = document.getElementById("sharedMemoSaveBtn");
 const sharedSyncStatus = document.getElementById("sharedSyncStatus");
 const sharedSetupHint = document.getElementById("sharedSetupHint");
+const sharedTodoPanels = Array.from(document.querySelectorAll(".shared-todo"));
+const sharedTitleText = document.getElementById("sharedTitleText");
+const sharedTitleEditBtn = document.getElementById("sharedTitleEditBtn");
+const sharedTitleDisplay = document.getElementById("sharedTitleDisplay");
+const sharedTitleEditForm = document.getElementById("sharedTitleEditForm");
+const sharedTitleInput = document.getElementById("sharedTitleInput");
+const sharedTitleCancelBtn = document.getElementById("sharedTitleCancelBtn");
 const addMemoBtn = document.getElementById("addMemoBtn");
 const pdfBtn = document.getElementById("pdfBtn");
 const langPdfBtn = document.getElementById("langPdfBtn");
@@ -207,9 +213,13 @@ let routineWeekTimer = 0;
 let routineViewMonday = null;
 let routineMemoLoadedWeek = "";
 let sharedDbRef = null;
-let sharedMemoSaveTimer = 0;
-let sharedMemoApplyingRemote = false;
 let sharedSyncReady = false;
+let sharedBoard = {
+  title: "",
+  todos: { kite: [], jinee: [], heeya: [] },
+};
+let sharedBoardApplyingRemote = false;
+let sharedTitleEditing = false;
 
 function yesterdayDate() {
   const date = new Date();
@@ -328,6 +338,120 @@ function isSharedAccount(account) {
   return account?.role === "shared";
 }
 
+function sharedMemberIds() {
+  return typeof SHARED_MEMBER_IDS !== "undefined" && Array.isArray(SHARED_MEMBER_IDS)
+    ? SHARED_MEMBER_IDS.slice()
+    : ["kite", "jinee", "heeya"];
+}
+
+function emptySharedTodos() {
+  return sharedMemberIds().reduce((acc, memberId) => {
+    acc[memberId] = [];
+    return acc;
+  }, {});
+}
+
+function isSharedAdmin(account = currentAccount) {
+  return (
+    account?.role === "shared" &&
+    String(account.id || "").toUpperCase() === SHARED_ADMIN_ID.toUpperCase()
+  );
+}
+
+function canEditSharedMemberTodos(memberId, account = currentAccount) {
+  if (!account || account.role !== "shared") {
+    return false;
+  }
+  if (isSharedAdmin(account)) {
+    return true;
+  }
+  return String(account.id || "").toUpperCase() === String(memberId || "").toUpperCase();
+}
+
+function createSharedTodoId() {
+  return `todo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeSharedTodo(raw, fallbackMember) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const text = typeof raw.text === "string" ? raw.text.trim() : "";
+  if (!text) {
+    return null;
+  }
+  const createdBy =
+    typeof raw.createdBy === "string" && raw.createdBy
+      ? raw.createdBy
+      : fallbackMember;
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : createSharedTodoId(),
+    text,
+    done: Boolean(raw.done),
+    createdBy,
+    createdAt: Number(raw.createdAt) || Date.now(),
+    byAdmin: Boolean(
+      raw.byAdmin ||
+        (String(createdBy).toUpperCase() === SHARED_ADMIN_ID.toUpperCase() &&
+          String(fallbackMember).toUpperCase() !== SHARED_ADMIN_ID.toUpperCase()),
+    ),
+  };
+}
+
+function normalizeSharedTodosMap(rawTodos) {
+  const next = emptySharedTodos();
+  sharedMemberIds().forEach((memberId) => {
+    const source = rawTodos && typeof rawTodos === "object" ? rawTodos[memberId] : null;
+    let list = [];
+    if (Array.isArray(source)) {
+      list = source;
+    } else if (source && typeof source === "object") {
+      list = Object.values(source);
+    }
+    next[memberId] = list
+      .map((item) => normalizeSharedTodo(item, memberId))
+      .filter(Boolean)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  });
+  return next;
+}
+
+function normalizeSharedBoard(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { title: "", todos: emptySharedTodos() };
+  }
+  return {
+    title: typeof raw.title === "string" ? raw.title.trim() : "",
+    todos: normalizeSharedTodosMap(raw.todos),
+  };
+}
+
+function cloneSharedBoard(board = sharedBoard) {
+  return {
+    title: board.title || "",
+    todos: sharedMemberIds().reduce((acc, memberId) => {
+      acc[memberId] = (board.todos?.[memberId] || []).map((item) => ({ ...item }));
+      return acc;
+    }, {}),
+  };
+}
+
+function saveSharedBoardLocal(board = sharedBoard) {
+  localStorage.setItem(SHARED_BOARD_KEY, JSON.stringify(cloneSharedBoard(board)));
+}
+
+function loadSharedBoardLocal() {
+  try {
+    const raw = localStorage.getItem(SHARED_BOARD_KEY);
+    if (!raw) {
+      return { title: "", todos: emptySharedTodos() };
+    }
+    return normalizeSharedBoard(JSON.parse(raw));
+  } catch (error) {
+    return { title: "", todos: emptySharedTodos() };
+  }
+}
+
 function highlightSharedSection(activeId) {
   document.querySelectorAll(".shared-section").forEach((section) => {
     section.classList.toggle(
@@ -337,17 +461,107 @@ function highlightSharedSection(activeId) {
   });
 }
 
-function renderSharedMembers(activeId) {
-  highlightSharedSection(activeId);
+function setSharedTitleEditing(editing) {
+  sharedTitleEditing = Boolean(editing);
+  sharedTitleDisplay.hidden = sharedTitleEditing;
+  sharedTitleEditForm.hidden = !sharedTitleEditing;
+  if (sharedTitleEditing) {
+    sharedTitleInput.value = sharedBoard.title || "";
+    sharedTitleInput.focus();
+    const length = sharedTitleInput.value.length;
+    sharedTitleInput.setSelectionRange(length, length);
+  }
 }
 
-function loadSharedMemoLocal() {
-  const value = localStorage.getItem(SHARED_MEMO_KEY);
-  return typeof value === "string" ? value : "";
+function renderSharedTitle() {
+  const title = (sharedBoard.title || "").trim();
+  const hasTitle = Boolean(title);
+  sharedTitleText.textContent = hasTitle ? title : SHARED_DEFAULT_TITLE;
+  sharedTitleText.classList.toggle("is-placeholder", !hasTitle);
+  sharedTitleEditBtn.hidden = !isSharedAdmin() || sharedTitleEditing;
+  if (!isSharedAdmin()) {
+    setSharedTitleEditing(false);
+  }
 }
 
-function saveSharedMemoLocal(text) {
-  localStorage.setItem(SHARED_MEMO_KEY, text);
+function renderSharedTodoPanel(panel) {
+  const memberId = panel.dataset.member;
+  const listEl = panel.querySelector("[data-todo-list]");
+  const countEl = panel.querySelector("[data-todo-count]");
+  const formEl = panel.querySelector("[data-todo-form]");
+  const items = sharedBoard.todos?.[memberId] || [];
+  const canAdd = canEditSharedMemberTodos(memberId);
+  const doneCount = items.filter((item) => item.done).length;
+
+  countEl.textContent = items.length ? `${doneCount}/${items.length}` : "0";
+  formEl.hidden = !canAdd;
+  listEl.replaceChildren();
+
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "shared-todo__empty";
+    empty.textContent = "할 일이 없습니다";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = "shared-todo-item";
+    if (item.done) {
+      row.classList.add("is-done");
+    }
+    if (item.byAdmin) {
+      row.classList.add("is-admin");
+    }
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "shared-todo-item__main";
+    toggleBtn.dataset.action = "toggle";
+    toggleBtn.dataset.member = memberId;
+    toggleBtn.dataset.id = item.id;
+
+    const box = document.createElement("span");
+    box.className = "shared-todo-item__box";
+    box.textContent = "✓";
+
+    const body = document.createElement("span");
+    body.className = "shared-todo-item__body";
+
+    const text = document.createElement("p");
+    text.className = "shared-todo-item__text";
+    text.textContent = item.text;
+
+    body.appendChild(text);
+    if (item.byAdmin) {
+      const meta = document.createElement("p");
+      meta.className = "shared-todo-item__meta";
+      meta.textContent = "관리자";
+      body.appendChild(meta);
+    }
+
+    toggleBtn.append(box, body);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "shared-todo-item__remove";
+    removeBtn.dataset.action = "remove";
+    removeBtn.dataset.member = memberId;
+    removeBtn.dataset.id = item.id;
+    removeBtn.setAttribute("aria-label", "삭제");
+    removeBtn.textContent = "×";
+    removeBtn.hidden = !(canAdd || isSharedAdmin());
+
+    row.append(toggleBtn, removeBtn);
+    listEl.appendChild(row);
+  });
+}
+
+function renderSharedBoard() {
+  highlightSharedSection(currentAccount?.id);
+  renderSharedTitle();
+  sharedTodoPanels.forEach((panel) => renderSharedTodoPanel(panel));
 }
 
 function isFirebaseConfigured() {
@@ -381,13 +595,12 @@ function updateSharedSyncStatus(mode) {
   sharedSetupHint.hidden = false;
 }
 
-function stopSharedMemoSync() {
+function stopSharedBoardSync() {
   if (sharedDbRef) {
     sharedDbRef.off();
   }
   sharedDbRef = null;
   sharedSyncReady = false;
-  window.clearTimeout(sharedMemoSaveTimer);
 }
 
 function initSharedDatabase() {
@@ -398,7 +611,7 @@ function initSharedDatabase() {
     if (!firebase.apps.length) {
       firebase.initializeApp(FIREBASE_CONFIG);
     }
-    sharedDbRef = firebase.database().ref("kitegamemode/shared/memo");
+    sharedDbRef = firebase.database().ref("kitegamemode/shared/board");
     return true;
   } catch (error) {
     console.error(error);
@@ -406,26 +619,20 @@ function initSharedDatabase() {
   }
 }
 
-function applySharedMemoFromRemote(payload) {
-  const text =
-    typeof payload === "string"
-      ? payload
-      : payload && typeof payload.text === "string"
-        ? payload.text
-        : "";
-  sharedMemoApplyingRemote = true;
-  if (document.activeElement !== sharedMemoInput) {
-    sharedMemoInput.value = text;
-  }
-  saveSharedMemoLocal(text);
-  sharedMemoApplyingRemote = false;
+function applySharedBoardFromRemote(payload) {
+  sharedBoardApplyingRemote = true;
+  sharedBoard = normalizeSharedBoard(payload);
+  saveSharedBoardLocal(sharedBoard);
+  renderSharedBoard();
+  sharedBoardApplyingRemote = false;
 }
 
-function startSharedMemoSync() {
-  stopSharedMemoSync();
+function startSharedBoardSync() {
+  stopSharedBoardSync();
+  sharedBoard = loadSharedBoardLocal();
+  renderSharedBoard();
 
   if (!initSharedDatabase()) {
-    sharedMemoInput.value = loadSharedMemoLocal();
     updateSharedSyncStatus("local");
     return;
   }
@@ -435,33 +642,41 @@ function startSharedMemoSync() {
   sharedDbRef.on(
     "value",
     (snapshot) => {
-      applySharedMemoFromRemote(snapshot.val());
+      const value = snapshot.val();
+      if (value == null) {
+        pushSharedBoard({ silent: true });
+        return;
+      }
+      applySharedBoardFromRemote(value);
     },
     () => {
       updateSharedSyncStatus("error");
-      sharedMemoInput.value = loadSharedMemoLocal();
+      sharedBoard = loadSharedBoardLocal();
+      renderSharedBoard();
     },
   );
 }
 
-function pushSharedMemo(text, { silent = false } = {}) {
-  saveSharedMemoLocal(text);
+function pushSharedBoard({ silent = false } = {}) {
+  const payload = {
+    ...cloneSharedBoard(sharedBoard),
+    updatedBy: currentAccount?.id || "",
+    updatedAt: Date.now(),
+  };
+  saveSharedBoardLocal(sharedBoard);
+
   if (!sharedDbRef || !sharedSyncReady) {
     if (!silent) {
-      showToast("로컬에 저장했습니다. Firebase 설정 후 실시간 공유됩니다");
+      showToast("로컬에 저장했습니다");
     }
-    return;
+    return Promise.resolve();
   }
 
-  sharedDbRef
-    .set({
-      text,
-      updatedBy: currentAccount?.id || "",
-      updatedAt: Date.now(),
-    })
+  return sharedDbRef
+    .set(payload)
     .then(() => {
       if (!silent) {
-        showToast("공유 메모를 저장했습니다");
+        showToast("저장했습니다");
       }
     })
     .catch(() => {
@@ -472,14 +687,65 @@ function pushSharedMemo(text, { silent = false } = {}) {
     });
 }
 
-function queueSharedMemoPush() {
-  if (sharedMemoApplyingRemote) {
+function saveSharedTitle(nextTitle) {
+  if (!isSharedAdmin()) {
+    showToast("관리자만 제목을 수정할 수 있습니다");
     return;
   }
-  window.clearTimeout(sharedMemoSaveTimer);
-  sharedMemoSaveTimer = window.setTimeout(() => {
-    pushSharedMemo(sharedMemoInput.value, { silent: true });
-  }, 450);
+  sharedBoard.title = String(nextTitle || "").trim();
+  setSharedTitleEditing(false);
+  renderSharedBoard();
+  pushSharedBoard();
+}
+
+function addSharedTodo(memberId, text) {
+  if (!canEditSharedMemberTodos(memberId)) {
+    showToast("본인 할 일만 추가할 수 있습니다");
+    return false;
+  }
+  const cleaned = String(text || "").trim();
+  if (!cleaned) {
+    return false;
+  }
+  const createdBy = currentAccount?.id || memberId;
+  const byAdmin =
+    isSharedAdmin() &&
+    String(memberId).toUpperCase() !== SHARED_ADMIN_ID.toUpperCase();
+  const nextItem = {
+    id: createSharedTodoId(),
+    text: cleaned,
+    done: false,
+    createdBy,
+    createdAt: Date.now(),
+    byAdmin,
+  };
+  sharedBoard.todos[memberId] = [...(sharedBoard.todos[memberId] || []), nextItem];
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+  return true;
+}
+
+function toggleSharedTodo(memberId, todoId) {
+  const list = sharedBoard.todos[memberId] || [];
+  const target = list.find((item) => item.id === todoId);
+  if (!target) {
+    return;
+  }
+  target.done = !target.done;
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+}
+
+function removeSharedTodo(memberId, todoId) {
+  if (!(canEditSharedMemberTodos(memberId) || isSharedAdmin())) {
+    showToast("삭제 권한이 없습니다");
+    return;
+  }
+  sharedBoard.todos[memberId] = (sharedBoard.todos[memberId] || []).filter(
+    (item) => item.id !== todoId,
+  );
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
 }
 
 function enterShared(account) {
@@ -488,10 +754,9 @@ function enterShared(account) {
   sharedLabel.textContent = account.id;
   loginError.hidden = true;
   loginForm.reset();
-  renderSharedMembers(account.id);
-  sharedMemoInput.value = loadSharedMemoLocal();
+  setSharedTitleEditing(false);
   showPage("shared");
-  startSharedMemoSync();
+  startSharedBoardSync();
 }
 
 function normalizeSection(section) {
@@ -2334,7 +2599,8 @@ function enterHome(account, { section } = {}) {
 
 function logout() {
   currentAccount = null;
-  stopSharedMemoSync();
+  stopSharedBoardSync();
+  setSharedTitleEditing(false);
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SECTION_KEY);
   loginError.hidden = true;
@@ -3034,10 +3300,49 @@ async function downloadLanguageMonthPdf() {
 
 logoutBtn.addEventListener("click", logout);
 sharedLogoutBtn.addEventListener("click", logout);
-sharedMemoSaveBtn.addEventListener("click", () => {
-  pushSharedMemo(sharedMemoInput.value);
+sharedTitleEditBtn.addEventListener("click", () => {
+  if (!isSharedAdmin()) {
+    return;
+  }
+  setSharedTitleEditing(true);
+  renderSharedTitle();
 });
-sharedMemoInput.addEventListener("input", queueSharedMemoPush);
+sharedTitleCancelBtn.addEventListener("click", () => {
+  setSharedTitleEditing(false);
+  renderSharedTitle();
+});
+sharedTitleEditForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveSharedTitle(sharedTitleInput.value);
+});
+sharedTodoPanels.forEach((panel) => {
+  const form = panel.querySelector("[data-todo-form]");
+  const input = panel.querySelector("[data-todo-input]");
+  const list = panel.querySelector("[data-todo-list]");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (addSharedTodo(panel.dataset.member, input.value)) {
+      input.value = "";
+      input.focus();
+    }
+  });
+
+  list.addEventListener("click", (event) => {
+    const actionEl = event.target.closest("[data-action]");
+    if (!actionEl || !list.contains(actionEl)) {
+      return;
+    }
+    const { action, member, id } = actionEl.dataset;
+    if (action === "toggle") {
+      toggleSharedTodo(member, id);
+      return;
+    }
+    if (action === "remove") {
+      removeSharedTodo(member, id);
+    }
+  });
+});
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     setActiveSection(tab.dataset.section);

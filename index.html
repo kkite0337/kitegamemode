@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=276">
+  <link rel="stylesheet" href="style.css?v=277">
 </head>
 <body>
   <main class="app">
@@ -51,24 +51,98 @@
         <p class="shared-setup-hint" id="sharedSetupHint" hidden>
           다른 폰·PC와 실시간 공유하려면 Firebase 설정이 필요합니다.
         </p>
+        <div class="shared-title-bar" id="sharedTitleBar">
+          <div class="shared-title-display" id="sharedTitleDisplay">
+            <h1 class="shared-title-text" id="sharedTitleText">제목을 입력하세요</h1>
+            <button class="btn-text is-strong" type="button" id="sharedTitleEditBtn" hidden>수정</button>
+          </div>
+          <form class="shared-title-edit" id="sharedTitleEditForm" hidden>
+            <input
+              class="shared-title-input"
+              id="sharedTitleInput"
+              type="text"
+              maxlength="80"
+              placeholder="공유 페이지 제목"
+              autocomplete="off"
+            >
+            <div class="shared-title-edit-actions">
+              <button class="btn-text" type="button" id="sharedTitleCancelBtn">취소</button>
+              <button class="btn-text is-strong" type="submit">저장</button>
+            </div>
+          </form>
+        </div>
         <div class="shared-columns" id="sharedColumns">
           <section class="shared-section" data-member="kite">
             <h2 class="shared-section__title">kite</h2>
-            <div class="shared-section__body" id="sharedSectionKite"></div>
+            <div class="shared-section__body" id="sharedSectionKite">
+              <div class="shared-todo" data-member="kite">
+                <div class="shared-todo__head">
+                  <h3 class="shared-todo__label">Todo</h3>
+                  <p class="shared-todo__count" data-todo-count>0</p>
+                </div>
+                <ul class="shared-todo__list" data-todo-list></ul>
+                <form class="shared-todo__form" data-todo-form hidden>
+                  <input
+                    class="shared-todo__input"
+                    type="text"
+                    data-todo-input
+                    maxlength="120"
+                    placeholder="할 일 추가"
+                    autocomplete="off"
+                  >
+                  <button class="shared-todo__add" type="submit">추가</button>
+                </form>
+              </div>
+            </div>
           </section>
           <section class="shared-section" data-member="jinee">
             <h2 class="shared-section__title">jinee</h2>
-            <div class="shared-section__body" id="sharedSectionJinee"></div>
+            <div class="shared-section__body" id="sharedSectionJinee">
+              <div class="shared-todo" data-member="jinee">
+                <div class="shared-todo__head">
+                  <h3 class="shared-todo__label">Todo</h3>
+                  <p class="shared-todo__count" data-todo-count>0</p>
+                </div>
+                <ul class="shared-todo__list" data-todo-list></ul>
+                <form class="shared-todo__form" data-todo-form hidden>
+                  <input
+                    class="shared-todo__input"
+                    type="text"
+                    data-todo-input
+                    maxlength="120"
+                    placeholder="할 일 추가"
+                    autocomplete="off"
+                  >
+                  <button class="shared-todo__add" type="submit">추가</button>
+                </form>
+              </div>
+            </div>
           </section>
           <section class="shared-section" data-member="heeya">
             <h2 class="shared-section__title">heeya</h2>
-            <div class="shared-section__body" id="sharedSectionHeeya"></div>
+            <div class="shared-section__body" id="sharedSectionHeeya">
+              <div class="shared-todo" data-member="heeya">
+                <div class="shared-todo__head">
+                  <h3 class="shared-todo__label">Todo</h3>
+                  <p class="shared-todo__count" data-todo-count>0</p>
+                </div>
+                <ul class="shared-todo__list" data-todo-list></ul>
+                <form class="shared-todo__form" data-todo-form hidden>
+                  <input
+                    class="shared-todo__input"
+                    type="text"
+                    data-todo-input
+                    maxlength="120"
+                    placeholder="할 일 추가"
+                    autocomplete="off"
+                  >
+                  <button class="shared-todo__add" type="submit">추가</button>
+                </form>
+              </div>
+            </div>
           </section>
         </div>
       </div>
-      <textarea id="sharedMemoInput" hidden aria-hidden="true"></textarea>
-      <button type="button" id="sharedMemoSaveBtn" hidden aria-hidden="true"></button>
-      <div id="sharedMembersList" hidden aria-hidden="true"></div>
     </section>
 
     <section class="page home-page" id="homePage" hidden>
@@ -394,8 +468,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=276"></script>
-  <script src="firebase-config.js?v=276"></script>
-  <script src="script.js?v=276"></script>
+  <script src="accounts.js?v=277"></script>
+  <script src="firebase-config.js?v=277"></script>
+  <script src="script.js?v=277"></script>
 </body>
 </html>
