@@ -716,10 +716,16 @@ function renderRoutineBoard() {
   days.forEach((day, index) => {
     const label = document.createElement("span");
     label.className = "routine-matrix__day";
-    label.textContent = ROUTINE_DAY_LABELS[index];
     if (sameDay(day, today)) {
       label.classList.add("is-today");
     }
+    const dateNum = document.createElement("span");
+    dateNum.className = "routine-matrix__date";
+    dateNum.textContent = String(day.getDate());
+    const weekday = document.createElement("span");
+    weekday.className = "routine-matrix__weekday";
+    weekday.textContent = ROUTINE_DAY_LABELS[index];
+    label.append(dateNum, weekday);
     head.appendChild(label);
   });
   routineMatrix.appendChild(head);
