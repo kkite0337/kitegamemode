@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=272">
+  <link rel="stylesheet" href="style.css?v=273">
 </head>
 <body>
   <main class="app">
@@ -34,6 +34,35 @@
         <p class="login-error" id="loginError" hidden>잘못입력하셨습니다</p>
         <button class="btn-primary" type="submit">로그인</button>
       </form>
+    </section>
+
+    <section class="page shared-page" id="sharedPage" hidden>
+      <header class="page-top shared-top">
+        <div class="page-top-left">
+          <p class="page-role" id="sharedLabel"></p>
+          <button class="btn-text" type="button" id="sharedLogoutBtn">로그아웃</button>
+        </div>
+        <p class="shared-badge">공유 페이지</p>
+        <div class="page-top-right shared-top-right" aria-hidden="true"></div>
+      </header>
+      <div class="shared-view">
+        <div class="shared-members" aria-label="공유 멤버">
+          <p class="shared-members__label">멤버</p>
+          <div class="shared-members__list" id="sharedMembersList"></div>
+        </div>
+        <div class="side-panel__box side-panel__box--memo shared-memo-box">
+          <div class="side-box-head">
+            <h2 class="side-box-title">공유 메모</h2>
+            <button class="btn-text is-strong" type="button" id="sharedMemoSaveBtn">저장</button>
+          </div>
+          <textarea
+            id="sharedMemoInput"
+            class="routine-memo-input"
+            rows="12"
+            placeholder="세 명이 함께 보는 메모를 작성하세요"
+          ></textarea>
+        </div>
+      </div>
     </section>
 
     <section class="page home-page" id="homePage" hidden>
@@ -357,7 +386,7 @@
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=272"></script>
-  <script src="script.js?v=272"></script>
+  <script src="accounts.js?v=273"></script>
+  <script src="script.js?v=273"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 const SESSION_KEY = "kitegamemode-session";
 const SECTION_KEY = "kitegamemode-section";
+const SHARED_MEMO_KEY = "kitegamemode-shared-memo";
 const SECTIONS = ["routine", "economy", "language"];
 const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
@@ -70,12 +71,18 @@ const CATEGORIES = [
 
 const loginPage = document.getElementById("loginPage");
 const homePage = document.getElementById("homePage");
+const sharedPage = document.getElementById("sharedPage");
 const loginForm = document.getElementById("loginForm");
 const loginId = document.getElementById("loginId");
 const loginPassword = document.getElementById("loginPassword");
 const loginError = document.getElementById("loginError");
 const homeLabel = document.getElementById("homeLabel");
 const logoutBtn = document.getElementById("logoutBtn");
+const sharedLabel = document.getElementById("sharedLabel");
+const sharedLogoutBtn = document.getElementById("sharedLogoutBtn");
+const sharedMembersList = document.getElementById("sharedMembersList");
+const sharedMemoInput = document.getElementById("sharedMemoInput");
+const sharedMemoSaveBtn = document.getElementById("sharedMemoSaveBtn");
 const addMemoBtn = document.getElementById("addMemoBtn");
 const pdfBtn = document.getElementById("pdfBtn");
 const langPdfBtn = document.getElementById("langPdfBtn");
@@ -308,6 +315,49 @@ function showToast(message) {
 function showPage(page) {
   loginPage.hidden = page !== "login";
   homePage.hidden = page !== "home";
+  sharedPage.hidden = page !== "shared";
+}
+
+function isSharedAccount(account) {
+  return account?.role === "shared";
+}
+
+function renderSharedMembers(activeId) {
+  sharedMembersList.replaceChildren();
+  const members =
+    typeof SHARED_MEMBER_IDS !== "undefined" && Array.isArray(SHARED_MEMBER_IDS)
+      ? SHARED_MEMBER_IDS
+      : ACCOUNTS.filter((item) => item.role === "shared").map((item) => item.id);
+
+  members.forEach((memberId) => {
+    const chip = document.createElement("span");
+    chip.className = "shared-member-chip";
+    if (memberId.toUpperCase() === String(activeId || "").toUpperCase()) {
+      chip.classList.add("is-active");
+    }
+    chip.textContent = memberId;
+    sharedMembersList.appendChild(chip);
+  });
+}
+
+function loadSharedMemo() {
+  const value = localStorage.getItem(SHARED_MEMO_KEY);
+  return typeof value === "string" ? value : "";
+}
+
+function saveSharedMemo(text) {
+  localStorage.setItem(SHARED_MEMO_KEY, text);
+}
+
+function enterShared(account) {
+  currentAccount = account;
+  sessionStorage.setItem(SESSION_KEY, account.key);
+  sharedLabel.textContent = account.id;
+  loginError.hidden = true;
+  loginForm.reset();
+  renderSharedMembers(account.id);
+  sharedMemoInput.value = loadSharedMemo();
+  showPage("shared");
 }
 
 function normalizeSection(section) {
@@ -2128,8 +2178,13 @@ function saveMemo() {
 }
 
 function enterHome(account, { section } = {}) {
+  if (isSharedAccount(account)) {
+    enterShared(account);
+    return;
+  }
+
   currentAccount = account;
-  sessionStorage.setItem(SESSION_KEY, account.id);
+  sessionStorage.setItem(SESSION_KEY, account.key);
   homeLabel.textContent = account.id;
   loginError.hidden = true;
   loginForm.reset();
@@ -2156,15 +2211,19 @@ function logout() {
 }
 
 function restoreSession() {
-  const savedId = sessionStorage.getItem(SESSION_KEY);
-  if (!savedId) {
+  const savedKey = sessionStorage.getItem(SESSION_KEY);
+  if (!savedKey) {
     showPage("login");
     return;
   }
 
-  const account = ACCOUNTS.find(
-    (item) => item.id.toUpperCase() === savedId.toUpperCase(),
-  );
+  const account =
+    ACCOUNTS.find((item) => item.key === savedKey) ||
+    ACCOUNTS.find(
+      (item) =>
+        item.role === "personal" &&
+        item.id.toUpperCase() === savedKey.toUpperCase(),
+    );
 
   if (!account) {
     logout();
@@ -2179,6 +2238,10 @@ loginForm.addEventListener("submit", (event) => {
   const account = findAccount(loginId.value, loginPassword.value);
   if (!account) {
     loginError.hidden = false;
+    return;
+  }
+  if (isSharedAccount(account)) {
+    enterShared(account);
     return;
   }
   enterHome(account, { section: "routine" });
@@ -2835,6 +2898,11 @@ async function downloadLanguageMonthPdf() {
 }
 
 logoutBtn.addEventListener("click", logout);
+sharedLogoutBtn.addEventListener("click", logout);
+sharedMemoSaveBtn.addEventListener("click", () => {
+  saveSharedMemo(sharedMemoInput.value);
+  showToast("공유 메모를 저장했습니다");
+});
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     setActiveSection(tab.dataset.section);

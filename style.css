@@ -40,7 +40,8 @@ textarea {
   padding: 24px 16px;
 }
 
-body:has(.home-page:not([hidden])) .app {
+body:has(.home-page:not([hidden])) .app,
+body:has(.shared-page:not([hidden])) .app {
   width: min(980px, 100%);
 }
 
@@ -50,7 +51,8 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .login-page,
-.home-page {
+.home-page,
+.shared-page {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -62,8 +64,82 @@ body:has(.home-page:not([hidden])) .app {
   justify-content: center;
 }
 
-.home-page {
+.home-page,
+.shared-page {
   align-items: stretch;
+}
+
+.shared-top {
+  align-items: center;
+}
+
+.shared-badge {
+  margin: 0;
+  justify-self: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #d97706;
+}
+
+.shared-top-right {
+  min-height: 0;
+  visibility: hidden;
+}
+
+.shared-view {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  min-height: 0;
+}
+
+.shared-members {
+  border: 1px solid #ddd4c4;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shared-members__label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a8174;
+}
+
+.shared-members__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shared-member-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f6f4ef;
+  color: #5c574e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.shared-member-chip.is-active {
+  background: #d97706;
+  color: #fff;
+}
+
+.shared-memo-box {
+  flex: 1;
+  min-height: 280px;
 }
 
 .login-form {
