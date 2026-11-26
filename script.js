@@ -2,6 +2,7 @@ const SESSION_KEY = "kitegamemode-session";
 const SECTION_KEY = "kitegamemode-section";
 const SHARED_BOARD_KEY = "kitegamemode-shared-board";
 const SHARED_PAGE_VIEW_KEY = "kitegamemode-shared-page-view";
+const SHARED_MEMBER_VIEW_KEY = "kitegamemode-shared-member-view";
 const SHARED_ADMIN_ID = "kite";
 const SHARED_DEFAULT_TITLE = "제목을 입력하세요";
 const SHARED_CALENDAR_ITEMS = [{ id: "cal1", label: "" }];
@@ -100,6 +101,9 @@ const sharedTitleCancelBtn = document.getElementById("sharedTitleCancelBtn");
 const sharedAddPageBtn = document.getElementById("sharedAddPageBtn");
 const sharedPagePrev = document.getElementById("sharedPagePrev");
 const sharedPageNext = document.getElementById("sharedPageNext");
+const sharedMemberPrev = document.getElementById("sharedMemberPrev");
+const sharedMemberNext = document.getElementById("sharedMemberNext");
+const sharedMemberTitle = document.getElementById("sharedMemberTitle");
 const sharedPeriodText = document.getElementById("sharedPeriodText");
 const sharedPeriodEdit = document.getElementById("sharedPeriodEdit");
 const sharedPeriodStartInput = document.getElementById("sharedPeriodStartInput");
@@ -231,6 +235,7 @@ let sharedDbRef = null;
 let sharedSyncReady = false;
 let sharedBoard = { pages: [] };
 let sharedActivePageId = "";
+let sharedViewMemberId = "";
 let sharedBoardApplyingRemote = false;
 let sharedTitleEditing = false;
 const sharedQuoteViewIndex = {};
@@ -778,13 +783,80 @@ function ensureSharedActivePage() {
   }
 }
 
-function highlightSharedSection(activeId) {
+function normalizeSharedMemberId(memberId) {
+  const members = sharedMemberIds();
+  const matched = members.find(
+    (id) => id.toUpperCase() === String(memberId || "").toUpperCase(),
+  );
+  return matched || members[0] || "kite";
+}
+
+function rememberSharedMemberView(memberId) {
+  sharedViewMemberId = normalizeSharedMemberId(memberId);
+  sessionStorage.setItem(SHARED_MEMBER_VIEW_KEY, sharedViewMemberId);
+}
+
+function ensureSharedMemberView(preferredId = "") {
+  const members = sharedMemberIds();
+  if (!members.length) {
+    sharedViewMemberId = "";
+    return;
+  }
+  if (preferredId) {
+    rememberSharedMemberView(preferredId);
+    return;
+  }
+  const saved = sessionStorage.getItem(SHARED_MEMBER_VIEW_KEY);
+  if (saved && members.some((id) => id.toUpperCase() === saved.toUpperCase())) {
+    sharedViewMemberId = normalizeSharedMemberId(saved);
+    return;
+  }
+  rememberSharedMemberView(currentAccount?.id || members[0]);
+}
+
+function getSharedMemberIndex(memberId = sharedViewMemberId) {
+  const members = sharedMemberIds();
+  const index = members.findIndex(
+    (id) => id.toUpperCase() === String(memberId || "").toUpperCase(),
+  );
+  return index >= 0 ? index : 0;
+}
+
+function renderSharedMemberNav() {
+  const members = sharedMemberIds();
+  ensureSharedMemberView(sharedViewMemberId || currentAccount?.id || members[0]);
+  const index = getSharedMemberIndex(sharedViewMemberId);
+  const currentId = members[index] || members[0] || "";
+
+  if (sharedMemberTitle) {
+    sharedMemberTitle.textContent = currentId;
+  }
+  if (sharedMemberPrev) {
+    sharedMemberPrev.disabled = index <= 0;
+  }
+  if (sharedMemberNext) {
+    sharedMemberNext.disabled = index >= members.length - 1;
+  }
+
   document.querySelectorAll(".shared-section").forEach((section) => {
-    section.classList.toggle(
-      "is-active",
-      section.dataset.member?.toUpperCase() === String(activeId || "").toUpperCase(),
-    );
+    const isCurrent =
+      section.dataset.member?.toUpperCase() === String(currentId).toUpperCase();
+    section.hidden = !isCurrent;
+    section.classList.toggle("is-active", isCurrent);
   });
+}
+
+function shiftSharedMember(delta) {
+  const members = sharedMemberIds();
+  if (members.length <= 1) {
+    return;
+  }
+  const nextIndex = Math.min(
+    members.length - 1,
+    Math.max(0, getSharedMemberIndex() + delta),
+  );
+  rememberSharedMemberView(members[nextIndex]);
+  renderSharedMemberNav();
 }
 
 function setSharedTitleEditing(editing) {
@@ -1306,7 +1378,8 @@ function renderSharedTodoPanel(panel) {
 
 function renderSharedBoard() {
   ensureSharedActivePage();
-  highlightSharedSection(currentAccount?.id);
+  ensureSharedMemberView(sharedViewMemberId || currentAccount?.id);
+  renderSharedMemberNav();
   renderSharedTitle();
   sharedCalPanels.forEach((panel) => renderSharedCalPanel(panel));
   sharedQuotePanels.forEach((panel) => renderSharedQuotePanel(panel));
@@ -1537,6 +1610,7 @@ function enterShared(account) {
   loginError.hidden = true;
   loginForm.reset();
   setSharedTitleEditing(false);
+  rememberSharedMemberView(account.id);
   showPage("shared");
   startSharedBoardSync();
 }
@@ -4105,6 +4179,12 @@ sharedPagePrev.addEventListener("click", () => {
 });
 sharedPageNext.addEventListener("click", () => {
   shiftSharedPage(1);
+});
+sharedMemberPrev.addEventListener("click", () => {
+  shiftSharedMember(-1);
+});
+sharedMemberNext.addEventListener("click", () => {
+  shiftSharedMember(1);
 });
 sharedPeriodStartInput.addEventListener("change", () => {
   saveSharedPeriodRange();

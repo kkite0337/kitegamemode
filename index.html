@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=297">
+  <link rel="stylesheet" href="style.css?v=298">
 </head>
 <body>
   <main class="app">
@@ -114,8 +114,13 @@
             </div>
           </form>
         </div>
+        <div class="shared-member-nav" id="sharedMemberNav">
+          <button class="calendar-nav" type="button" id="sharedMemberPrev" aria-label="이전 멤버">‹</button>
+          <h2 class="shared-member-nav__title" id="sharedMemberTitle">kite</h2>
+          <button class="calendar-nav" type="button" id="sharedMemberNext" aria-label="다음 멤버">›</button>
+        </div>
         <div class="shared-columns" id="sharedColumns">
-          <section class="shared-section" data-member="kite">
+          <section class="shared-section" data-member="kite" hidden>
             <h2 class="shared-section__title">kite</h2>
             <div class="shared-section__body" id="sharedSectionKite">
               <section class="shared-subsection shared-cal" data-member="kite">
@@ -184,7 +189,7 @@
               </section>
             </div>
           </section>
-          <section class="shared-section" data-member="jinee">
+          <section class="shared-section" data-member="jinee" hidden>
             <h2 class="shared-section__title">jinee</h2>
             <div class="shared-section__body" id="sharedSectionJinee">
               <section class="shared-subsection shared-cal" data-member="jinee">
@@ -253,7 +258,7 @@
               </section>
             </div>
           </section>
-          <section class="shared-section" data-member="heeya">
+          <section class="shared-section" data-member="heeya" hidden>
             <h2 class="shared-section__title">heeya</h2>
             <div class="shared-section__body" id="sharedSectionHeeya">
               <section class="shared-subsection shared-cal" data-member="heeya">
@@ -649,8 +654,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=297"></script>
-  <script src="firebase-config.js?v=297"></script>
-  <script src="script.js?v=297"></script>
+  <script src="accounts.js?v=298"></script>
+  <script src="firebase-config.js?v=298"></script>
+  <script src="script.js?v=298"></script>
 </body>
 </html>
