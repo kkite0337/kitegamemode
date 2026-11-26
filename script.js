@@ -103,7 +103,6 @@ const sharedTitleCancelBtn = document.getElementById("sharedTitleCancelBtn");
 const sharedAddPageBtn = document.getElementById("sharedAddPageBtn");
 const sharedPagePrev = document.getElementById("sharedPagePrev");
 const sharedPageNext = document.getElementById("sharedPageNext");
-const sharedPageIndex = document.getElementById("sharedPageIndex");
 const sharedPeriodText = document.getElementById("sharedPeriodText");
 const sharedPeriodEdit = document.getElementById("sharedPeriodEdit");
 const sharedPeriodStartInput = document.getElementById("sharedPeriodStartInput");
@@ -742,7 +741,6 @@ function renderSharedTitle() {
 
   sharedTitleText.textContent = hasTitle ? title : SHARED_DEFAULT_TITLE;
   sharedTitleText.classList.toggle("is-placeholder", !hasTitle);
-  sharedPageIndex.textContent = `${index + 1} / ${pages.length || 1}`;
   sharedTitleEditBtn.hidden = !isSharedAdmin() || sharedTitleEditing;
   sharedAddPageBtn.hidden = !isSharedAdmin();
   sharedPagePrev.disabled = index <= 0;

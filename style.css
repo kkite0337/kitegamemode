@@ -230,10 +230,10 @@ body:has(.shared-page:not([hidden])) .app {
 
 .shared-title-center {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -245,6 +245,7 @@ body:has(.shared-page:not([hidden])) .app {
   letter-spacing: -0.02em;
   color: #222;
   word-break: break-word;
+  min-width: 0;
 }
 
 .shared-title-text.is-placeholder {
@@ -252,11 +253,9 @@ body:has(.shared-page:not([hidden])) .app {
   font-weight: 700;
 }
 
-.shared-page-index {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #8a8174;
+.shared-title-edit-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .shared-title-edit {
