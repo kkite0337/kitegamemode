@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=278">
+  <link rel="stylesheet" href="style.css?v=279">
 </head>
 <body>
   <main class="app">
@@ -38,20 +38,47 @@
 
     <section class="page shared-page" id="sharedPage" hidden>
       <header class="page-top shared-top">
-        <div class="page-top-left">
-          <p class="page-role" id="sharedLabel"></p>
-          <button class="btn-text" type="button" id="sharedLogoutBtn">로그아웃</button>
+        <div class="page-top-left shared-top-left">
+          <div class="shared-identity">
+            <p class="page-role" id="sharedLabel"></p>
+            <button class="btn-text" type="button" id="sharedLogoutBtn">로그아웃</button>
+          </div>
+          <div class="shared-meta shared-meta--period">
+            <label class="shared-meta__label" for="sharedPeriodInput">기간</label>
+            <p class="shared-meta__value" id="sharedPeriodText">미설정</p>
+            <input
+              class="shared-meta__input"
+              id="sharedPeriodInput"
+              type="text"
+              maxlength="60"
+              placeholder="예: 3월 1주 ~ 3월 2주"
+              autocomplete="off"
+              hidden
+            >
+          </div>
         </div>
         <div class="page-top-center" aria-hidden="true"></div>
         <div class="page-top-right shared-top-actions">
-          <p class="shared-sync" id="sharedSyncStatus">동기화 확인 중</p>
-          <button
-            class="btn-plus shared-add-page"
-            type="button"
-            id="sharedAddPageBtn"
-            aria-label="새 페이지 추가"
-            hidden
-          >+</button>
+          <div class="shared-top-actions__head">
+            <p class="shared-sync" id="sharedSyncStatus">동기화 확인 중</p>
+            <button
+              class="btn-plus shared-add-page"
+              type="button"
+              id="sharedAddPageBtn"
+              aria-label="새 페이지 추가"
+              hidden
+            >+</button>
+          </div>
+          <div class="shared-meta shared-meta--meet">
+            <label class="shared-meta__label" for="sharedMeetDateInput">모임날:</label>
+            <p class="shared-meta__value" id="sharedMeetDateText">미정</p>
+            <input
+              class="shared-meta__input shared-meta__input--date"
+              id="sharedMeetDateInput"
+              type="date"
+              hidden
+            >
+          </div>
         </div>
       </header>
       <div class="shared-view">
@@ -480,8 +507,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=278"></script>
-  <script src="firebase-config.js?v=278"></script>
-  <script src="script.js?v=278"></script>
+  <script src="accounts.js?v=279"></script>
+  <script src="firebase-config.js?v=279"></script>
+  <script src="script.js?v=279"></script>
 </body>
 </html>

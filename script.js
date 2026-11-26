@@ -96,6 +96,10 @@ const sharedAddPageBtn = document.getElementById("sharedAddPageBtn");
 const sharedPagePrev = document.getElementById("sharedPagePrev");
 const sharedPageNext = document.getElementById("sharedPageNext");
 const sharedPageIndex = document.getElementById("sharedPageIndex");
+const sharedPeriodText = document.getElementById("sharedPeriodText");
+const sharedPeriodInput = document.getElementById("sharedPeriodInput");
+const sharedMeetDateText = document.getElementById("sharedMeetDateText");
+const sharedMeetDateInput = document.getElementById("sharedMeetDateInput");
 const addMemoBtn = document.getElementById("addMemoBtn");
 const pdfBtn = document.getElementById("pdfBtn");
 const langPdfBtn = document.getElementById("langPdfBtn");
@@ -379,10 +383,32 @@ function createSharedPageId() {
   return `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeSharedDateValue(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : "";
+}
+
+function formatSharedMeetDate(value) {
+  const normalized = normalizeSharedDateValue(value);
+  if (!normalized) {
+    return "";
+  }
+  const [year, month, day] = normalized.split("-").map(Number);
+  if (!year || !month || !day) {
+    return "";
+  }
+  return `${year}. ${month}. ${day}.`;
+}
+
 function createEmptySharedPage(overrides = {}) {
   return {
     id: overrides.id || createSharedPageId(),
     title: typeof overrides.title === "string" ? overrides.title.trim() : "",
+    period: typeof overrides.period === "string" ? overrides.period.trim() : "",
+    meetDate: normalizeSharedDateValue(overrides.meetDate),
     todos: normalizeSharedTodosMap(overrides.todos),
     createdAt: Number(overrides.createdAt) || Date.now(),
   };
@@ -473,6 +499,8 @@ function cloneSharedBoard(board = sharedBoard) {
     pages: (board.pages || []).map((page) => ({
       id: page.id,
       title: page.title || "",
+      period: page.period || "",
+      meetDate: page.meetDate || "",
       createdAt: page.createdAt || Date.now(),
       todos: sharedMemberIds().reduce((acc, memberId) => {
         acc[memberId] = (page.todos?.[memberId] || []).map((item) => ({ ...item }));
@@ -555,6 +583,33 @@ function setSharedTitleEditing(editing) {
   }
 }
 
+function renderSharedMeta() {
+  const page = getActiveSharedPage();
+  const admin = isSharedAdmin();
+  const period = (page.period || "").trim();
+  const meetDate = normalizeSharedDateValue(page.meetDate);
+  const meetLabel = formatSharedMeetDate(meetDate);
+
+  sharedPeriodInput.hidden = !admin;
+  sharedPeriodText.hidden = admin;
+  sharedMeetDateInput.hidden = !admin;
+  sharedMeetDateText.hidden = admin;
+
+  if (admin) {
+    if (document.activeElement !== sharedPeriodInput) {
+      sharedPeriodInput.value = period;
+    }
+    if (document.activeElement !== sharedMeetDateInput) {
+      sharedMeetDateInput.value = meetDate;
+    }
+  } else {
+    sharedPeriodText.textContent = period || "미설정";
+    sharedPeriodText.classList.toggle("is-empty", !period);
+    sharedMeetDateText.textContent = meetLabel || "미정";
+    sharedMeetDateText.classList.toggle("is-empty", !meetLabel);
+  }
+}
+
 function renderSharedTitle() {
   const page = getActiveSharedPage();
   const pages = sharedBoard.pages || [];
@@ -569,10 +624,39 @@ function renderSharedTitle() {
   sharedAddPageBtn.hidden = !isSharedAdmin();
   sharedPagePrev.disabled = index <= 0;
   sharedPageNext.disabled = index >= pages.length - 1;
+  renderSharedMeta();
 
   if (!isSharedAdmin()) {
     setSharedTitleEditing(false);
   }
+}
+
+function saveSharedPeriod(nextPeriod, { silent = true } = {}) {
+  if (!isSharedAdmin()) {
+    return;
+  }
+  const page = getActiveSharedPage();
+  const cleaned = String(nextPeriod || "").trim();
+  if (page.period === cleaned) {
+    return;
+  }
+  page.period = cleaned;
+  renderSharedMeta();
+  pushSharedBoard({ silent });
+}
+
+function saveSharedMeetDate(nextDate, { silent = true } = {}) {
+  if (!isSharedAdmin()) {
+    return;
+  }
+  const page = getActiveSharedPage();
+  const cleaned = normalizeSharedDateValue(nextDate);
+  if (page.meetDate === cleaned) {
+    return;
+  }
+  page.meetDate = cleaned;
+  renderSharedMeta();
+  pushSharedBoard({ silent });
 }
 
 function renderSharedTodoPanel(panel) {
@@ -3449,6 +3533,18 @@ sharedPagePrev.addEventListener("click", () => {
 });
 sharedPageNext.addEventListener("click", () => {
   shiftSharedPage(1);
+});
+sharedPeriodInput.addEventListener("change", () => {
+  saveSharedPeriod(sharedPeriodInput.value);
+});
+sharedPeriodInput.addEventListener("blur", () => {
+  saveSharedPeriod(sharedPeriodInput.value);
+});
+sharedMeetDateInput.addEventListener("change", () => {
+  saveSharedMeetDate(sharedMeetDateInput.value);
+});
+sharedMeetDateInput.addEventListener("blur", () => {
+  saveSharedMeetDate(sharedMeetDateInput.value);
 });
 sharedTodoPanels.forEach((panel) => {
   const form = panel.querySelector("[data-todo-form]");
