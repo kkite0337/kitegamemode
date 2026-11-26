@@ -47,9 +47,9 @@ body:has(.shared-page:not([hidden])) .app {
 
 body:has(.shared-page:not([hidden])) {
   background:
-    radial-gradient(circle at top left, rgba(47, 125, 87, 0.08), transparent 34%),
-    linear-gradient(180deg, #f7faf5 0%, #eef5ef 100%);
-  color: #24352c;
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 32%),
+    linear-gradient(180deg, #eef2f7 0%, #e4ebf4 100%);
+  color: #0f172a;
 }
 
 .page[hidden],
@@ -77,17 +77,17 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-page {
-  --shared-ivory: #fffef8;
-  --shared-ivory-soft: #f4f8f3;
-  --shared-ivory-deep: #e7efe8;
-  --shared-green: #2f7d57;
-  --shared-green-hover: #246647;
-  --shared-green-soft: #dff0e6;
-  --shared-green-ink: #1f4f38;
-  --shared-text: #24352c;
-  --shared-muted: #5f7266;
-  --shared-border: #d5dfd6;
-  --shared-shadow: 0 10px 28px rgba(36, 53, 44, 0.06);
+  --shared-ivory: #ffffff;
+  --shared-ivory-soft: #f8fafc;
+  --shared-ivory-deep: #e2e8f0;
+  --shared-green: #2563eb;
+  --shared-green-hover: #1d4ed8;
+  --shared-green-soft: #dbeafe;
+  --shared-green-ink: #0f172a;
+  --shared-text: #0f172a;
+  --shared-muted: #475569;
+  --shared-border: #cbd5e1;
+  --shared-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   color: var(--shared-text);
 }
 
@@ -224,7 +224,7 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-meta__value.is-empty {
-  color: #8a9a90;
+  color: #64748b;
 }
 
 .shared-meta__input {
@@ -315,7 +315,7 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-title-text.is-placeholder {
-  color: #8a9a90;
+  color: #64748b;
   font-weight: 700;
 }
 
@@ -561,7 +561,7 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-quote__view-date.is-empty {
-  color: #8a9a90;
+  color: #64748b;
   font-weight: 700;
 }
 
@@ -577,7 +577,7 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-quote__view-text.is-empty {
-  color: #8a9a90;
+  color: #64748b;
 }
 
 .shared-subsection__body {
@@ -610,7 +610,7 @@ body:has(.shared-page:not([hidden])) {
   padding: 10px 4px;
   font-size: 12px;
   font-weight: 700;
-  color: #8a9a90;
+  color: #64748b;
 }
 
 .shared-cal-board {
@@ -709,7 +709,7 @@ body:has(.shared-page:not([hidden])) {
   text-align: center;
   font-size: 13px;
   font-weight: 600;
-  color: #8a9a90;
+  color: #64748b;
 }
 
 .shared-todo-item {
@@ -729,21 +729,21 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-todo-item.is-admin {
-  border-color: #9fd4b5;
-  background: var(--shared-green-soft);
+  border-color: #86efac;
+  background: #ecfdf5;
 }
 
 .shared-todo-item.is-admin .shared-todo-item__text {
-  color: var(--shared-green-ink);
+  color: #166534;
 }
 
 .shared-todo-item.is-done .shared-todo-item__text {
   text-decoration: line-through;
-  color: #8a9a90;
+  color: #64748b;
 }
 
 .shared-todo-item.is-admin.is-done .shared-todo-item__text {
-  color: #6f9f84;
+  color: #4ade80;
 }
 
 .shared-todo-item__main {
@@ -782,15 +782,10 @@ body:has(.shared-page:not([hidden])) {
   flex-shrink: 0;
 }
 
-.shared-todo-item.is-done .shared-todo-item__box,
-.shared-todo-item.is-admin.is-done .shared-todo-item__box {
+.shared-todo-item.is-done .shared-todo-item__box {
   border-color: var(--shared-green);
   background: var(--shared-green);
   color: #fff;
-}
-
-.shared-todo-item.is-admin .shared-todo-item__box {
-  border-color: var(--shared-green);
 }
 
 .shared-todo-item__body {
@@ -817,13 +812,22 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-todo-item.is-admin .shared-todo-item__meta {
-  color: var(--shared-green);
+  color: #16a34a;
+}
+
+.shared-todo-item.is-admin .shared-todo-item__box {
+  border-color: #22c55e;
+}
+
+.shared-todo-item.is-admin.is-done .shared-todo-item__box {
+  border-color: #16a34a;
+  background: #16a34a;
 }
 
 .shared-todo-item__remove {
   border: 0;
   background: transparent;
-  color: #8a9a90;
+  color: #64748b;
   font-size: 16px;
   line-height: 1;
   padding: 6px 8px;
@@ -832,7 +836,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-todo-item__remove:hover,
 .shared-todo-item__remove:focus-visible {
-  color: var(--shared-green-hover);
+  color: #dc2626;
   outline: none;
 }
 
