@@ -295,7 +295,29 @@ body:has(.shared-page:not([hidden])) {
   }
 
   .shared-top-meta {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
+  }
+}
+
+@media (min-width: 761px) {
+  .shared-top-meta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+  }
+
+  .shared-meta--period,
+  .shared-meta--meet {
+    width: auto;
+    flex: 0 1 auto;
+  }
+
+  .shared-meta--meet {
+    margin-left: auto;
   }
 }
 
