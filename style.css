@@ -1149,6 +1149,31 @@ body:has(.shared-page:not([hidden])) {
   outline: none;
 }
 
+.shared-cheer {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px;
+}
+
+.shared-cheer__btn {
+  border: 1px solid var(--shared-border);
+  border-radius: 999px;
+  padding: 10px 22px;
+  background: #fff;
+  color: var(--shared-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.shared-cheer__btn:hover,
+.shared-cheer__btn:focus-visible {
+  border-color: var(--shared-green);
+  color: var(--shared-green-ink);
+  outline: none;
+}
+
 @media (max-width: 760px) {
   .shared-columns {
     grid-template-columns: 1fr;

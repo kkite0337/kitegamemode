@@ -4505,6 +4505,11 @@ sharedRequestPanels.forEach((panel) => {
     removeSharedRequest(actionEl.dataset.member, actionEl.dataset.id);
   });
 });
+document.querySelectorAll("[data-action='cheer']").forEach((button) => {
+  button.addEventListener("click", () => {
+    showToast("추후 개발 예정입니다 🍽");
+  });
+});
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     setActiveSection(tab.dataset.section);
