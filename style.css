@@ -160,14 +160,20 @@ body:has(.shared-page:not([hidden])) {
 
 
 .shared-top {
-  align-items: start;
-}
-
-.shared-top-left {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.shared-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 
 .shared-identity {
@@ -177,20 +183,21 @@ body:has(.shared-page:not([hidden])) {
   min-width: 0;
 }
 
-.shared-top-actions {
+.shared-top-bar-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: flex-start;
-  gap: 10px;
-  min-height: 0;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
-.shared-top-actions__head {
+.shared-top-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 
 .shared-add-page {
@@ -216,6 +223,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-meta--meet {
   justify-content: flex-end;
+  margin-left: auto;
 }
 
 .shared-period-edit {
@@ -277,19 +285,28 @@ body:has(.shared-page:not([hidden])) {
 
 @media (max-width: 760px) {
   .shared-top {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 10px;
   }
 
-  .shared-top-actions,
-  .shared-top-actions__head,
-  .shared-meta--meet {
+  .shared-top-bar {
     align-items: flex-start;
-    justify-content: flex-start;
   }
 
-  .page-top-center {
-    display: none;
+  .shared-top-bar-right {
+    align-items: flex-end;
+  }
+
+  .shared-top-meta {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .shared-meta--period,
+  .shared-meta--meet {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 }
 
