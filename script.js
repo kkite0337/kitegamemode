@@ -79,6 +79,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 const addMemoBtn = document.getElementById("addMemoBtn");
 const pdfBtn = document.getElementById("pdfBtn");
 const langPdfBtn = document.getElementById("langPdfBtn");
+const routinePdfBtn = document.getElementById("routinePdfBtn");
 const homeHeader = document.getElementById("homeHeader");
 const calendarView = document.getElementById("calendarView");
 const memoView = document.getElementById("memoView");
@@ -325,7 +326,9 @@ function setActiveSection(section) {
   routineActions.classList.toggle("is-hidden", activeSection !== "routine");
   headerActions.classList.toggle(
     "is-empty",
-    activeSection !== "economy" && activeSection !== "language",
+    activeSection !== "economy" &&
+      activeSection !== "language" &&
+      activeSection !== "routine",
   );
 
   pageTabs.forEach((tab) => {
@@ -2709,6 +2712,9 @@ pdfBtn.addEventListener("click", () => {
 });
 langPdfBtn.addEventListener("click", () => {
   downloadLanguageMonthPdf();
+});
+routinePdfBtn.addEventListener("click", () => {
+  showToast("루틴 PDF를 준비 중입니다");
 });
 memoBackBtn.addEventListener("click", closeMemoForm);
 langFormBackBtn.addEventListener("click", closeLangForm);
