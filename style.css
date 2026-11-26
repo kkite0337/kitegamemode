@@ -994,7 +994,7 @@ body:has(.home-page:not([hidden])) .app {
   font-weight: 600;
   line-height: 1.5;
   color: #222;
-  background: #faf8f4;
+  background: #fff;
   resize: vertical;
   box-sizing: border-box;
 }
@@ -1003,11 +1003,6 @@ body:has(.home-page:not([hidden])) .app {
   outline: 2px solid #d97706;
   outline-offset: 1px;
   background: #fff;
-}
-
-.routine-memo-input[readonly] {
-  cursor: default;
-  color: #5c574e;
 }
 
 .side-box-month {

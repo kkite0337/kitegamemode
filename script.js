@@ -195,7 +195,6 @@ let editingLangEntryId = null;
 let toastTimer = 0;
 let routineWeekTimer = 0;
 let routineViewMonday = null;
-let routineMemoEditing = false;
 let routineMemoLoadedWeek = "";
 
 function yesterdayDate() {
@@ -628,7 +627,6 @@ function shiftRoutineWeek(delta) {
   const next = new Date(routineViewMonday);
   next.setDate(routineViewMonday.getDate() + delta * 7);
   routineViewMonday = next;
-  routineMemoEditing = false;
   renderRoutineBoard();
 }
 
@@ -646,23 +644,14 @@ function saveRoutineMemo(text) {
   saveRoutineWeekState(state);
 }
 
-function setRoutineMemoEditing(editing) {
-  routineMemoEditing = editing;
-  routineMemoInput.readOnly = !editing;
-  routineMemoEditBtn.classList.toggle("is-active", editing);
-  routineMemoSaveBtn.disabled = false;
-  if (editing) {
-    routineMemoInput.focus();
-  }
-}
-
 function renderRoutineMemo() {
   const weekKey = viewedRoutineWeekKey();
-  if (routineMemoLoadedWeek !== weekKey || !routineMemoEditing) {
-    routineMemoInput.value = getRoutineMemo(weekKey);
-    routineMemoLoadedWeek = weekKey;
+  if (routineMemoLoadedWeek === weekKey) {
+    return;
   }
-  setRoutineMemoEditing(routineMemoEditing && routineMemoLoadedWeek === weekKey);
+  routineMemoInput.value = getRoutineMemo(weekKey);
+  routineMemoLoadedWeek = weekKey;
+  routineMemoInput.readOnly = false;
 }
 
 function closeRoutineSheet() {
@@ -2696,13 +2685,18 @@ addLangBtn.addEventListener("click", () => openLangForm());
 routineWeekPrev.addEventListener("click", () => shiftRoutineWeek(-1));
 routineWeekNext.addEventListener("click", () => shiftRoutineWeek(1));
 routineMemoEditBtn.addEventListener("click", () => {
-  setRoutineMemoEditing(true);
+  routineMemoInput.readOnly = false;
+  routineMemoInput.focus();
+  const length = routineMemoInput.value.length;
+  routineMemoInput.setSelectionRange(length, length);
 });
 routineMemoSaveBtn.addEventListener("click", () => {
   saveRoutineMemo(routineMemoInput.value);
-  routineMemoEditing = false;
-  setRoutineMemoEditing(false);
+  routineMemoLoadedWeek = viewedRoutineWeekKey();
   showToast("메모를 저장했습니다");
+});
+routineMemoInput.addEventListener("focus", () => {
+  routineMemoInput.readOnly = false;
 });
 if (routineSheetBackdrop) {
   routineSheetBackdrop.addEventListener("click", closeRoutineSheet);
