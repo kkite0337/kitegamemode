@@ -323,6 +323,70 @@ body:has(.home-page:not([hidden])) .app {
   text-decoration-thickness: 1.5px;
 }
 
+.exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exercise-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exercise-row__label {
+  margin: 0;
+  width: 48px;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+}
+
+.exercise-row.is-done .exercise-row__label {
+  color: #8a8174;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.exercise-row__days {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.exercise-check {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 26px;
+  border: 1.5px solid #c4baa8;
+  border-radius: 6px;
+  background: #fff;
+  color: #8a8174;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exercise-check:hover,
+.exercise-check:focus-visible {
+  border-color: #d97706;
+  outline: none;
+}
+
+.exercise-check.is-checked {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
 .routine-board {
   flex: 0 0 auto;
   border: 1px solid #ddd4c4;

@@ -18,6 +18,8 @@ const CLEANING_ITEMS = [
   { id: "bedding", label: "침구•침대" },
   { id: "car", label: "자동차" },
 ];
+const EXERCISE_ITEMS = [{ id: "cardio", label: "유산소" }];
+const EXERCISE_DONE_MIN = 3;
 
 const LANG_CATEGORIES = [
   { id: "study", label: "학습", color: "#ef4444", soft: "#c47b6f" },
@@ -61,6 +63,7 @@ const routineWeekTitle = document.getElementById("routineWeekTitle");
 const routineWeekPrev = document.getElementById("routineWeekPrev");
 const routineWeekNext = document.getElementById("routineWeekNext");
 const cleaningList = document.getElementById("cleaningList");
+const exerciseList = document.getElementById("exerciseList");
 const routineDays = document.getElementById("routineDays");
 const routineList = document.getElementById("routineList");
 const routineEmpty = document.getElementById("routineEmpty");
@@ -406,10 +409,10 @@ function saveRoutineItems(items) {
 
 function normalizeWeekBucket(bucket) {
   if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) {
-    return { checks: {}, cleaning: {} };
+    return { checks: {}, cleaning: {}, exercise: {} };
   }
 
-  if ("checks" in bucket || "cleaning" in bucket) {
+  if ("checks" in bucket || "cleaning" in bucket || "exercise" in bucket) {
     return {
       checks:
         bucket.checks && typeof bucket.checks === "object" && !Array.isArray(bucket.checks)
@@ -421,11 +424,17 @@ function normalizeWeekBucket(bucket) {
         !Array.isArray(bucket.cleaning)
           ? bucket.cleaning
           : {},
+      exercise:
+        bucket.exercise &&
+        typeof bucket.exercise === "object" &&
+        !Array.isArray(bucket.exercise)
+          ? bucket.exercise
+          : {},
     };
   }
 
   // Older shape stored routine day checks directly on the week object.
-  return { checks: bucket, cleaning: {} };
+  return { checks: bucket, cleaning: {}, exercise: {} };
 }
 
 function loadRoutineWeekState() {
@@ -482,7 +491,7 @@ function ensureRoutineWeek({ notify = false } = {}) {
 
   const weeks = { ...state.weeks };
   if (!weeks[weekKey]) {
-    weeks[weekKey] = { checks: {}, cleaning: {} };
+    weeks[weekKey] = { checks: {}, cleaning: {}, exercise: {} };
   } else {
     weeks[weekKey] = normalizeWeekBucket(weeks[weekKey]);
   }
@@ -543,6 +552,35 @@ function setCleaningChecked(itemId, checked) {
     delete cleaning[itemId];
   }
   bucket.cleaning = cleaning;
+  state.weeks = { ...state.weeks, [weekKey]: bucket };
+  saveRoutineWeekState(state);
+}
+
+function exerciseDaysFor(itemId, weekKey = viewedRoutineWeekKey()) {
+  const days = weekBucket(weekKey).exercise?.[itemId];
+  return days && typeof days === "object" && !Array.isArray(days) ? days : {};
+}
+
+function isExerciseDayChecked(itemId, dayKey, weekKey = viewedRoutineWeekKey()) {
+  return Boolean(exerciseDaysFor(itemId, weekKey)[dayKey]);
+}
+
+function exerciseCheckedCount(itemId, weekKey = viewedRoutineWeekKey()) {
+  return Object.keys(exerciseDaysFor(itemId, weekKey)).length;
+}
+
+function setExerciseDayChecked(itemId, dayKey, checked) {
+  ensureRoutineWeek();
+  const weekKey = viewedRoutineWeekKey();
+  const state = loadRoutineWeekState();
+  const bucket = normalizeWeekBucket(state.weeks[weekKey]);
+  const itemDays = { ...(bucket.exercise[itemId] || {}) };
+  if (checked) {
+    itemDays[dayKey] = true;
+  } else {
+    delete itemDays[dayKey];
+  }
+  bucket.exercise = { ...bucket.exercise, [itemId]: itemDays };
   state.weeks = { ...state.weeks, [weekKey]: bucket };
   saveRoutineWeekState(state);
 }
@@ -643,6 +681,58 @@ function renderCleaningList() {
   });
 }
 
+function renderExerciseList() {
+  if (!routineViewMonday) {
+    routineViewMonday = startOfWeekMonday();
+  }
+  const weekKey = viewedRoutineWeekKey();
+  const days = weekDateList(routineViewMonday);
+  exerciseList.replaceChildren();
+
+  EXERCISE_ITEMS.forEach((item) => {
+    const count = exerciseCheckedCount(item.id, weekKey);
+    const done = count >= EXERCISE_DONE_MIN;
+    const row = document.createElement("div");
+    row.className = "exercise-row";
+    if (done) {
+      row.classList.add("is-done");
+    }
+
+    const label = document.createElement("p");
+    label.className = "exercise-row__label";
+    label.textContent = item.label;
+    row.appendChild(label);
+
+    const dayGroup = document.createElement("div");
+    dayGroup.className = "exercise-row__days";
+
+    days.forEach((day, index) => {
+      const dayKey = dateKey(day);
+      const checked = isExerciseDayChecked(item.id, dayKey, weekKey);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "exercise-check";
+      button.textContent = checked ? "✓" : ROUTINE_DAY_LABELS[index];
+      button.setAttribute(
+        "aria-label",
+        `${item.label} ${ROUTINE_DAY_LABELS[index]}`,
+      );
+      button.setAttribute("aria-pressed", checked ? "true" : "false");
+      if (checked) {
+        button.classList.add("is-checked");
+      }
+      button.addEventListener("click", () => {
+        setExerciseDayChecked(item.id, dayKey, !checked);
+        renderExerciseList();
+      });
+      dayGroup.appendChild(button);
+    });
+
+    row.appendChild(dayGroup);
+    exerciseList.appendChild(row);
+  });
+}
+
 function renderRoutineBoard() {
   ensureRoutineWeek();
   if (!routineViewMonday) {
@@ -657,6 +747,7 @@ function renderRoutineBoard() {
 
   routineWeekTitle.textContent = formatRoutineWeekTitle(monday);
   renderCleaningList();
+  renderExerciseList();
   routineDays.replaceChildren();
 
   const nameHeader = document.createElement("span");
