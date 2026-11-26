@@ -383,11 +383,19 @@ function canEditSharedMemberTodos(memberId, account = currentAccount) {
   return String(account.id || "").toUpperCase() === String(memberId || "").toUpperCase();
 }
 
-function canEditSharedMemberQuotes(memberId, account = currentAccount) {
+function canEditSharedMemberOwn(memberId, account = currentAccount) {
   if (!account || account.role !== "shared") {
     return false;
   }
   return String(account.id || "").toUpperCase() === String(memberId || "").toUpperCase();
+}
+
+function canEditSharedMemberQuotes(memberId, account = currentAccount) {
+  return canEditSharedMemberOwn(memberId, account);
+}
+
+function canEditSharedMemberCalendar(memberId, account = currentAccount) {
+  return canEditSharedMemberOwn(memberId, account);
 }
 
 function createSharedTodoId() {
@@ -903,8 +911,19 @@ function sharedCalendarCheckedCount(memberId, calendarId, page = getActiveShared
   return Object.keys(sharedCalendarChecks(memberId, calendarId, page)).length;
 }
 
+function sharedCalendarPeriodProgress(memberId, page = getActiveSharedPage()) {
+  const dates = sharedPeriodDateList(page);
+  const calendarId = SHARED_CALENDAR_ITEMS[0].id;
+  const checks = sharedCalendarChecks(memberId, calendarId, page);
+  const checked = dates.reduce(
+    (count, date) => count + (checks[dateKey(date)] ? 1 : 0),
+    0,
+  );
+  return { checked, total: dates.length };
+}
+
 function setSharedCalendarChecked(memberId, calendarId, dayKey, checked) {
-  if (!canEditSharedMemberTodos(memberId)) {
+  if (!canEditSharedMemberCalendar(memberId)) {
     showToast("본인 캘린더만 체크할 수 있습니다");
     return;
   }
@@ -932,11 +951,17 @@ function setSharedCalendarChecked(memberId, calendarId, dayKey, checked) {
 function renderSharedCalPanel(panel) {
   const memberId = panel.dataset.member;
   const listEl = panel.querySelector("[data-cal-list]");
+  const progressEl = panel.querySelector("[data-cal-progress]");
   const page = getActiveSharedPage();
   const dates = sharedPeriodDateList(page);
-  const canEdit = canEditSharedMemberTodos(memberId);
+  const canEdit = canEditSharedMemberCalendar(memberId);
   const calendarId = SHARED_CALENDAR_ITEMS[0].id;
   const cells = sharedCalendarGridCells(dates);
+  const progress = sharedCalendarPeriodProgress(memberId, page);
+
+  if (progressEl) {
+    progressEl.textContent = `${progress.checked}/${progress.total}`;
+  }
 
   listEl.replaceChildren();
 

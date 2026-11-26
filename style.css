@@ -574,6 +574,14 @@ body:has(.shared-page:not([hidden])) {
   flex-shrink: 0;
 }
 
+.shared-cal__progress {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--shared-green);
+  white-space: nowrap;
+}
+
 .shared-cal__list {
   display: flex;
   flex-direction: column;
