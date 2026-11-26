@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=277">
+  <link rel="stylesheet" href="style.css?v=278">
 </head>
 <body>
   <main class="app">
@@ -42,9 +42,16 @@
           <p class="page-role" id="sharedLabel"></p>
           <button class="btn-text" type="button" id="sharedLogoutBtn">로그아웃</button>
         </div>
-        <p class="shared-badge">공유 페이지</p>
-        <div class="page-top-right">
+        <div class="page-top-center" aria-hidden="true"></div>
+        <div class="page-top-right shared-top-actions">
           <p class="shared-sync" id="sharedSyncStatus">동기화 확인 중</p>
+          <button
+            class="btn-plus shared-add-page"
+            type="button"
+            id="sharedAddPageBtn"
+            aria-label="새 페이지 추가"
+            hidden
+          >+</button>
         </div>
       </header>
       <div class="shared-view">
@@ -53,8 +60,13 @@
         </p>
         <div class="shared-title-bar" id="sharedTitleBar">
           <div class="shared-title-display" id="sharedTitleDisplay">
-            <h1 class="shared-title-text" id="sharedTitleText">제목을 입력하세요</h1>
-            <button class="btn-text is-strong" type="button" id="sharedTitleEditBtn" hidden>수정</button>
+            <button class="calendar-nav" type="button" id="sharedPagePrev" aria-label="이전 페이지">‹</button>
+            <div class="shared-title-center">
+              <h1 class="shared-title-text" id="sharedTitleText">제목을 입력하세요</h1>
+              <p class="shared-page-index" id="sharedPageIndex">1 / 1</p>
+              <button class="btn-text is-strong" type="button" id="sharedTitleEditBtn" hidden>수정</button>
+            </div>
+            <button class="calendar-nav" type="button" id="sharedPageNext" aria-label="다음 페이지">›</button>
           </div>
           <form class="shared-title-edit" id="sharedTitleEditForm" hidden>
             <input
@@ -468,8 +480,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=277"></script>
-  <script src="firebase-config.js?v=277"></script>
-  <script src="script.js?v=277"></script>
+  <script src="accounts.js?v=278"></script>
+  <script src="firebase-config.js?v=278"></script>
+  <script src="script.js?v=278"></script>
 </body>
 </html>
