@@ -418,7 +418,7 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-member-nav {
-  display: grid;
+  display: none;
   grid-template-columns: 40px minmax(0, 1fr) 40px;
   align-items: center;
   gap: 8px;
@@ -440,8 +440,11 @@ body:has(.shared-page:not([hidden])) {
 .shared-columns {
   flex: 1;
   width: 100%;
-  display: block;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
   min-height: 0;
+  align-items: stretch;
 }
 
 .shared-section {
@@ -465,7 +468,36 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-section__title {
-  display: none;
+  margin: 0;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--shared-green-ink);
+}
+
+.shared-section.is-active .shared-section__title {
+  color: var(--shared-green);
+}
+
+@media (min-width: 761px) {
+  .shared-page .shared-section[hidden] {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .shared-member-nav {
+    display: grid;
+  }
+
+  .shared-columns {
+    display: block;
+  }
+
+  .shared-section__title {
+    display: none;
+  }
 }
 
 .shared-section__body {
