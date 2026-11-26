@@ -767,6 +767,13 @@ body:has(.shared-page:not([hidden])) {
   cursor: default;
 }
 
+@media (min-width: 761px) {
+  .shared-cal-check {
+    font-size: 16px;
+    min-height: 36px;
+  }
+}
+
 .shared-todo {
   flex: 1;
   min-height: 0;
