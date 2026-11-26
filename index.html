@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=286">
+  <link rel="stylesheet" href="style.css?v=287">
 </head>
 <body>
   <main class="app">
@@ -130,12 +130,14 @@
               <section class="shared-subsection shared-quote" data-member="kite">
                 <div class="shared-subsection__head">
                   <div class="shared-subsection__head-left">
+                    <button class="btn-text is-strong shared-quote__edit" type="button" data-quote-edit hidden>수정</button>
                     <button class="btn-plus shared-quote__add" type="button" data-quote-add aria-label="한마디 추가" hidden>+</button>
                     <h3 class="shared-subsection__title">오늘의 한마디</h3>
                   </div>
                 </div>
                 <div class="shared-subsection__body">
                   <form class="shared-quote__form" data-quote-form hidden>
+                    <input type="hidden" data-quote-edit-id value="">
                     <label class="shared-quote__field">
                       <span class="shared-quote__field-label">날짜</span>
                       <input class="shared-quote__date" type="date" data-quote-date>
@@ -149,7 +151,14 @@
                       <button class="btn-text is-strong" type="submit">저장</button>
                     </div>
                   </form>
-                  <ul class="shared-quote__list" data-quote-list></ul>
+                  <div class="shared-quote__viewer" data-quote-viewer>
+                    <div class="shared-quote__nav">
+                      <button class="calendar-nav" type="button" data-quote-prev aria-label="이전 한마디">‹</button>
+                      <p class="shared-quote__view-date" data-quote-view-date></p>
+                      <button class="calendar-nav" type="button" data-quote-next aria-label="다음 한마디">›</button>
+                    </div>
+                    <p class="shared-quote__view-text" data-quote-view-text></p>
+                  </div>
                 </div>
               </section>
               <section class="shared-subsection shared-todo" data-member="kite">
@@ -188,12 +197,14 @@
               <section class="shared-subsection shared-quote" data-member="jinee">
                 <div class="shared-subsection__head">
                   <div class="shared-subsection__head-left">
+                    <button class="btn-text is-strong shared-quote__edit" type="button" data-quote-edit hidden>수정</button>
                     <button class="btn-plus shared-quote__add" type="button" data-quote-add aria-label="한마디 추가" hidden>+</button>
                     <h3 class="shared-subsection__title">오늘의 한마디</h3>
                   </div>
                 </div>
                 <div class="shared-subsection__body">
                   <form class="shared-quote__form" data-quote-form hidden>
+                    <input type="hidden" data-quote-edit-id value="">
                     <label class="shared-quote__field">
                       <span class="shared-quote__field-label">날짜</span>
                       <input class="shared-quote__date" type="date" data-quote-date>
@@ -207,7 +218,14 @@
                       <button class="btn-text is-strong" type="submit">저장</button>
                     </div>
                   </form>
-                  <ul class="shared-quote__list" data-quote-list></ul>
+                  <div class="shared-quote__viewer" data-quote-viewer>
+                    <div class="shared-quote__nav">
+                      <button class="calendar-nav" type="button" data-quote-prev aria-label="이전 한마디">‹</button>
+                      <p class="shared-quote__view-date" data-quote-view-date></p>
+                      <button class="calendar-nav" type="button" data-quote-next aria-label="다음 한마디">›</button>
+                    </div>
+                    <p class="shared-quote__view-text" data-quote-view-text></p>
+                  </div>
                 </div>
               </section>
               <section class="shared-subsection shared-todo" data-member="jinee">
@@ -246,12 +264,14 @@
               <section class="shared-subsection shared-quote" data-member="heeya">
                 <div class="shared-subsection__head">
                   <div class="shared-subsection__head-left">
+                    <button class="btn-text is-strong shared-quote__edit" type="button" data-quote-edit hidden>수정</button>
                     <button class="btn-plus shared-quote__add" type="button" data-quote-add aria-label="한마디 추가" hidden>+</button>
                     <h3 class="shared-subsection__title">오늘의 한마디</h3>
                   </div>
                 </div>
                 <div class="shared-subsection__body">
                   <form class="shared-quote__form" data-quote-form hidden>
+                    <input type="hidden" data-quote-edit-id value="">
                     <label class="shared-quote__field">
                       <span class="shared-quote__field-label">날짜</span>
                       <input class="shared-quote__date" type="date" data-quote-date>
@@ -265,7 +285,14 @@
                       <button class="btn-text is-strong" type="submit">저장</button>
                     </div>
                   </form>
-                  <ul class="shared-quote__list" data-quote-list></ul>
+                  <div class="shared-quote__viewer" data-quote-viewer>
+                    <div class="shared-quote__nav">
+                      <button class="calendar-nav" type="button" data-quote-prev aria-label="이전 한마디">‹</button>
+                      <p class="shared-quote__view-date" data-quote-view-date></p>
+                      <button class="calendar-nav" type="button" data-quote-next aria-label="다음 한마디">›</button>
+                    </div>
+                    <p class="shared-quote__view-text" data-quote-view-text></p>
+                  </div>
                 </div>
               </section>
               <section class="shared-subsection shared-todo" data-member="heeya">
@@ -617,8 +644,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=286"></script>
-  <script src="firebase-config.js?v=286"></script>
-  <script src="script.js?v=286"></script>
+  <script src="accounts.js?v=287"></script>
+  <script src="firebase-config.js?v=287"></script>
+  <script src="script.js?v=287"></script>
 </body>
 </html>

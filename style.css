@@ -379,6 +379,11 @@ body:has(.shared-page:not([hidden])) .app {
   color: #5c574e;
 }
 
+.shared-quote__edit {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .shared-quote__add {
   width: 28px;
   height: 28px;
@@ -442,66 +447,51 @@ body:has(.shared-page:not([hidden])) .app {
   gap: 4px;
 }
 
-.shared-quote__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.shared-quote__viewer {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.shared-quote__empty {
-  margin: 0;
-  padding: 12px 4px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #a39a8c;
-}
-
-.shared-quote-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: start;
+  gap: 10px;
   padding: 10px;
   border: 1px solid #ebe4d7;
   border-radius: 10px;
   background: #fff;
+  min-height: 96px;
 }
 
-.shared-quote-item__date {
-  margin: 0 0 4px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #8a8174;
+.shared-quote__nav {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 6px;
 }
 
-.shared-quote-item__text {
+.shared-quote__view-date {
   margin: 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #222;
+  word-break: break-word;
+}
+
+.shared-quote__view-date.is-empty {
+  color: #a39a8c;
+  font-weight: 700;
+}
+
+.shared-quote__view-text {
+  margin: 0;
+  text-align: center;
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.5;
   color: #3f3a32;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.shared-quote-item__remove {
-  border: 0;
-  background: transparent;
+.shared-quote__view-text.is-empty {
   color: #a39a8c;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
-  cursor: pointer;
-}
-
-.shared-quote-item__remove:hover,
-.shared-quote-item__remove:focus-visible {
-  color: #b45309;
-  outline: none;
 }
 
 .shared-subsection__body {
