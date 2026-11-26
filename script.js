@@ -3,6 +3,9 @@ const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
 const LANGUAGE_ENTRIES_KEY = "kitegamemode-language-entries";
 const LANGUAGE_DRAFTS_KEY = "kitegamemode-language-drafts";
+const ROUTINE_ITEMS_KEY = "kitegamemode-routine-items";
+const ROUTINE_WEEK_KEY = "kitegamemode-routine-week";
+const ROUTINE_DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 const LANG_CATEGORIES = [
   { id: "study", label: "학습", color: "#ef4444", soft: "#c47b6f" },
@@ -40,6 +43,17 @@ const sectionLanguage = document.getElementById("sectionLanguage");
 const headerActions = document.getElementById("headerActions");
 const economyActions = document.getElementById("economyActions");
 const languageActions = document.getElementById("languageActions");
+const routineActions = document.getElementById("routineActions");
+const addRoutineBtn = document.getElementById("addRoutineBtn");
+const routineWeekRange = document.getElementById("routineWeekRange");
+const routineDays = document.getElementById("routineDays");
+const routineList = document.getElementById("routineList");
+const routineEmpty = document.getElementById("routineEmpty");
+const routineSheet = document.getElementById("routineSheet");
+const routineSheetBackdrop = document.getElementById("routineSheetBackdrop");
+const routineSheetClose = document.getElementById("routineSheetClose");
+const routineForm = document.getElementById("routineForm");
+const routineTitleInput = document.getElementById("routineTitleInput");
 const addLangBtn = document.getElementById("addLangBtn");
 const languageView = document.getElementById("languageView");
 const langFormView = document.getElementById("langFormView");
@@ -129,6 +143,7 @@ let selectedLangDateKey = null;
 let editingLangDraftId = null;
 let editingLangEntryId = null;
 let toastTimer = 0;
+let routineWeekTimer = 0;
 
 function yesterdayDate() {
   const date = new Date();
@@ -250,9 +265,10 @@ function setActiveSection(section) {
   sectionLanguage.hidden = section !== "language";
   economyActions.classList.toggle("is-hidden", section !== "economy");
   languageActions.classList.toggle("is-hidden", section !== "language");
+  routineActions.classList.toggle("is-hidden", section !== "routine");
   headerActions.classList.toggle(
     "is-empty",
-    section !== "economy" && section !== "language",
+    section !== "economy" && section !== "language" && section !== "routine",
   );
 
   pageTabs.forEach((tab) => {
@@ -267,6 +283,10 @@ function setActiveSection(section) {
     closeLangForm();
   }
 
+  if (section !== "routine") {
+    closeRoutineSheet();
+  }
+
   if (section === "economy") {
     renderCalendar();
   }
@@ -274,12 +294,247 @@ function setActiveSection(section) {
   if (section === "language") {
     renderLanguageCalendar();
   }
+
+  if (section === "routine") {
+    ensureRoutineWeek({ notify: true });
+    renderRoutineBoard();
+  }
 }
 
 function todayDate() {
   const date = new Date();
   date.setHours(12, 0, 0, 0);
   return date;
+}
+
+function startOfWeekMonday(date = new Date()) {
+  const monday = new Date(date);
+  monday.setHours(12, 0, 0, 0);
+  const weekday = monday.getDay();
+  const offset = weekday === 0 ? -6 : 1 - weekday;
+  monday.setDate(monday.getDate() + offset);
+  return monday;
+}
+
+function currentRoutineWeekKey(date = new Date()) {
+  return dateKey(startOfWeekMonday(date));
+}
+
+function weekDateList(monday) {
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + index);
+    day.setHours(12, 0, 0, 0);
+    return day;
+  });
+}
+
+function formatRoutineWeekRange(monday) {
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const sameMonth = monday.getMonth() === sunday.getMonth();
+  const start = `${monday.getMonth() + 1}/${monday.getDate()}`;
+  const end = sameMonth
+    ? `${sunday.getDate()}`
+    : `${sunday.getMonth() + 1}/${sunday.getDate()}`;
+  return `${start} ~ ${end}`;
+}
+
+function loadRoutineItems() {
+  const items = readJson(ROUTINE_ITEMS_KEY, []);
+  return Array.isArray(items) ? items : [];
+}
+
+function saveRoutineItems(items) {
+  writeJson(ROUTINE_ITEMS_KEY, items);
+}
+
+function loadRoutineWeekState() {
+  const state = readJson(ROUTINE_WEEK_KEY, null);
+  if (!state || typeof state !== "object" || Array.isArray(state)) {
+    return { weekKey: "", checks: {} };
+  }
+  return {
+    weekKey: typeof state.weekKey === "string" ? state.weekKey : "",
+    checks:
+      state.checks && typeof state.checks === "object" && !Array.isArray(state.checks)
+        ? state.checks
+        : {},
+  };
+}
+
+function saveRoutineWeekState(state) {
+  writeJson(ROUTINE_WEEK_KEY, state);
+}
+
+function ensureRoutineWeek({ notify = false } = {}) {
+  const weekKey = currentRoutineWeekKey();
+  const state = loadRoutineWeekState();
+  if (state.weekKey === weekKey) {
+    return false;
+  }
+
+  saveRoutineWeekState({ weekKey, checks: {} });
+  if (notify && activeSection === "routine") {
+    showToast("새 주가 시작되어 루틴이 리셋되었습니다");
+  }
+  return true;
+}
+
+function isRoutineChecked(itemId, dayKey) {
+  const state = loadRoutineWeekState();
+  return Boolean(state.checks?.[itemId]?.[dayKey]);
+}
+
+function setRoutineChecked(itemId, dayKey, checked) {
+  ensureRoutineWeek();
+  const state = loadRoutineWeekState();
+  const itemChecks = { ...(state.checks[itemId] || {}) };
+  if (checked) {
+    itemChecks[dayKey] = true;
+  } else {
+    delete itemChecks[dayKey];
+  }
+  state.checks = { ...state.checks, [itemId]: itemChecks };
+  saveRoutineWeekState(state);
+}
+
+function openRoutineSheet() {
+  routineTitleInput.value = "";
+  routineSheet.hidden = false;
+  window.setTimeout(() => routineTitleInput.focus(), 0);
+}
+
+function closeRoutineSheet() {
+  if (!routineSheet) {
+    return;
+  }
+  routineSheet.hidden = true;
+}
+
+function addRoutineItem(title) {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    showToast("루틴 이름을 입력해 주세요");
+    return false;
+  }
+
+  const items = loadRoutineItems();
+  items.push({
+    id: `routine-${Date.now()}`,
+    title: trimmed,
+    createdAt: Date.now(),
+  });
+  saveRoutineItems(items);
+  return true;
+}
+
+function deleteRoutineItem(itemId) {
+  if (!window.confirm("이 루틴을 삭제할까요?")) {
+    return;
+  }
+
+  saveRoutineItems(loadRoutineItems().filter((item) => item.id !== itemId));
+  const state = loadRoutineWeekState();
+  if (state.checks[itemId]) {
+    const nextChecks = { ...state.checks };
+    delete nextChecks[itemId];
+    state.checks = nextChecks;
+    saveRoutineWeekState(state);
+  }
+  renderRoutineBoard();
+  showToast("루틴을 삭제했습니다");
+}
+
+function renderRoutineBoard() {
+  ensureRoutineWeek();
+  const monday = startOfWeekMonday();
+  const days = weekDateList(monday);
+  const today = todayDate();
+  const items = loadRoutineItems();
+
+  routineWeekRange.textContent = formatRoutineWeekRange(monday);
+  routineDays.replaceChildren();
+
+  const nameHeader = document.createElement("span");
+  nameHeader.textContent = "루틴";
+  routineDays.appendChild(nameHeader);
+
+  days.forEach((day, index) => {
+    const label = document.createElement("span");
+    label.textContent = ROUTINE_DAY_LABELS[index];
+    if (sameDay(day, today)) {
+      label.classList.add("is-today");
+    }
+    routineDays.appendChild(label);
+  });
+
+  routineList.replaceChildren();
+  routineEmpty.hidden = items.length > 0;
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "routine-row";
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "routine-row__title";
+    const name = document.createElement("p");
+    name.className = "routine-row__name";
+    name.textContent = item.title;
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "routine-row__delete";
+    deleteBtn.textContent = "삭제";
+    deleteBtn.addEventListener("click", () => deleteRoutineItem(item.id));
+    titleWrap.append(name, deleteBtn);
+
+    row.appendChild(titleWrap);
+
+    days.forEach((day) => {
+      const dayKey = dateKey(day);
+      const checked = isRoutineChecked(item.id, dayKey);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "routine-check";
+      button.textContent = "✓";
+      button.setAttribute(
+        "aria-label",
+        `${item.title} ${day.getMonth() + 1}/${day.getDate()}`,
+      );
+      button.setAttribute("aria-pressed", checked ? "true" : "false");
+      if (checked) {
+        button.classList.add("is-done");
+      }
+      if (sameDay(day, today)) {
+        button.classList.add("is-today");
+      }
+      button.addEventListener("click", () => {
+        setRoutineChecked(item.id, dayKey, !checked);
+        renderRoutineBoard();
+      });
+      row.appendChild(button);
+    });
+
+    routineList.appendChild(row);
+  });
+}
+
+function startRoutineWeekWatcher() {
+  window.clearInterval(routineWeekTimer);
+  routineWeekTimer = window.setInterval(() => {
+    if (ensureRoutineWeek({ notify: true }) && activeSection === "routine") {
+      renderRoutineBoard();
+    }
+  }, 60 * 1000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    if (ensureRoutineWeek({ notify: true }) && activeSection === "routine") {
+      renderRoutineBoard();
+    }
+  });
 }
 
 function langCategoryById(id) {
@@ -1552,6 +1807,8 @@ function enterHome(account) {
   loginForm.reset();
   closeMemoForm();
   closeDraftSheet();
+  closeRoutineSheet();
+  ensureRoutineWeek();
   setActiveSection("economy");
   showPage("home");
 }
@@ -2097,6 +2354,18 @@ pageTabs.forEach((tab) => {
 });
 addMemoBtn.addEventListener("click", () => openMemoForm());
 addLangBtn.addEventListener("click", () => openLangForm());
+addRoutineBtn.addEventListener("click", openRoutineSheet);
+routineSheetBackdrop.addEventListener("click", closeRoutineSheet);
+routineSheetClose.addEventListener("click", closeRoutineSheet);
+routineForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!addRoutineItem(routineTitleInput.value)) {
+    return;
+  }
+  closeRoutineSheet();
+  renderRoutineBoard();
+  showToast("루틴을 추가했습니다");
+});
 pdfBtn.addEventListener("click", () => {
   downloadMonthPdf();
 });
@@ -2146,4 +2415,5 @@ calendarNext.addEventListener("click", () => shiftMonth(1));
 langCalendarPrev.addEventListener("click", () => shiftLanguageMonth(-1));
 langCalendarNext.addEventListener("click", () => shiftLanguageMonth(1));
 
+startRoutineWeekWatcher();
 restoreSession();

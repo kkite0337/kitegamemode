@@ -211,6 +211,207 @@ body:has(.home-page:not([hidden])) .app {
   font-weight: 600;
 }
 
+.routine-view {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding-top: 8px;
+}
+
+.routine-week {
+  border: 1px solid #ddd4c4;
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.routine-week__label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a8174;
+}
+
+.routine-week__range {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #222;
+}
+
+.routine-week__note {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8a8174;
+}
+
+.routine-board {
+  border: 1px solid #ddd4c4;
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.routine-days {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.2fr) repeat(7, minmax(28px, 1fr));
+  gap: 6px;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.routine-days span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #8a8174;
+}
+
+.routine-days span:first-child {
+  text-align: left;
+}
+
+.routine-days .is-today {
+  color: #d97706;
+}
+
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.routine-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.2fr) repeat(7, minmax(28px, 1fr));
+  gap: 6px;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: 10px;
+}
+
+.routine-row:nth-child(odd) {
+  background: #faf8f4;
+}
+
+.routine-row__title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.routine-row__name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routine-row__delete {
+  border: 0;
+  background: transparent;
+  color: #b42318;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.routine-check {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  border: 1.5px solid #ddd4c4;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: transparent;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.routine-check.is-done {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.routine-check.is-today {
+  box-shadow: inset 0 0 0 1.5px #b45309;
+}
+
+.routine-empty {
+  margin: 24px 0 0;
+  text-align: center;
+  color: #8a8174;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.routine-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.routine-form input {
+  width: 100%;
+  border: 1px solid #ddd4c4;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.routine-form input:focus {
+  outline: 2px solid #d97706;
+  outline-offset: 1px;
+}
+
+@media (max-width: 760px) {
+  .routine-days,
+  .routine-row {
+    grid-template-columns: minmax(72px, 1.1fr) repeat(7, minmax(26px, 1fr));
+    gap: 4px;
+  }
+
+  .routine-check {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+
+  .routine-row__name {
+    font-size: 12px;
+  }
+}
+
 .page-role {
   margin: 0;
   font-size: 15px;
