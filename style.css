@@ -949,6 +949,13 @@ body:has(.home-page:not([hidden])) .app {
   color: #222;
 }
 
+.side-box-count {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8a8174;
+}
+
 .side-box-month {
   margin: 0;
   font-size: 12px;

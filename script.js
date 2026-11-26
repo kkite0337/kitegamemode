@@ -82,6 +82,7 @@ const routineWeekTitle = document.getElementById("routineWeekTitle");
 const routineWeekPrev = document.getElementById("routineWeekPrev");
 const routineWeekNext = document.getElementById("routineWeekNext");
 const cleaningList = document.getElementById("cleaningList");
+const cleaningCount = document.getElementById("cleaningCount");
 const exerciseList = document.getElementById("exerciseList");
 const routineMatrix = document.getElementById("routineMatrix");
 const routineSheet = document.getElementById("routineSheet");
@@ -618,6 +619,10 @@ function closeRoutineSheet() {
 function renderCleaningList() {
   const weekKey = viewedRoutineWeekKey();
   cleaningList.replaceChildren();
+  const doneCount = CLEANING_ITEMS.filter((item) =>
+    isCleaningChecked(item.id, weekKey),
+  ).length;
+  cleaningCount.textContent = `${doneCount}/${CLEANING_ITEMS.length}`;
 
   CLEANING_ITEMS.forEach((item) => {
     const done = isCleaningChecked(item.id, weekKey);
