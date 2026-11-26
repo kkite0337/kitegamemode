@@ -1221,7 +1221,7 @@ function setSharedQuoteFormOpen(panel, { open, mode = "create", quote = null } =
   if (mode === "edit" && quote) {
     editIdInput.value = quote.id;
     dateInput.value = quote.date || todaySharedDateKey();
-    textInput.value = quote.text || "";
+    textInput.value = clampSharedQuoteText(quote.text || "");
     deleteBtn.hidden = false;
     editBtn.setAttribute("aria-expanded", "true");
     addBtn.setAttribute("aria-expanded", "false");
@@ -1319,12 +1319,27 @@ function removeSharedQuote(memberId, quoteId) {
   return true;
 }
 
+const SHARED_QUOTE_MAX_LINES = 5;
+
+function countSharedQuoteLines(value) {
+  return String(value || "").replace(/\r\n/g, "\n").split("\n").length;
+}
+
+function clampSharedQuoteText(value) {
+  const normalized = String(value || "").replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  if (lines.length <= SHARED_QUOTE_MAX_LINES) {
+    return normalized;
+  }
+  return lines.slice(0, SHARED_QUOTE_MAX_LINES).join("\n");
+}
+
 function saveSharedQuote(memberId, dateValue, textValue, editId = "") {
   if (!canEditSharedMemberQuotes(memberId)) {
     showToast("본인 한마디만 작성할 수 있습니다");
     return false;
   }
-  const text = String(textValue || "").trim();
+  const text = clampSharedQuoteText(textValue).trim();
   if (!text) {
     showToast("메모를 입력해 주세요");
     return false;
@@ -4441,11 +4456,30 @@ sharedQuotePanels.forEach((panel) => {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    textInput.value = clampSharedQuoteText(textInput.value);
     if (
       saveSharedQuote(memberId, dateInput.value, textInput.value, editIdInput.value)
     ) {
       setSharedQuoteFormOpen(panel, { open: false });
       renderSharedQuotePanel(panel);
+    }
+  });
+
+  textInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) {
+      return;
+    }
+    if (countSharedQuoteLines(textInput.value) >= SHARED_QUOTE_MAX_LINES) {
+      event.preventDefault();
+      showToast("오늘의 한마디는 최대 5줄까지 작성할 수 있습니다");
+    }
+  });
+
+  textInput.addEventListener("input", () => {
+    const clamped = clampSharedQuoteText(textInput.value);
+    if (clamped !== textInput.value) {
+      textInput.value = clamped;
+      showToast("오늘의 한마디는 최대 5줄까지 작성할 수 있습니다");
     }
   });
 

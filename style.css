@@ -620,9 +620,12 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-quote__text {
-  resize: vertical;
-  min-height: 88px;
+  resize: none;
+  height: calc(1.45em * 5 + 20px);
+  min-height: calc(1.45em * 5 + 20px);
+  max-height: calc(1.45em * 5 + 20px);
   line-height: 1.45;
+  overflow-y: auto;
 }
 
 .shared-quote__date:focus,
@@ -656,7 +659,6 @@ body:has(.shared-page:not([hidden])) {
   border: 1px solid var(--shared-border);
   border-radius: 10px;
   background: var(--shared-ivory);
-  min-height: 96px;
 }
 
 .shared-quote__nav {
@@ -686,6 +688,10 @@ body:has(.shared-page:not([hidden])) {
   font-size: 16px;
   font-weight: 700;
   line-height: 1.5;
+  height: calc(1.5em * 5);
+  min-height: calc(1.5em * 5);
+  max-height: calc(1.5em * 5);
+  overflow: auto;
   color: var(--shared-text);
   white-space: pre-wrap;
   word-break: break-word;
