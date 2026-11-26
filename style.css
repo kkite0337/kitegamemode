@@ -221,36 +221,24 @@ body:has(.home-page:not([hidden])) .app {
   padding-top: 8px;
 }
 
-.routine-week {
-  border: 1px solid #ddd4c4;
-  border-radius: 14px;
-  background: #fff;
-  padding: 16px 18px;
+.routine-week-nav {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
 }
 
-.routine-week__label {
+.routine-week-title {
   margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #8a8174;
-}
-
-.routine-week__range {
-  margin: 0;
-  font-size: 22px;
+  flex: 1;
+  text-align: center;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #222;
-}
-
-.routine-week__note {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #8a8174;
 }
 
 .routine-board {

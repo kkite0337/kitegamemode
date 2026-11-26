@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=257">
+  <link rel="stylesheet" href="style.css?v=258">
 </head>
 <body>
   <main class="app">
@@ -64,10 +64,10 @@
 
       <div class="home-section" id="sectionRoutine" hidden>
         <div class="routine-view" id="routineView">
-          <div class="routine-week">
-            <p class="routine-week__label">이번 주</p>
-            <h1 class="routine-week__range" id="routineWeekRange"></h1>
-            <p class="routine-week__note">월요일 0시에 자동으로 리셋됩니다</p>
+          <div class="routine-week-nav">
+            <button class="calendar-nav" type="button" id="routineWeekPrev" aria-label="이전 주">‹</button>
+            <h1 class="routine-week-title" id="routineWeekTitle"></h1>
+            <button class="calendar-nav" type="button" id="routineWeekNext" aria-label="다음 주">›</button>
           </div>
           <div class="routine-board" id="routineBoard">
             <div class="routine-days" id="routineDays" aria-hidden="true"></div>
@@ -323,7 +323,7 @@
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=257"></script>
-  <script src="script.js?v=257"></script>
+  <script src="accounts.js?v=258"></script>
+  <script src="script.js?v=258"></script>
 </body>
 </html>

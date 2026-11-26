@@ -45,7 +45,9 @@ const economyActions = document.getElementById("economyActions");
 const languageActions = document.getElementById("languageActions");
 const routineActions = document.getElementById("routineActions");
 const addRoutineBtn = document.getElementById("addRoutineBtn");
-const routineWeekRange = document.getElementById("routineWeekRange");
+const routineWeekTitle = document.getElementById("routineWeekTitle");
+const routineWeekPrev = document.getElementById("routineWeekPrev");
+const routineWeekNext = document.getElementById("routineWeekNext");
 const routineDays = document.getElementById("routineDays");
 const routineList = document.getElementById("routineList");
 const routineEmpty = document.getElementById("routineEmpty");
@@ -144,6 +146,7 @@ let editingLangDraftId = null;
 let editingLangEntryId = null;
 let toastTimer = 0;
 let routineWeekTimer = 0;
+let routineViewMonday = null;
 
 function yesterdayDate() {
   const date = new Date();
@@ -329,15 +332,54 @@ function weekDateList(monday) {
   });
 }
 
-function formatRoutineWeekRange(monday) {
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const sameMonth = monday.getMonth() === sunday.getMonth();
-  const start = `${monday.getMonth() + 1}/${monday.getDate()}`;
-  const end = sameMonth
-    ? `${sunday.getDate()}`
-    : `${sunday.getMonth() + 1}/${sunday.getDate()}`;
-  return `${start} ~ ${end}`;
+function majorityMonthOfWeek(monday) {
+  const counts = new Map();
+  weekDateList(monday).forEach((day) => {
+    const key = `${day.getFullYear()}-${day.getMonth()}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  let bestKey = "";
+  let bestCount = -1;
+  counts.forEach((count, key) => {
+    if (count > bestCount) {
+      bestKey = key;
+      bestCount = count;
+    }
+  });
+
+  const [yearText, monthText] = bestKey.split("-");
+  return {
+    year: Number(yearText),
+    monthIndex: Number(monthText),
+  };
+}
+
+function firstMajorityWeekMonday(year, monthIndex) {
+  let monday = startOfWeekMonday(new Date(year, monthIndex, 1));
+  const majority = majorityMonthOfWeek(monday);
+  if (majority.year !== year || majority.monthIndex !== monthIndex) {
+    monday = new Date(monday);
+    monday.setDate(monday.getDate() + 7);
+  }
+  return monday;
+}
+
+function weekNumberInMajorityMonth(monday) {
+  const { year, monthIndex } = majorityMonthOfWeek(monday);
+  const first = firstMajorityWeekMonday(year, monthIndex);
+  const diffDays = Math.round((monday - first) / (24 * 60 * 60 * 1000));
+  return {
+    year,
+    monthIndex,
+    week: Math.floor(diffDays / 7) + 1,
+  };
+}
+
+function formatRoutineWeekTitle(monday) {
+  const { year, monthIndex, week } = weekNumberInMajorityMonth(monday);
+  const shortYear = String(year).slice(-2);
+  return `${shortYear}년 ${monthIndex + 1}월 ${week}주차`;
 }
 
 function loadRoutineItems() {
@@ -352,13 +394,31 @@ function saveRoutineItems(items) {
 function loadRoutineWeekState() {
   const state = readJson(ROUTINE_WEEK_KEY, null);
   if (!state || typeof state !== "object" || Array.isArray(state)) {
-    return { weekKey: "", checks: {} };
+    return { activeWeekKey: "", weeks: {} };
   }
+
+  // Migrate previous single-week shape: { weekKey, checks }
+  if (state.checks && !state.weeks) {
+    const weekKey = typeof state.weekKey === "string" ? state.weekKey : "";
+    return {
+      activeWeekKey: weekKey,
+      weeks: weekKey
+        ? {
+            [weekKey]:
+              state.checks && typeof state.checks === "object"
+                ? state.checks
+                : {},
+          }
+        : {},
+    };
+  }
+
   return {
-    weekKey: typeof state.weekKey === "string" ? state.weekKey : "",
-    checks:
-      state.checks && typeof state.checks === "object" && !Array.isArray(state.checks)
-        ? state.checks
+    activeWeekKey:
+      typeof state.activeWeekKey === "string" ? state.activeWeekKey : "",
+    weeks:
+      state.weeks && typeof state.weeks === "object" && !Array.isArray(state.weeks)
+        ? state.weeks
         : {},
   };
 }
@@ -370,33 +430,67 @@ function saveRoutineWeekState(state) {
 function ensureRoutineWeek({ notify = false } = {}) {
   const weekKey = currentRoutineWeekKey();
   const state = loadRoutineWeekState();
-  if (state.weekKey === weekKey) {
+  if (state.activeWeekKey === weekKey) {
+    if (!routineViewMonday) {
+      routineViewMonday = startOfWeekMonday();
+    }
     return false;
   }
 
-  saveRoutineWeekState({ weekKey, checks: {} });
+  const weeks = { ...state.weeks };
+  if (!weeks[weekKey]) {
+    weeks[weekKey] = {};
+  }
+  saveRoutineWeekState({ activeWeekKey: weekKey, weeks });
+  routineViewMonday = startOfWeekMonday();
+
   if (notify && activeSection === "routine") {
     showToast("새 주가 시작되어 루틴이 리셋되었습니다");
   }
   return true;
 }
 
-function isRoutineChecked(itemId, dayKey) {
+function viewedRoutineWeekKey() {
+  if (!routineViewMonday) {
+    routineViewMonday = startOfWeekMonday();
+  }
+  return dateKey(routineViewMonday);
+}
+
+function checksForWeek(weekKey) {
   const state = loadRoutineWeekState();
-  return Boolean(state.checks?.[itemId]?.[dayKey]);
+  const weekChecks = state.weeks?.[weekKey];
+  return weekChecks && typeof weekChecks === "object" ? weekChecks : {};
+}
+
+function isRoutineChecked(itemId, dayKey, weekKey = viewedRoutineWeekKey()) {
+  return Boolean(checksForWeek(weekKey)?.[itemId]?.[dayKey]);
 }
 
 function setRoutineChecked(itemId, dayKey, checked) {
   ensureRoutineWeek();
+  const weekKey = viewedRoutineWeekKey();
   const state = loadRoutineWeekState();
-  const itemChecks = { ...(state.checks[itemId] || {}) };
+  const weekChecks = { ...(state.weeks[weekKey] || {}) };
+  const itemChecks = { ...(weekChecks[itemId] || {}) };
   if (checked) {
     itemChecks[dayKey] = true;
   } else {
     delete itemChecks[dayKey];
   }
-  state.checks = { ...state.checks, [itemId]: itemChecks };
+  weekChecks[itemId] = itemChecks;
+  state.weeks = { ...state.weeks, [weekKey]: weekChecks };
   saveRoutineWeekState(state);
+}
+
+function shiftRoutineWeek(delta) {
+  if (!routineViewMonday) {
+    routineViewMonday = startOfWeekMonday();
+  }
+  const next = new Date(routineViewMonday);
+  next.setDate(routineViewMonday.getDate() + delta * 7);
+  routineViewMonday = next;
+  renderRoutineBoard();
 }
 
 function openRoutineSheet() {
@@ -436,24 +530,34 @@ function deleteRoutineItem(itemId) {
 
   saveRoutineItems(loadRoutineItems().filter((item) => item.id !== itemId));
   const state = loadRoutineWeekState();
-  if (state.checks[itemId]) {
-    const nextChecks = { ...state.checks };
-    delete nextChecks[itemId];
-    state.checks = nextChecks;
-    saveRoutineWeekState(state);
-  }
+  const weeks = { ...state.weeks };
+  Object.keys(weeks).forEach((weekKey) => {
+    if (!weeks[weekKey]?.[itemId]) {
+      return;
+    }
+    const nextWeek = { ...weeks[weekKey] };
+    delete nextWeek[itemId];
+    weeks[weekKey] = nextWeek;
+  });
+  state.weeks = weeks;
+  saveRoutineWeekState(state);
   renderRoutineBoard();
   showToast("루틴을 삭제했습니다");
 }
 
 function renderRoutineBoard() {
   ensureRoutineWeek();
-  const monday = startOfWeekMonday();
+  if (!routineViewMonday) {
+    routineViewMonday = startOfWeekMonday();
+  }
+
+  const monday = routineViewMonday;
+  const weekKey = dateKey(monday);
   const days = weekDateList(monday);
   const today = todayDate();
   const items = loadRoutineItems();
 
-  routineWeekRange.textContent = formatRoutineWeekRange(monday);
+  routineWeekTitle.textContent = formatRoutineWeekTitle(monday);
   routineDays.replaceChildren();
 
   const nameHeader = document.createElement("span");
@@ -492,7 +596,7 @@ function renderRoutineBoard() {
 
     days.forEach((day) => {
       const dayKey = dateKey(day);
-      const checked = isRoutineChecked(item.id, dayKey);
+      const checked = isRoutineChecked(item.id, dayKey, weekKey);
       const button = document.createElement("button");
       button.type = "button";
       button.className = "routine-check";
@@ -2355,6 +2459,8 @@ pageTabs.forEach((tab) => {
 addMemoBtn.addEventListener("click", () => openMemoForm());
 addLangBtn.addEventListener("click", () => openLangForm());
 addRoutineBtn.addEventListener("click", openRoutineSheet);
+routineWeekPrev.addEventListener("click", () => shiftRoutineWeek(-1));
+routineWeekNext.addEventListener("click", () => shiftRoutineWeek(1));
 routineSheetBackdrop.addEventListener("click", closeRoutineSheet);
 routineSheetClose.addEventListener("click", closeRoutineSheet);
 routineForm.addEventListener("submit", (event) => {
