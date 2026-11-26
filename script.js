@@ -498,11 +498,42 @@ function sharedPeriodDateList(page = getActiveSharedPage()) {
   return dates;
 }
 
-function sharedCalendarDayLabel(date, spansMonths) {
-  if (spansMonths) {
-    return `${date.getMonth() + 1}/${date.getDate()}`;
-  }
+function sharedCalendarDayLabel(date) {
   return String(date.getDate());
+}
+
+function mondayIndexFromDate(date) {
+  return (date.getDay() + 6) % 7;
+}
+
+function sharedCalendarGridCells(dates) {
+  if (!dates.length) {
+    return [];
+  }
+  const dateMap = new Map(dates.map((date) => [dateKey(date), date]));
+  const first = dates[0];
+  const last = dates[dates.length - 1];
+  const gridStart = new Date(first);
+  gridStart.setDate(first.getDate() - mondayIndexFromDate(first));
+  gridStart.setHours(12, 0, 0, 0);
+
+  const gridEnd = new Date(last);
+  gridEnd.setDate(last.getDate() + (6 - mondayIndexFromDate(last)));
+  gridEnd.setHours(12, 0, 0, 0);
+
+  const cells = [];
+  const cursor = new Date(gridStart);
+  while (cursor.getTime() <= gridEnd.getTime()) {
+    const key = dateKey(cursor);
+    const inPeriod = dateMap.has(key);
+    cells.push(
+      inPeriod
+        ? { date: new Date(cursor), key, empty: false }
+        : { date: null, key: "", empty: true },
+    );
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return cells;
 }
 
 function normalizeSharedTodo(raw, fallbackMember) {
@@ -830,10 +861,8 @@ function renderSharedCalPanel(panel) {
   const page = getActiveSharedPage();
   const dates = sharedPeriodDateList(page);
   const canEdit = canEditSharedMemberTodos(memberId);
-  const spansMonths =
-    dates.length > 0 &&
-    (dates[0].getMonth() !== dates[dates.length - 1].getMonth() ||
-      dates[0].getFullYear() !== dates[dates.length - 1].getFullYear());
+  const calendarId = SHARED_CALENDAR_ITEMS[0].id;
+  const cells = sharedCalendarGridCells(dates);
 
   listEl.replaceChildren();
 
@@ -845,46 +874,56 @@ function renderSharedCalPanel(panel) {
     return;
   }
 
-  SHARED_CALENDAR_ITEMS.forEach((item) => {
-    const count = sharedCalendarCheckedCount(memberId, item.id, page);
-    const done = count >= SHARED_CALENDAR_DONE_MIN;
-    const row = document.createElement("div");
-    row.className = "shared-cal-row";
-    if (done) {
-      row.classList.add("is-done");
+  const board = document.createElement("div");
+  board.className = "shared-cal-board";
+
+  const head = document.createElement("div");
+  head.className = "shared-cal-board__weekdays";
+  ROUTINE_DAY_LABELS.forEach((label) => {
+    const cell = document.createElement("span");
+    cell.className = "shared-cal-weekday";
+    cell.textContent = label;
+    head.appendChild(cell);
+  });
+  board.appendChild(head);
+
+  const days = document.createElement("div");
+  days.className = "shared-cal-board__days";
+
+  cells.forEach((cell) => {
+    if (cell.empty) {
+      const spacer = document.createElement("span");
+      spacer.className = "shared-cal-check shared-cal-check--empty";
+      spacer.setAttribute("aria-hidden", "true");
+      days.appendChild(spacer);
+      return;
     }
 
-    const dayGroup = document.createElement("div");
-    dayGroup.className = "shared-cal-row__days";
-
-    dates.forEach((date) => {
-      const dayKey = dateKey(date);
-      const checked = isSharedCalendarChecked(memberId, item.id, dayKey, page);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "shared-cal-check";
-      button.textContent = checked ? "✓" : sharedCalendarDayLabel(date, spansMonths);
-      button.disabled = !canEdit;
-      button.setAttribute(
-        "aria-label",
-        `${sharedCalendarDayLabel(date, spansMonths)}일`,
-      );
-      button.setAttribute("aria-pressed", checked ? "true" : "false");
-      if (checked) {
-        button.classList.add("is-checked");
+    const checked = isSharedCalendarChecked(memberId, calendarId, cell.key, page);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "shared-cal-check";
+    button.textContent = checked ? "✓" : sharedCalendarDayLabel(cell.date);
+    button.disabled = !canEdit;
+    button.setAttribute(
+      "aria-label",
+      `${ROUTINE_DAY_LABELS[mondayIndexFromDate(cell.date)]} ${sharedCalendarDayLabel(cell.date)}일`,
+    );
+    button.setAttribute("aria-pressed", checked ? "true" : "false");
+    if (checked) {
+      button.classList.add("is-checked");
+    }
+    button.addEventListener("click", () => {
+      if (!canEdit) {
+        return;
       }
-      button.addEventListener("click", () => {
-        if (!canEdit) {
-          return;
-        }
-        setSharedCalendarChecked(memberId, item.id, dayKey, !checked);
-      });
-      dayGroup.appendChild(button);
+      setSharedCalendarChecked(memberId, calendarId, cell.key, !checked);
     });
-
-    row.appendChild(dayGroup);
-    listEl.appendChild(row);
+    days.appendChild(button);
   });
+
+  board.appendChild(days);
+  listEl.appendChild(board);
 }
 
 function renderSharedTodoPanel(panel) {
