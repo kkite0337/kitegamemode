@@ -324,7 +324,7 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 .routine-board {
-  flex: 1;
+  flex: 0 0 auto;
   border: 1px solid #ddd4c4;
   border-radius: 14px;
   background: #fff;
@@ -387,6 +387,8 @@ body:has(.home-page:not([hidden])) .app {
 
 .routine-row__name {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 700;
   color: #222;
