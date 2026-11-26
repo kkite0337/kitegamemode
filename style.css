@@ -569,9 +569,24 @@ body:has(.shared-page:not([hidden])) {
   color: var(--shared-green-ink);
 }
 
+.shared-quote .shared-subsection__head {
+  min-height: 32px;
+}
+
+.shared-quote .shared-subsection__head-right {
+  min-height: 32px;
+  min-width: 72px;
+  justify-content: flex-end;
+}
+
 .shared-quote__edit {
   flex-shrink: 0;
   white-space: nowrap;
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .shared-quote__add {
@@ -581,6 +596,14 @@ body:has(.shared-page:not([hidden])) {
   padding: 0;
   font-size: 20px;
   line-height: 1;
+}
+
+/* Keep + / 수정 button slots so desktop columns stay aligned */
+.shared-quote .shared-subsection__head-right [data-quote-edit][hidden],
+.shared-quote .shared-subsection__head-right [data-quote-add][hidden] {
+  display: inline-flex !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .shared-quote__form {
