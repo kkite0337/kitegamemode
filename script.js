@@ -1,4 +1,6 @@
 const SESSION_KEY = "kitegamemode-session";
+const SECTION_KEY = "kitegamemode-section";
+const SECTIONS = ["routine", "economy", "language"];
 const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
 const LANGUAGE_ENTRIES_KEY = "kitegamemode-language-entries";
@@ -160,7 +162,7 @@ const draftList = document.getElementById("draftList");
 const toast = document.getElementById("toast");
 
 let currentAccount = null;
-let activeSection = "economy";
+let activeSection = "routine";
 let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth();
 let langViewYear = new Date().getFullYear();
@@ -291,45 +293,50 @@ function showPage(page) {
   homePage.hidden = page !== "home";
 }
 
-function setActiveSection(section) {
-  activeSection = section;
+function normalizeSection(section) {
+  return SECTIONS.includes(section) ? section : "routine";
+}
 
-  sectionRoutine.hidden = section !== "routine";
-  sectionEconomy.hidden = section !== "economy";
-  sectionLanguage.hidden = section !== "language";
-  economyActions.classList.toggle("is-hidden", section !== "economy");
-  languageActions.classList.toggle("is-hidden", section !== "language");
-  routineActions.classList.toggle("is-hidden", section !== "routine");
+function setActiveSection(section) {
+  activeSection = normalizeSection(section);
+  sessionStorage.setItem(SECTION_KEY, activeSection);
+
+  sectionRoutine.hidden = activeSection !== "routine";
+  sectionEconomy.hidden = activeSection !== "economy";
+  sectionLanguage.hidden = activeSection !== "language";
+  economyActions.classList.toggle("is-hidden", activeSection !== "economy");
+  languageActions.classList.toggle("is-hidden", activeSection !== "language");
+  routineActions.classList.toggle("is-hidden", activeSection !== "routine");
   headerActions.classList.toggle(
     "is-empty",
-    section !== "economy" && section !== "language",
+    activeSection !== "economy" && activeSection !== "language",
   );
 
   pageTabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.section === section);
+    tab.classList.toggle("is-active", tab.dataset.section === activeSection);
   });
 
-  if (section !== "economy" && !memoView.hidden) {
+  if (activeSection !== "economy" && !memoView.hidden) {
     closeMemoForm();
   }
 
-  if (section !== "language" && langFormView && !langFormView.hidden) {
+  if (activeSection !== "language" && langFormView && !langFormView.hidden) {
     closeLangForm();
   }
 
-  if (section !== "routine") {
+  if (activeSection !== "routine") {
     closeRoutineSheet();
   }
 
-  if (section === "economy") {
+  if (activeSection === "economy") {
     renderCalendar();
   }
 
-  if (section === "language") {
+  if (activeSection === "language") {
     renderLanguageCalendar();
   }
 
-  if (section === "routine") {
+  if (activeSection === "routine") {
     ensureRoutineWeek({ notify: true });
     renderRoutineBoard();
   }
@@ -2057,7 +2064,7 @@ function saveMemo() {
   closeMemoForm();
 }
 
-function enterHome(account) {
+function enterHome(account, { section } = {}) {
   currentAccount = account;
   sessionStorage.setItem(SESSION_KEY, account.id);
   homeLabel.textContent = account.id;
@@ -2067,13 +2074,16 @@ function enterHome(account) {
   closeDraftSheet();
   closeRoutineSheet();
   ensureRoutineWeek();
-  setActiveSection("economy");
+  const nextSection =
+    section || sessionStorage.getItem(SECTION_KEY) || "routine";
+  setActiveSection(nextSection);
   showPage("home");
 }
 
 function logout() {
   currentAccount = null;
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SECTION_KEY);
   loginError.hidden = true;
   loginForm.reset();
   closeMemoForm();
@@ -2108,7 +2118,7 @@ loginForm.addEventListener("submit", (event) => {
     loginError.hidden = false;
     return;
   }
-  enterHome(account);
+  enterHome(account, { section: "routine" });
 });
 
 function memosInMonth(year, monthIndex) {

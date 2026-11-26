@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=264">
+  <link rel="stylesheet" href="style.css?v=265">
 </head>
 <body>
   <main class="app">
@@ -43,8 +43,8 @@
           <button class="btn-text" type="button" id="logoutBtn">로그아웃</button>
         </div>
         <nav class="page-tabs" aria-label="페이지 전환">
-          <button class="page-tab" type="button" data-section="routine">루틴</button>
-          <button class="page-tab is-active" type="button" data-section="economy">경제</button>
+          <button class="page-tab is-active" type="button" data-section="routine">루틴</button>
+          <button class="page-tab" type="button" data-section="economy">경제</button>
           <button class="page-tab" type="button" data-section="language">언어</button>
         </nav>
         <div class="page-top-right" id="headerActions">
@@ -60,7 +60,7 @@
         </div>
       </header>
 
-      <div class="home-section" id="sectionRoutine" hidden>
+      <div class="home-section" id="sectionRoutine">
         <div class="routine-view" id="routineView">
           <div class="routine-week-nav">
             <button class="calendar-nav" type="button" id="routineWeekPrev" aria-label="이전 주">‹</button>
@@ -202,7 +202,7 @@
         </div>
       </div>
 
-      <div class="home-section" id="sectionEconomy">
+      <div class="home-section" id="sectionEconomy" hidden>
       <div class="home-main" id="calendarView">
         <aside class="side-panel" aria-label="표 영역">
           <div class="side-panel__box side-panel__box--rate" id="achieveBox">
@@ -340,7 +340,7 @@
     <p class="toast" id="toast" hidden></p>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="accounts.js?v=264"></script>
-  <script src="script.js?v=264"></script>
+  <script src="accounts.js?v=265"></script>
+  <script src="script.js?v=265"></script>
 </body>
 </html>
