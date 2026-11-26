@@ -477,20 +477,17 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-section[data-member="kite"] .shared-section__title,
-.shared-member-nav__title[data-member="kite"],
-.shared-request-item__from[data-member="kite"] {
+.shared-member-nav__title[data-member="kite"] {
   color: #166534;
 }
 
 .shared-section[data-member="jinee"] .shared-section__title,
-.shared-member-nav__title[data-member="jinee"],
-.shared-request-item__from[data-member="jinee"] {
+.shared-member-nav__title[data-member="jinee"] {
   color: #1e3a8a;
 }
 
 .shared-section[data-member="heeya"] .shared-section__title,
-.shared-member-nav__title[data-member="heeya"],
-.shared-request-item__from[data-member="heeya"] {
+.shared-member-nav__title[data-member="heeya"] {
   color: #9d174d;
 }
 
@@ -1068,6 +1065,7 @@ body:has(.shared-page:not([hidden])) {
   margin: 0 0 4px;
   font-size: 13px;
   font-weight: 800;
+  color: var(--shared-text);
 }
 
 .shared-request-item__text {
@@ -1080,15 +1078,15 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-request-item[data-member="kite"] .shared-request-item__text {
-  color: #166534;
+  color: #15803d;
 }
 
 .shared-request-item[data-member="jinee"] .shared-request-item__text {
-  color: #1e3a8a;
+  color: #1d4ed8;
 }
 
 .shared-request-item[data-member="heeya"] .shared-request-item__text {
-  color: #9d174d;
+  color: #be185d;
 }
 
 .shared-request-item__remove {
