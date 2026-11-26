@@ -328,22 +328,17 @@ function isSharedAccount(account) {
   return account?.role === "shared";
 }
 
-function renderSharedMembers(activeId) {
-  sharedMembersList.replaceChildren();
-  const members =
-    typeof SHARED_MEMBER_IDS !== "undefined" && Array.isArray(SHARED_MEMBER_IDS)
-      ? SHARED_MEMBER_IDS
-      : ACCOUNTS.filter((item) => item.role === "shared").map((item) => item.id);
-
-  members.forEach((memberId) => {
-    const chip = document.createElement("span");
-    chip.className = "shared-member-chip";
-    if (memberId.toUpperCase() === String(activeId || "").toUpperCase()) {
-      chip.classList.add("is-active");
-    }
-    chip.textContent = memberId;
-    sharedMembersList.appendChild(chip);
+function highlightSharedSection(activeId) {
+  document.querySelectorAll(".shared-section").forEach((section) => {
+    section.classList.toggle(
+      "is-active",
+      section.dataset.member?.toUpperCase() === String(activeId || "").toUpperCase(),
+    );
   });
+}
+
+function renderSharedMembers(activeId) {
+  highlightSharedSection(activeId);
 }
 
 function loadSharedMemoLocal() {
