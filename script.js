@@ -2618,6 +2618,163 @@ function waitForPaint() {
   });
 }
 
+function buildPdfCheckMark(done) {
+  const mark = document.createElement("span");
+  mark.className = done ? "pdf-check is-done" : "pdf-check";
+  mark.textContent = done ? "✓" : "";
+  return mark;
+}
+
+function buildRoutinePdfSheet(monday) {
+  const weekKey = dateKey(monday);
+  const days = weekDateList(monday);
+  const host = document.createElement("div");
+  host.className = "pdf-host";
+  host.setAttribute("aria-hidden", "true");
+
+  const root = document.createElement("div");
+  root.className = "pdf-root";
+
+  const title = document.createElement("h1");
+  title.className = "pdf-title";
+  title.textContent = formatRoutineWeekTitle(monday);
+  root.appendChild(title);
+
+  const row = document.createElement("div");
+  row.className = "pdf-row pdf-row--routine";
+
+  const cleaningCard = document.createElement("section");
+  cleaningCard.className = "pdf-card";
+  const cleaningTitle = document.createElement("h2");
+  cleaningTitle.className = "pdf-card__title";
+  const cleaningDone = CLEANING_ITEMS.filter((item) =>
+    isCleaningChecked(item.id, weekKey),
+  ).length;
+  cleaningTitle.textContent = `청소 ${cleaningDone}/${CLEANING_ITEMS.length}`;
+  cleaningCard.appendChild(cleaningTitle);
+
+  const cleaningListEl = document.createElement("div");
+  cleaningListEl.className = "pdf-clean-list";
+  CLEANING_ITEMS.forEach((item) => {
+    const done = isCleaningChecked(item.id, weekKey);
+    const line = document.createElement("div");
+    line.className = done ? "pdf-clean-item is-done" : "pdf-clean-item";
+    line.append(buildPdfCheckMark(done));
+    const label = document.createElement("span");
+    label.textContent = item.label;
+    line.appendChild(label);
+    cleaningListEl.appendChild(line);
+  });
+  cleaningCard.appendChild(cleaningListEl);
+
+  const exerciseCard = document.createElement("section");
+  exerciseCard.className = "pdf-card";
+  const exerciseTitle = document.createElement("h2");
+  exerciseTitle.className = "pdf-card__title";
+  exerciseTitle.textContent = "운동";
+  exerciseCard.appendChild(exerciseTitle);
+
+  const exerciseBody = document.createElement("div");
+  exerciseBody.className = "pdf-exercise-list";
+  EXERCISE_MATRIX_GROUPS.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      const divider = document.createElement("div");
+      divider.className = "pdf-routine-divider";
+      exerciseBody.appendChild(divider);
+    }
+    group.forEach((item) => {
+      const count = exerciseCheckedCount(item.id, weekKey);
+      const done = count >= EXERCISE_DONE_MIN;
+      const line = document.createElement("div");
+      line.className = done ? "pdf-exercise-row is-done" : "pdf-exercise-row";
+      const label = document.createElement("span");
+      label.className = "pdf-exercise-label";
+      label.textContent = item.label;
+      line.appendChild(label);
+      const dayGroup = document.createElement("div");
+      dayGroup.className = "pdf-exercise-days";
+      days.forEach((day, index) => {
+        const dayKey = dateKey(day);
+        const checked = isExerciseDayChecked(item.id, dayKey, weekKey);
+        const cell = document.createElement("span");
+        cell.className = checked ? "pdf-day-check is-done" : "pdf-day-check";
+        cell.textContent = checked ? "✓" : ROUTINE_DAY_LABELS[index];
+        dayGroup.appendChild(cell);
+      });
+      line.appendChild(dayGroup);
+      exerciseBody.appendChild(line);
+    });
+  });
+  exerciseCard.appendChild(exerciseBody);
+
+  const routineCard = document.createElement("section");
+  routineCard.className = "pdf-card";
+  const routineTitle = document.createElement("h2");
+  routineTitle.className = "pdf-card__title";
+  routineTitle.textContent = "루틴";
+  routineCard.appendChild(routineTitle);
+
+  const matrix = document.createElement("div");
+  matrix.className = "pdf-routine-matrix";
+  const head = document.createElement("div");
+  head.className = "pdf-routine-matrix__head";
+  head.appendChild(document.createElement("span"));
+  days.forEach((day, index) => {
+    const cell = document.createElement("span");
+    cell.className = "pdf-routine-matrix__day";
+    const dateNum = document.createElement("span");
+    dateNum.textContent = String(day.getDate());
+    const weekday = document.createElement("span");
+    weekday.textContent = ROUTINE_DAY_LABELS[index];
+    cell.append(dateNum, weekday);
+    head.appendChild(cell);
+  });
+  matrix.appendChild(head);
+
+  ROUTINE_MATRIX_GROUPS.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      const divider = document.createElement("div");
+      divider.className = "pdf-routine-divider";
+      matrix.appendChild(divider);
+    }
+    group.forEach((item) => {
+      const line = document.createElement("div");
+      line.className = "pdf-routine-matrix__row";
+      const label = document.createElement("span");
+      label.className = "pdf-routine-matrix__label";
+      label.textContent = item.label;
+      line.appendChild(label);
+      days.forEach((day) => {
+        const dayKey = dateKey(day);
+        const checked = isRoutineChecked(item.id, dayKey, weekKey);
+        line.appendChild(buildPdfCheckMark(checked));
+      });
+      matrix.appendChild(line);
+    });
+  });
+  routineCard.appendChild(matrix);
+
+  row.append(cleaningCard, exerciseCard, routineCard);
+  root.appendChild(row);
+  host.appendChild(root);
+  return { host, root };
+}
+
+async function downloadRoutineWeekPdf() {
+  if (!routineViewMonday) {
+    routineViewMonday = startOfWeekMonday();
+  }
+  const monday = routineViewMonday;
+  const { host, root } = buildRoutinePdfSheet(monday);
+  document.body.appendChild(host);
+  const filename = `kitegamemode-routine-${dateKey(monday)}.pdf`;
+  try {
+    await savePdfFromRoot(root, filename, routinePdfBtn);
+  } finally {
+    host.remove();
+  }
+}
+
 async function savePdfFromRoot(root, filename, button) {
   if (typeof html2pdf === "undefined") {
     showToast("PDF 기능을 불러오지 못했습니다");
@@ -2714,7 +2871,7 @@ langPdfBtn.addEventListener("click", () => {
   downloadLanguageMonthPdf();
 });
 routinePdfBtn.addEventListener("click", () => {
-  showToast("루틴 PDF를 준비 중입니다");
+  downloadRoutineWeekPdf();
 });
 memoBackBtn.addEventListener("click", closeMemoForm);
 langFormBackBtn.addEventListener("click", closeLangForm);

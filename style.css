@@ -649,6 +649,143 @@ body:has(.home-page:not([hidden])) .app {
   grid-template-columns: 0.28fr 0.28fr 0.44fr;
 }
 
+.pdf-row--routine {
+  grid-template-columns: 0.28fr 0.34fr 0.38fr;
+  align-items: start;
+}
+
+.pdf-check {
+  width: 14px;
+  height: 14px;
+  border: 1.2px solid #c4baa8;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: transparent;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.pdf-check.is-done {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.pdf-clean-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pdf-clean-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #222;
+}
+
+.pdf-clean-item.is-done {
+  color: #8a8174;
+  text-decoration: line-through;
+}
+
+.pdf-exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pdf-exercise-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-exercise-row.is-done .pdf-exercise-label {
+  color: #8a8174;
+  text-decoration: line-through;
+}
+
+.pdf-exercise-label {
+  width: 46px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #222;
+}
+
+.pdf-exercise-days {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.pdf-day-check {
+  min-height: 16px;
+  border: 1px solid #c4baa8;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 800;
+  color: #8a8174;
+}
+
+.pdf-day-check.is-done {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.pdf-routine-divider {
+  height: 1px;
+  background: #e7dfd0;
+  margin: 4px 0;
+}
+
+.pdf-routine-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pdf-routine-matrix__head,
+.pdf-routine-matrix__row {
+  display: grid;
+  grid-template-columns: minmax(52px, 1.1fr) repeat(7, minmax(14px, 1fr));
+  gap: 3px;
+  align-items: center;
+}
+
+.pdf-routine-matrix__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 8px;
+  font-weight: 800;
+  color: #8a8174;
+  line-height: 1.15;
+}
+
+.pdf-routine-matrix__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #222;
+  min-width: 0;
+}
+
+.pdf-routine-matrix__row .pdf-check {
+  margin: 0 auto;
+}
+
 .pdf-card--study {
   justify-content: center;
 }
