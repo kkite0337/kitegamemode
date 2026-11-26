@@ -96,6 +96,9 @@ const cleaningList = document.getElementById("cleaningList");
 const cleaningCount = document.getElementById("cleaningCount");
 const exerciseList = document.getElementById("exerciseList");
 const routineMatrix = document.getElementById("routineMatrix");
+const routineMemoInput = document.getElementById("routineMemoInput");
+const routineMemoEditBtn = document.getElementById("routineMemoEditBtn");
+const routineMemoSaveBtn = document.getElementById("routineMemoSaveBtn");
 const routineSheet = document.getElementById("routineSheet");
 const routineSheetBackdrop = document.getElementById("routineSheetBackdrop");
 const routineSheetClose = document.getElementById("routineSheetClose");
@@ -192,6 +195,8 @@ let editingLangEntryId = null;
 let toastTimer = 0;
 let routineWeekTimer = 0;
 let routineViewMonday = null;
+let routineMemoEditing = false;
+let routineMemoLoadedWeek = "";
 
 function yesterdayDate() {
   const date = new Date();
@@ -434,10 +439,15 @@ function formatRoutineWeekTitle(monday) {
 
 function normalizeWeekBucket(bucket) {
   if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) {
-    return { checks: {}, cleaning: {}, exercise: {} };
+    return { checks: {}, cleaning: {}, exercise: {}, memo: "" };
   }
 
-  if ("checks" in bucket || "cleaning" in bucket || "exercise" in bucket) {
+  if (
+    "checks" in bucket ||
+    "cleaning" in bucket ||
+    "exercise" in bucket ||
+    "memo" in bucket
+  ) {
     return {
       checks:
         bucket.checks && typeof bucket.checks === "object" && !Array.isArray(bucket.checks)
@@ -455,11 +465,12 @@ function normalizeWeekBucket(bucket) {
         !Array.isArray(bucket.exercise)
           ? bucket.exercise
           : {},
+      memo: typeof bucket.memo === "string" ? bucket.memo : "",
     };
   }
 
   // Older shape stored routine day checks directly on the week object.
-  return { checks: bucket, cleaning: {}, exercise: {} };
+  return { checks: bucket, cleaning: {}, exercise: {}, memo: "" };
 }
 
 function loadRoutineWeekState() {
@@ -516,7 +527,7 @@ function ensureRoutineWeek({ notify = false } = {}) {
 
   const weeks = { ...state.weeks };
   if (!weeks[weekKey]) {
-    weeks[weekKey] = { checks: {}, cleaning: {}, exercise: {} };
+    weeks[weekKey] = { checks: {}, cleaning: {}, exercise: {}, memo: "" };
   } else {
     weeks[weekKey] = normalizeWeekBucket(weeks[weekKey]);
   }
@@ -617,7 +628,41 @@ function shiftRoutineWeek(delta) {
   const next = new Date(routineViewMonday);
   next.setDate(routineViewMonday.getDate() + delta * 7);
   routineViewMonday = next;
+  routineMemoEditing = false;
   renderRoutineBoard();
+}
+
+function getRoutineMemo(weekKey = viewedRoutineWeekKey()) {
+  return weekBucket(weekKey).memo || "";
+}
+
+function saveRoutineMemo(text) {
+  ensureRoutineWeek();
+  const weekKey = viewedRoutineWeekKey();
+  const state = loadRoutineWeekState();
+  const bucket = normalizeWeekBucket(state.weeks[weekKey]);
+  bucket.memo = text;
+  state.weeks = { ...state.weeks, [weekKey]: bucket };
+  saveRoutineWeekState(state);
+}
+
+function setRoutineMemoEditing(editing) {
+  routineMemoEditing = editing;
+  routineMemoInput.readOnly = !editing;
+  routineMemoEditBtn.classList.toggle("is-active", editing);
+  routineMemoSaveBtn.disabled = false;
+  if (editing) {
+    routineMemoInput.focus();
+  }
+}
+
+function renderRoutineMemo() {
+  const weekKey = viewedRoutineWeekKey();
+  if (routineMemoLoadedWeek !== weekKey || !routineMemoEditing) {
+    routineMemoInput.value = getRoutineMemo(weekKey);
+    routineMemoLoadedWeek = weekKey;
+  }
+  setRoutineMemoEditing(routineMemoEditing && routineMemoLoadedWeek === weekKey);
 }
 
 function closeRoutineSheet() {
@@ -738,6 +783,7 @@ function renderRoutineBoard() {
   routineWeekTitle.textContent = formatRoutineWeekTitle(monday);
   renderCleaningList();
   renderExerciseList();
+  renderRoutineMemo();
   routineMatrix.replaceChildren();
 
   const head = document.createElement("div");
@@ -2649,6 +2695,15 @@ addMemoBtn.addEventListener("click", () => openMemoForm());
 addLangBtn.addEventListener("click", () => openLangForm());
 routineWeekPrev.addEventListener("click", () => shiftRoutineWeek(-1));
 routineWeekNext.addEventListener("click", () => shiftRoutineWeek(1));
+routineMemoEditBtn.addEventListener("click", () => {
+  setRoutineMemoEditing(true);
+});
+routineMemoSaveBtn.addEventListener("click", () => {
+  saveRoutineMemo(routineMemoInput.value);
+  routineMemoEditing = false;
+  setRoutineMemoEditing(false);
+  showToast("메모를 저장했습니다");
+});
 if (routineSheetBackdrop) {
   routineSheetBackdrop.addEventListener("click", closeRoutineSheet);
 }

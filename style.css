@@ -962,6 +962,54 @@ body:has(.home-page:not([hidden])) .app {
   color: #8a8174;
 }
 
+.side-box-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.side-box-actions .btn-text.is-strong {
+  color: #d97706;
+}
+
+.side-box-actions .btn-text.is-active {
+  color: #222;
+}
+
+.side-panel__box--memo {
+  flex: 1;
+  min-height: 160px;
+}
+
+.routine-memo-input {
+  width: 100%;
+  flex: 1;
+  min-height: 120px;
+  border: 1px solid #e7dfd0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #222;
+  background: #faf8f4;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.routine-memo-input:focus {
+  outline: 2px solid #d97706;
+  outline-offset: 1px;
+  background: #fff;
+}
+
+.routine-memo-input[readonly] {
+  cursor: default;
+  color: #5c574e;
+}
+
 .side-box-month {
   margin: 0;
   font-size: 12px;
