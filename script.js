@@ -92,6 +92,7 @@ const sharedSetupHint = document.getElementById("sharedSetupHint");
 const sharedTodoPanels = Array.from(document.querySelectorAll(".shared-todo"));
 const sharedCalPanels = Array.from(document.querySelectorAll(".shared-cal"));
 const sharedQuotePanels = Array.from(document.querySelectorAll(".shared-quote"));
+const sharedRequestPanels = Array.from(document.querySelectorAll(".shared-request"));
 const sharedTitleText = document.getElementById("sharedTitleText");
 const sharedTitleEditBtn = document.getElementById("sharedTitleEditBtn");
 const sharedTitleDisplay = document.getElementById("sharedTitleDisplay");
@@ -403,6 +404,17 @@ function canEditSharedMemberCalendar(memberId, account = currentAccount) {
   return canEditSharedMemberOwn(memberId, account);
 }
 
+function canAddSharedRequest(memberId, account = currentAccount) {
+  if (!account || account.role !== "shared") {
+    return false;
+  }
+  return String(account.id || "").toUpperCase() !== String(memberId || "").toUpperCase();
+}
+
+function createSharedRequestId() {
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function createSharedTodoId() {
   return `todo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -498,6 +510,7 @@ function createEmptySharedPage(overrides = {}) {
     todos: normalizeSharedTodosMap(overrides.todos),
     calendars: normalizeSharedCalendarsMap(overrides.calendars),
     quotes: normalizeSharedQuotesMap(overrides.quotes),
+    requests: normalizeSharedRequestsMap(overrides.requests),
     createdAt: Number(overrides.createdAt) || Date.now(),
   };
 }
@@ -663,6 +676,51 @@ function normalizeSharedQuotesMap(rawQuotes) {
   return next;
 }
 
+function emptySharedRequests() {
+  return sharedMemberIds().reduce((acc, memberId) => {
+    acc[memberId] = [];
+    return acc;
+  }, {});
+}
+
+function normalizeSharedRequest(raw, fallbackMember) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const text = typeof raw.text === "string" ? raw.text.trim() : "";
+  if (!text) {
+    return null;
+  }
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : createSharedRequestId(),
+    text,
+    createdBy:
+      typeof raw.createdBy === "string" && raw.createdBy
+        ? raw.createdBy
+        : fallbackMember,
+    createdAt: Number(raw.createdAt) || Date.now(),
+  };
+}
+
+function normalizeSharedRequestsMap(rawRequests) {
+  const next = emptySharedRequests();
+  sharedMemberIds().forEach((memberId) => {
+    const source =
+      rawRequests && typeof rawRequests === "object" ? rawRequests[memberId] : null;
+    let list = [];
+    if (Array.isArray(source)) {
+      list = source;
+    } else if (source && typeof source === "object") {
+      list = Object.values(source);
+    }
+    next[memberId] = list
+      .map((item) => normalizeSharedRequest(item, memberId))
+      .filter(Boolean)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  });
+  return next;
+}
+
 function normalizeSharedPage(raw) {
   if (!raw || typeof raw !== "object") {
     return createEmptySharedPage();
@@ -725,6 +783,10 @@ function cloneSharedBoard(board = sharedBoard) {
       }, {}),
       quotes: sharedMemberIds().reduce((acc, memberId) => {
         acc[memberId] = (page.quotes?.[memberId] || []).map((item) => ({ ...item }));
+        return acc;
+      }, {}),
+      requests: sharedMemberIds().reduce((acc, memberId) => {
+        acc[memberId] = (page.requests?.[memberId] || []).map((item) => ({ ...item }));
         return acc;
       }, {}),
     })),
@@ -830,6 +892,7 @@ function renderSharedMemberNav() {
 
   if (sharedMemberTitle) {
     sharedMemberTitle.textContent = currentId;
+    sharedMemberTitle.dataset.member = currentId;
   }
   if (sharedMemberPrev) {
     sharedMemberPrev.disabled = index <= 0;
@@ -1376,6 +1439,111 @@ function renderSharedTodoPanel(panel) {
   });
 }
 
+function canRemoveSharedRequest(memberId, item, account = currentAccount) {
+  if (!account || account.role !== "shared") {
+    return false;
+  }
+  const me = String(account.id || "").toUpperCase();
+  return (
+    me === String(memberId || "").toUpperCase() ||
+    me === String(item.createdBy || "").toUpperCase()
+  );
+}
+
+function renderSharedRequestPanel(panel) {
+  const memberId = panel.dataset.member;
+  const listEl = panel.querySelector("[data-request-list]");
+  const countEl = panel.querySelector("[data-request-count]");
+  const formEl = panel.querySelector("[data-request-form]");
+  const page = getActiveSharedPage();
+  const items = page.requests?.[memberId] || [];
+  const canAdd = canAddSharedRequest(memberId);
+
+  countEl.textContent = String(items.length);
+  formEl.hidden = !canAdd;
+  listEl.replaceChildren();
+
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "shared-request__empty";
+    empty.textContent = canAdd ? "요청을 남겨보세요" : "받은 요청이 없습니다";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = "shared-request-item";
+
+    const body = document.createElement("div");
+    body.className = "shared-request-item__body";
+
+    const from = document.createElement("p");
+    from.className = "shared-request-item__from";
+    from.dataset.member = item.createdBy || "";
+    from.textContent = item.createdBy || "unknown";
+
+    const text = document.createElement("p");
+    text.className = "shared-request-item__text";
+    text.textContent = item.text;
+
+    body.append(from, text);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "shared-request-item__remove";
+    removeBtn.dataset.action = "remove-request";
+    removeBtn.dataset.member = memberId;
+    removeBtn.dataset.id = item.id;
+    removeBtn.setAttribute("aria-label", "삭제");
+    removeBtn.textContent = "×";
+    removeBtn.hidden = !canRemoveSharedRequest(memberId, item);
+
+    row.append(body, removeBtn);
+    listEl.appendChild(row);
+  });
+}
+
+function addSharedRequest(memberId, textValue) {
+  if (!canAddSharedRequest(memberId)) {
+    showToast("다른 사람에게만 요청할 수 있습니다");
+    return false;
+  }
+  const text = String(textValue || "").trim();
+  if (!text) {
+    showToast("요청 내용을 입력해 주세요");
+    return false;
+  }
+  const page = getActiveSharedPage();
+  if (!page.requests) {
+    page.requests = emptySharedRequests();
+  }
+  const nextItem = {
+    id: createSharedRequestId(),
+    text,
+    createdBy: currentAccount?.id || "",
+    createdAt: Date.now(),
+  };
+  page.requests[memberId] = [nextItem, ...(page.requests[memberId] || [])];
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+  showToast("요청을 남겼습니다");
+  return true;
+}
+
+function removeSharedRequest(memberId, requestId) {
+  const page = getActiveSharedPage();
+  const list = page.requests?.[memberId] || [];
+  const target = list.find((item) => item.id === requestId);
+  if (!target || !canRemoveSharedRequest(memberId, target)) {
+    showToast("삭제 권한이 없습니다");
+    return;
+  }
+  page.requests[memberId] = list.filter((item) => item.id !== requestId);
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+}
+
 function renderSharedBoard() {
   ensureSharedActivePage();
   ensureSharedMemberView(sharedViewMemberId || currentAccount?.id);
@@ -1384,6 +1552,7 @@ function renderSharedBoard() {
   sharedCalPanels.forEach((panel) => renderSharedCalPanel(panel));
   sharedQuotePanels.forEach((panel) => renderSharedQuotePanel(panel));
   sharedTodoPanels.forEach((panel) => renderSharedTodoPanel(panel));
+  sharedRequestPanels.forEach((panel) => renderSharedRequestPanel(panel));
 }
 
 function isFirebaseConfigured() {
@@ -4311,6 +4480,27 @@ sharedTodoPanels.forEach((panel) => {
     if (action === "remove") {
       removeSharedTodo(member, id);
     }
+  });
+});
+sharedRequestPanels.forEach((panel) => {
+  const form = panel.querySelector("[data-request-form]");
+  const input = panel.querySelector("[data-request-input]");
+  const list = panel.querySelector("[data-request-list]");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (addSharedRequest(panel.dataset.member, input.value)) {
+      input.value = "";
+      input.focus();
+    }
+  });
+
+  list.addEventListener("click", (event) => {
+    const actionEl = event.target.closest("[data-action='remove-request']");
+    if (!actionEl || !list.contains(actionEl)) {
+      return;
+    }
+    removeSharedRequest(actionEl.dataset.member, actionEl.dataset.id);
   });
 });
 pageTabs.forEach((tab) => {

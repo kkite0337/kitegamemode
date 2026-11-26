@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=303">
+  <link rel="stylesheet" href="style.css?v=304">
 </head>
 <body>
   <main class="app">
@@ -187,6 +187,27 @@
                   </form>
                 </div>
               </section>
+
+              <section class="shared-subsection shared-request" data-member="kite">
+                <div class="shared-subsection__head">
+                  <h3 class="shared-subsection__title">요청</h3>
+                  <p class="shared-request__count" data-request-count>0</p>
+                </div>
+                <div class="shared-subsection__body">
+                  <ul class="shared-request__list" data-request-list></ul>
+                  <form class="shared-request__form" data-request-form hidden>
+                    <input
+                      class="shared-request__input"
+                      type="text"
+                      data-request-input
+                      maxlength="160"
+                      placeholder="요청하기"
+                      autocomplete="off"
+                    >
+                    <button class="shared-request__add" type="submit">추가</button>
+                  </form>
+                </div>
+              </section>
             </div>
           </section>
           <section class="shared-section" data-member="jinee" hidden>
@@ -256,6 +277,27 @@
                   </form>
                 </div>
               </section>
+
+              <section class="shared-subsection shared-request" data-member="jinee">
+                <div class="shared-subsection__head">
+                  <h3 class="shared-subsection__title">요청</h3>
+                  <p class="shared-request__count" data-request-count>0</p>
+                </div>
+                <div class="shared-subsection__body">
+                  <ul class="shared-request__list" data-request-list></ul>
+                  <form class="shared-request__form" data-request-form hidden>
+                    <input
+                      class="shared-request__input"
+                      type="text"
+                      data-request-input
+                      maxlength="160"
+                      placeholder="요청하기"
+                      autocomplete="off"
+                    >
+                    <button class="shared-request__add" type="submit">추가</button>
+                  </form>
+                </div>
+              </section>
             </div>
           </section>
           <section class="shared-section" data-member="heeya" hidden>
@@ -322,6 +364,27 @@
                       autocomplete="off"
                     >
                     <button class="shared-todo__add" type="submit">추가</button>
+                  </form>
+                </div>
+              </section>
+
+              <section class="shared-subsection shared-request" data-member="heeya">
+                <div class="shared-subsection__head">
+                  <h3 class="shared-subsection__title">요청</h3>
+                  <p class="shared-request__count" data-request-count>0</p>
+                </div>
+                <div class="shared-subsection__body">
+                  <ul class="shared-request__list" data-request-list></ul>
+                  <form class="shared-request__form" data-request-form hidden>
+                    <input
+                      class="shared-request__input"
+                      type="text"
+                      data-request-input
+                      maxlength="160"
+                      placeholder="요청하기"
+                      autocomplete="off"
+                    >
+                    <button class="shared-request__add" type="submit">추가</button>
                   </form>
                 </div>
               </section>
@@ -654,8 +717,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=303"></script>
-  <script src="firebase-config.js?v=303"></script>
-  <script src="script.js?v=303"></script>
+  <script src="accounts.js?v=304"></script>
+  <script src="firebase-config.js?v=304"></script>
+  <script src="script.js?v=304"></script>
 </body>
 </html>
