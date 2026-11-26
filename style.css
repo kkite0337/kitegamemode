@@ -40,9 +40,20 @@ textarea {
   padding: 24px 16px;
 }
 
-body:has(.home-page:not([hidden])) .app,
-body:has(.shared-page:not([hidden])) .app {
+body:has(.home-page:not([hidden])) .app {
   width: min(980px, 100%);
+}
+
+body:has(.shared-page:not([hidden])) .app {
+  width: min(1480px, 96vw);
+  padding-left: clamp(16px, 2vw, 28px);
+  padding-right: clamp(16px, 2vw, 28px);
+}
+
+@media (min-width: 1600px) {
+  body:has(.shared-page:not([hidden])) .app {
+    width: min(1680px, 94vw);
+  }
 }
 
 body:has(.shared-page:not([hidden])) {
