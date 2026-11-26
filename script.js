@@ -710,13 +710,6 @@ function renderSharedTodoPanel(panel) {
     text.textContent = item.text;
 
     body.appendChild(text);
-    if (item.byAdmin) {
-      const meta = document.createElement("p");
-      meta.className = "shared-todo-item__meta";
-      meta.textContent = "관리자";
-      body.appendChild(meta);
-    }
-
     toggleBtn.append(box, body);
 
     const removeBtn = document.createElement("button");
