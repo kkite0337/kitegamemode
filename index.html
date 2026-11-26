@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="style.css?v=280">
+  <link rel="stylesheet" href="style.css?v=281">
 </head>
 <body>
   <main class="app">
@@ -44,17 +44,23 @@
             <button class="btn-text" type="button" id="sharedLogoutBtn">로그아웃</button>
           </div>
           <div class="shared-meta shared-meta--period">
-            <label class="shared-meta__label" for="sharedPeriodInput">기간</label>
+            <span class="shared-meta__label">기간</span>
             <p class="shared-meta__value" id="sharedPeriodText">미설정</p>
-            <input
-              class="shared-meta__input"
-              id="sharedPeriodInput"
-              type="text"
-              maxlength="60"
-              placeholder="예: 3월 1주 ~ 3월 2주"
-              autocomplete="off"
-              hidden
-            >
+            <div class="shared-period-edit" id="sharedPeriodEdit" hidden>
+              <input
+                class="shared-meta__input shared-meta__input--date"
+                id="sharedPeriodStartInput"
+                type="date"
+                aria-label="시작날"
+              >
+              <span class="shared-period-edit__tilde">~</span>
+              <input
+                class="shared-meta__input shared-meta__input--date"
+                id="sharedPeriodEndInput"
+                type="date"
+                aria-label="마침날"
+              >
+            </div>
           </div>
         </div>
         <div class="page-top-center" aria-hidden="true"></div>
@@ -114,6 +120,12 @@
           <section class="shared-section" data-member="kite">
             <h2 class="shared-section__title">kite</h2>
             <div class="shared-section__body" id="sharedSectionKite">
+              <div class="shared-cal" data-member="kite">
+                <div class="shared-cal__head">
+                  <h3 class="shared-cal__label">캘린더</h3>
+                </div>
+                <div class="shared-cal__list" data-cal-list></div>
+              </div>
               <div class="shared-todo" data-member="kite">
                 <div class="shared-todo__head">
                   <h3 class="shared-todo__label">Todo</h3>
@@ -137,6 +149,12 @@
           <section class="shared-section" data-member="jinee">
             <h2 class="shared-section__title">jinee</h2>
             <div class="shared-section__body" id="sharedSectionJinee">
+              <div class="shared-cal" data-member="jinee">
+                <div class="shared-cal__head">
+                  <h3 class="shared-cal__label">캘린더</h3>
+                </div>
+                <div class="shared-cal__list" data-cal-list></div>
+              </div>
               <div class="shared-todo" data-member="jinee">
                 <div class="shared-todo__head">
                   <h3 class="shared-todo__label">Todo</h3>
@@ -160,6 +178,12 @@
           <section class="shared-section" data-member="heeya">
             <h2 class="shared-section__title">heeya</h2>
             <div class="shared-section__body" id="sharedSectionHeeya">
+              <div class="shared-cal" data-member="heeya">
+                <div class="shared-cal__head">
+                  <h3 class="shared-cal__label">캘린더</h3>
+                </div>
+                <div class="shared-cal__list" data-cal-list></div>
+              </div>
               <div class="shared-todo" data-member="heeya">
                 <div class="shared-todo__head">
                   <h3 class="shared-todo__label">Todo</h3>
@@ -507,8 +531,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-  <script src="accounts.js?v=280"></script>
-  <script src="firebase-config.js?v=280"></script>
-  <script src="script.js?v=280"></script>
+  <script src="accounts.js?v=281"></script>
+  <script src="firebase-config.js?v=281"></script>
+  <script src="script.js?v=281"></script>
 </body>
 </html>

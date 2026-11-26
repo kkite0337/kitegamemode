@@ -4,6 +4,13 @@ const SHARED_BOARD_KEY = "kitegamemode-shared-board";
 const SHARED_PAGE_VIEW_KEY = "kitegamemode-shared-page-view";
 const SHARED_ADMIN_ID = "kite";
 const SHARED_DEFAULT_TITLE = "제목을 입력하세요";
+const SHARED_CALENDAR_ITEMS = [
+  { id: "cal1", label: "1" },
+  { id: "cal2", label: "2" },
+  { id: "cal3", label: "3" },
+];
+const SHARED_CALENDAR_DONE_MIN = 3;
+const SHARED_PERIOD_MAX_DAYS = 62;
 const SECTIONS = ["routine", "economy", "language"];
 const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
@@ -86,6 +93,7 @@ const sharedLogoutBtn = document.getElementById("sharedLogoutBtn");
 const sharedSyncStatus = document.getElementById("sharedSyncStatus");
 const sharedSetupHint = document.getElementById("sharedSetupHint");
 const sharedTodoPanels = Array.from(document.querySelectorAll(".shared-todo"));
+const sharedCalPanels = Array.from(document.querySelectorAll(".shared-cal"));
 const sharedTitleText = document.getElementById("sharedTitleText");
 const sharedTitleEditBtn = document.getElementById("sharedTitleEditBtn");
 const sharedTitleDisplay = document.getElementById("sharedTitleDisplay");
@@ -97,7 +105,9 @@ const sharedPagePrev = document.getElementById("sharedPagePrev");
 const sharedPageNext = document.getElementById("sharedPageNext");
 const sharedPageIndex = document.getElementById("sharedPageIndex");
 const sharedPeriodText = document.getElementById("sharedPeriodText");
-const sharedPeriodInput = document.getElementById("sharedPeriodInput");
+const sharedPeriodEdit = document.getElementById("sharedPeriodEdit");
+const sharedPeriodStartInput = document.getElementById("sharedPeriodStartInput");
+const sharedPeriodEndInput = document.getElementById("sharedPeriodEndInput");
 const sharedMeetDateText = document.getElementById("sharedMeetDateText");
 const sharedMeetDateInput = document.getElementById("sharedMeetDateInput");
 const addMemoBtn = document.getElementById("addMemoBtn");
@@ -403,15 +413,101 @@ function formatSharedMeetDate(value) {
   return `${year}. ${month}. ${day}.`;
 }
 
+function formatSharedPeriodRange(startValue, endValue) {
+  const startLabel = formatSharedMeetDate(startValue);
+  const endLabel = formatSharedMeetDate(endValue);
+  if (startLabel && endLabel) {
+    return `${startLabel} ~ ${endLabel}`;
+  }
+  if (startLabel) {
+    return `${startLabel} ~`;
+  }
+  if (endLabel) {
+    return `~ ${endLabel}`;
+  }
+  return "";
+}
+
+function emptySharedCalendars() {
+  return sharedMemberIds().reduce((acc, memberId) => {
+    acc[memberId] = SHARED_CALENDAR_ITEMS.reduce((itemAcc, item) => {
+      itemAcc[item.id] = {};
+      return itemAcc;
+    }, {});
+    return acc;
+  }, {});
+}
+
+function normalizeSharedCalendarDays(rawDays) {
+  if (!rawDays || typeof rawDays !== "object" || Array.isArray(rawDays)) {
+    return {};
+  }
+  return Object.keys(rawDays).reduce((acc, key) => {
+    if (normalizeSharedDateValue(key) && rawDays[key]) {
+      acc[key] = true;
+    }
+    return acc;
+  }, {});
+}
+
+function normalizeSharedCalendarsMap(rawCalendars) {
+  const next = emptySharedCalendars();
+  sharedMemberIds().forEach((memberId) => {
+    const memberSource =
+      rawCalendars && typeof rawCalendars === "object" ? rawCalendars[memberId] : null;
+    SHARED_CALENDAR_ITEMS.forEach((item) => {
+      next[memberId][item.id] = normalizeSharedCalendarDays(memberSource?.[item.id]);
+    });
+  });
+  return next;
+}
+
 function createEmptySharedPage(overrides = {}) {
   return {
     id: overrides.id || createSharedPageId(),
     title: typeof overrides.title === "string" ? overrides.title.trim() : "",
-    period: typeof overrides.period === "string" ? overrides.period.trim() : "",
+    periodStart: normalizeSharedDateValue(overrides.periodStart),
+    periodEnd: normalizeSharedDateValue(overrides.periodEnd),
     meetDate: normalizeSharedDateValue(overrides.meetDate),
     todos: normalizeSharedTodosMap(overrides.todos),
+    calendars: normalizeSharedCalendarsMap(overrides.calendars),
     createdAt: Number(overrides.createdAt) || Date.now(),
   };
+}
+
+function sharedPeriodDateList(page = getActiveSharedPage()) {
+  const startKey = normalizeSharedDateValue(page?.periodStart);
+  const endKey = normalizeSharedDateValue(page?.periodEnd);
+  if (!startKey || !endKey) {
+    return [];
+  }
+  let start = parseDateKey(startKey);
+  let end = parseDateKey(endKey);
+  if (!start || !end) {
+    return [];
+  }
+  if (start.getTime() > end.getTime()) {
+    const swap = start;
+    start = end;
+    end = swap;
+  }
+  const dates = [];
+  const cursor = new Date(start);
+  cursor.setHours(12, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(12, 0, 0, 0);
+  while (cursor.getTime() <= last.getTime() && dates.length < SHARED_PERIOD_MAX_DAYS) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+function sharedCalendarDayLabel(date, spansMonths) {
+  if (spansMonths) {
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+  return String(date.getDate());
 }
 
 function normalizeSharedTodo(raw, fallbackMember) {
@@ -475,12 +571,16 @@ function normalizeSharedBoard(raw) {
     pages = raw.pages.map((page) => normalizeSharedPage(page));
   } else if (raw.pages && typeof raw.pages === "object") {
     pages = Object.values(raw.pages).map((page) => normalizeSharedPage(page));
-  } else if (raw.title != null || raw.todos != null) {
+  } else if (raw.title != null || raw.todos != null || raw.periodStart != null) {
     pages = [
       createEmptySharedPage({
         id: raw.id,
         title: raw.title,
+        periodStart: raw.periodStart,
+        periodEnd: raw.periodEnd,
+        meetDate: raw.meetDate,
         todos: raw.todos,
+        calendars: raw.calendars,
         createdAt: raw.createdAt,
       }),
     ];
@@ -499,11 +599,19 @@ function cloneSharedBoard(board = sharedBoard) {
     pages: (board.pages || []).map((page) => ({
       id: page.id,
       title: page.title || "",
-      period: page.period || "",
+      periodStart: page.periodStart || "",
+      periodEnd: page.periodEnd || "",
       meetDate: page.meetDate || "",
       createdAt: page.createdAt || Date.now(),
       todos: sharedMemberIds().reduce((acc, memberId) => {
         acc[memberId] = (page.todos?.[memberId] || []).map((item) => ({ ...item }));
+        return acc;
+      }, {}),
+      calendars: sharedMemberIds().reduce((acc, memberId) => {
+        acc[memberId] = SHARED_CALENDAR_ITEMS.reduce((itemAcc, item) => {
+          itemAcc[item.id] = { ...(page.calendars?.[memberId]?.[item.id] || {}) };
+          return itemAcc;
+        }, {});
         return acc;
       }, {}),
     })),
@@ -586,25 +694,40 @@ function setSharedTitleEditing(editing) {
 function renderSharedMeta() {
   const page = getActiveSharedPage();
   const admin = isSharedAdmin();
-  const period = (page.period || "").trim();
+  const periodStart = normalizeSharedDateValue(page.periodStart);
+  const periodEnd = normalizeSharedDateValue(page.periodEnd);
+  const periodLabel = formatSharedPeriodRange(periodStart, periodEnd);
   const meetDate = normalizeSharedDateValue(page.meetDate);
   const meetLabel = formatSharedMeetDate(meetDate);
 
-  sharedPeriodInput.hidden = !admin;
+  sharedPeriodEdit.hidden = !admin;
   sharedPeriodText.hidden = admin;
   sharedMeetDateInput.hidden = !admin;
   sharedMeetDateText.hidden = admin;
 
   if (admin) {
-    if (document.activeElement !== sharedPeriodInput) {
-      sharedPeriodInput.value = period;
+    if (document.activeElement !== sharedPeriodStartInput) {
+      sharedPeriodStartInput.value = periodStart;
+    }
+    if (document.activeElement !== sharedPeriodEndInput) {
+      sharedPeriodEndInput.value = periodEnd;
     }
     if (document.activeElement !== sharedMeetDateInput) {
       sharedMeetDateInput.value = meetDate;
     }
+    if (periodStart) {
+      sharedPeriodEndInput.min = periodStart;
+    } else {
+      sharedPeriodEndInput.removeAttribute("min");
+    }
+    if (periodEnd) {
+      sharedPeriodStartInput.max = periodEnd;
+    } else {
+      sharedPeriodStartInput.removeAttribute("max");
+    }
   } else {
-    sharedPeriodText.textContent = period || "미설정";
-    sharedPeriodText.classList.toggle("is-empty", !period);
+    sharedPeriodText.textContent = periodLabel || "미설정";
+    sharedPeriodText.classList.toggle("is-empty", !periodLabel);
     sharedMeetDateText.textContent = meetLabel || "미정";
     sharedMeetDateText.classList.toggle("is-empty", !meetLabel);
   }
@@ -631,17 +754,26 @@ function renderSharedTitle() {
   }
 }
 
-function saveSharedPeriod(nextPeriod, { silent = true } = {}) {
+function saveSharedPeriodRange({ silent = true } = {}) {
   if (!isSharedAdmin()) {
     return;
   }
   const page = getActiveSharedPage();
-  const cleaned = String(nextPeriod || "").trim();
-  if (page.period === cleaned) {
+  let periodStart = normalizeSharedDateValue(sharedPeriodStartInput.value);
+  let periodEnd = normalizeSharedDateValue(sharedPeriodEndInput.value);
+  if (periodStart && periodEnd && periodStart > periodEnd) {
+    const swap = periodStart;
+    periodStart = periodEnd;
+    periodEnd = swap;
+    sharedPeriodStartInput.value = periodStart;
+    sharedPeriodEndInput.value = periodEnd;
+  }
+  if (page.periodStart === periodStart && page.periodEnd === periodEnd) {
     return;
   }
-  page.period = cleaned;
-  renderSharedMeta();
+  page.periodStart = periodStart;
+  page.periodEnd = periodEnd;
+  renderSharedBoard();
   pushSharedBoard({ silent });
 }
 
@@ -657,6 +789,110 @@ function saveSharedMeetDate(nextDate, { silent = true } = {}) {
   page.meetDate = cleaned;
   renderSharedMeta();
   pushSharedBoard({ silent });
+}
+
+function sharedCalendarChecks(memberId, calendarId, page = getActiveSharedPage()) {
+  const days = page.calendars?.[memberId]?.[calendarId];
+  return days && typeof days === "object" && !Array.isArray(days) ? days : {};
+}
+
+function isSharedCalendarChecked(memberId, calendarId, dayKey, page = getActiveSharedPage()) {
+  return Boolean(sharedCalendarChecks(memberId, calendarId, page)[dayKey]);
+}
+
+function sharedCalendarCheckedCount(memberId, calendarId, page = getActiveSharedPage()) {
+  return Object.keys(sharedCalendarChecks(memberId, calendarId, page)).length;
+}
+
+function setSharedCalendarChecked(memberId, calendarId, dayKey, checked) {
+  if (!canEditSharedMemberTodos(memberId)) {
+    showToast("본인 캘린더만 체크할 수 있습니다");
+    return;
+  }
+  const page = getActiveSharedPage();
+  if (!page.calendars) {
+    page.calendars = emptySharedCalendars();
+  }
+  if (!page.calendars[memberId]) {
+    page.calendars[memberId] = {};
+  }
+  const itemDays = { ...(page.calendars[memberId][calendarId] || {}) };
+  if (checked) {
+    itemDays[dayKey] = true;
+  } else {
+    delete itemDays[dayKey];
+  }
+  page.calendars[memberId] = {
+    ...page.calendars[memberId],
+    [calendarId]: itemDays,
+  };
+  renderSharedBoard();
+  pushSharedBoard({ silent: true });
+}
+
+function renderSharedCalPanel(panel) {
+  const memberId = panel.dataset.member;
+  const listEl = panel.querySelector("[data-cal-list]");
+  const page = getActiveSharedPage();
+  const dates = sharedPeriodDateList(page);
+  const canEdit = canEditSharedMemberTodos(memberId);
+  const spansMonths =
+    dates.length > 0 &&
+    (dates[0].getMonth() !== dates[dates.length - 1].getMonth() ||
+      dates[0].getFullYear() !== dates[dates.length - 1].getFullYear());
+
+  listEl.replaceChildren();
+
+  if (!dates.length) {
+    const empty = document.createElement("p");
+    empty.className = "shared-cal__empty";
+    empty.textContent = "기간을 설정하면 캘린더가 생성됩니다";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  SHARED_CALENDAR_ITEMS.forEach((item) => {
+    const count = sharedCalendarCheckedCount(memberId, item.id, page);
+    const done = count >= SHARED_CALENDAR_DONE_MIN;
+    const row = document.createElement("div");
+    row.className = "shared-cal-row";
+    if (done) {
+      row.classList.add("is-done");
+    }
+
+    const label = document.createElement("p");
+    label.className = "shared-cal-row__label";
+    label.textContent = item.label;
+    row.appendChild(label);
+
+    const dayGroup = document.createElement("div");
+    dayGroup.className = "shared-cal-row__days";
+
+    dates.forEach((date) => {
+      const dayKey = dateKey(date);
+      const checked = isSharedCalendarChecked(memberId, item.id, dayKey, page);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "shared-cal-check";
+      button.textContent = checked ? "✓" : sharedCalendarDayLabel(date, spansMonths);
+      button.disabled = !canEdit;
+      button.setAttribute("aria-label", `${item.label} ${dayKey}`);
+      button.setAttribute("aria-pressed", checked ? "true" : "false");
+      if (checked) {
+        button.classList.add("is-checked");
+      }
+      button.addEventListener("click", () => {
+        if (!canEdit) {
+          return;
+        }
+        setSharedCalendarChecked(memberId, item.id, dayKey, !checked);
+      });
+      dayGroup.appendChild(button);
+    });
+
+    row.appendChild(dayGroup);
+    listEl.appendChild(row);
+  });
 }
 
 function renderSharedTodoPanel(panel) {
@@ -731,6 +967,7 @@ function renderSharedBoard() {
   ensureSharedActivePage();
   highlightSharedSection(currentAccount?.id);
   renderSharedTitle();
+  sharedCalPanels.forEach((panel) => renderSharedCalPanel(panel));
   sharedTodoPanels.forEach((panel) => renderSharedTodoPanel(panel));
 }
 
@@ -3527,11 +3764,17 @@ sharedPagePrev.addEventListener("click", () => {
 sharedPageNext.addEventListener("click", () => {
   shiftSharedPage(1);
 });
-sharedPeriodInput.addEventListener("change", () => {
-  saveSharedPeriod(sharedPeriodInput.value);
+sharedPeriodStartInput.addEventListener("change", () => {
+  saveSharedPeriodRange();
 });
-sharedPeriodInput.addEventListener("blur", () => {
-  saveSharedPeriod(sharedPeriodInput.value);
+sharedPeriodEndInput.addEventListener("change", () => {
+  saveSharedPeriodRange();
+});
+sharedPeriodStartInput.addEventListener("blur", () => {
+  saveSharedPeriodRange();
+});
+sharedPeriodEndInput.addEventListener("blur", () => {
+  saveSharedPeriodRange();
 });
 sharedMeetDateInput.addEventListener("change", () => {
   saveSharedMeetDate(sharedMeetDateInput.value);

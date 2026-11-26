@@ -120,11 +120,26 @@ body:has(.shared-page:not([hidden])) .app {
 }
 
 .shared-meta--period {
-  width: min(240px, 100%);
+  width: min(320px, 100%);
+  flex-wrap: wrap;
 }
 
 .shared-meta--meet {
   justify-content: flex-end;
+}
+
+.shared-period-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.shared-period-edit__tilde {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a8174;
 }
 
 .shared-meta__label {
@@ -330,6 +345,105 @@ body:has(.shared-page:not([hidden])) .app {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.shared-cal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.shared-cal__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shared-cal__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #5c574e;
+}
+
+.shared-cal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shared-cal__empty {
+  margin: 0;
+  padding: 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #a39a8c;
+}
+
+.shared-cal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shared-cal-row__label {
+  margin: 0;
+  width: 42px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #222;
+}
+
+.shared-cal-row.is-done .shared-cal-row__label {
+  color: #8a8174;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.shared-cal-row__days {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+  gap: 4px;
+}
+
+.shared-cal-check {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 26px;
+  border: 1.5px solid #c4baa8;
+  border-radius: 6px;
+  background: #fff;
+  color: #8a8174;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shared-cal-check:hover,
+.shared-cal-check:focus-visible {
+  border-color: #d97706;
+  outline: none;
+}
+
+.shared-cal-check.is-checked {
+  background: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.shared-cal-check:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .shared-todo {
