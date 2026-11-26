@@ -144,6 +144,20 @@ body:has(.shared-page:not([hidden])) {
   opacity: 0.35;
   color: var(--shared-muted);
 }
+.shared-page .page-role {
+  font-size: 16px;
+}
+
+.shared-page .btn-text {
+  font-size: 15px;
+}
+
+.shared-page .calendar-nav {
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+}
+
 
 .shared-top {
   align-items: start;
@@ -213,14 +227,14 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-period-edit__tilde {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--shared-muted);
 }
 
 .shared-meta__label {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--shared-muted);
   white-space: nowrap;
@@ -228,7 +242,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-meta__value {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--shared-text);
   word-break: break-word;
@@ -243,9 +257,9 @@ body:has(.shared-page:not([hidden])) {
   min-width: 0;
   border: 1px solid var(--shared-border);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 8px 11px;
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--shared-text);
   background: var(--shared-ivory);
@@ -317,7 +331,7 @@ body:has(.shared-page:not([hidden])) {
 .shared-title-text {
   margin: 0;
   text-align: center;
-  font-size: clamp(18px, 2.4vw, 24px);
+  font-size: clamp(22px, 2.6vw, 28px);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--shared-green-ink);
@@ -347,9 +361,9 @@ body:has(.shared-page:not([hidden])) {
   min-width: 0;
   border: 1px solid var(--shared-border);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 11px 13px;
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--shared-text);
   background: #fff;
@@ -409,7 +423,7 @@ body:has(.shared-page:not([hidden])) {
 .shared-section__title {
   margin: 0;
   text-align: center;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--shared-green-ink);
@@ -460,7 +474,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-subsection__title {
   margin: 0;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
   color: var(--shared-green-ink);
 }
@@ -471,11 +485,11 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-quote__add {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   padding: 0;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -497,7 +511,7 @@ body:has(.shared-page:not([hidden])) {
 }
 
 .shared-quote__field-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--shared-muted);
 }
@@ -507,9 +521,9 @@ body:has(.shared-page:not([hidden])) {
   width: 100%;
   border: 1px solid var(--shared-border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--shared-text);
   background: #fff;
@@ -565,7 +579,7 @@ body:has(.shared-page:not([hidden])) {
 .shared-quote__view-date {
   margin: 0;
   text-align: center;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
   color: var(--shared-green-ink);
   word-break: break-word;
@@ -579,7 +593,7 @@ body:has(.shared-page:not([hidden])) {
 .shared-quote__view-text {
   margin: 0;
   text-align: center;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.5;
   color: var(--shared-text);
@@ -604,7 +618,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-cal__progress {
   margin: 0;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--shared-green);
   white-space: nowrap;
@@ -619,7 +633,7 @@ body:has(.shared-page:not([hidden])) {
 .shared-cal__empty {
   margin: 0;
   padding: 10px 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #64748b;
 }
@@ -639,7 +653,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-cal-weekday {
   text-align: center;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--shared-muted);
   line-height: 1.2;
@@ -648,12 +662,12 @@ body:has(.shared-page:not([hidden])) {
 .shared-cal-check {
   width: 100%;
   aspect-ratio: 1;
-  min-height: 26px;
+  min-height: 32px;
   border: 1.5px solid var(--shared-border);
   border-radius: 6px;
   background: var(--shared-ivory);
   color: var(--shared-green-ink);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   cursor: pointer;
   padding: 0;
@@ -697,7 +711,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-todo__count {
   margin: 0;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--shared-muted);
 }
@@ -718,7 +732,7 @@ body:has(.shared-page:not([hidden])) {
   margin: 0;
   padding: 18px 8px;
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #64748b;
 }
@@ -808,7 +822,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-todo-item__text {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.4;
   color: var(--shared-text);
@@ -817,7 +831,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-todo-item__meta {
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--shared-muted);
 }
@@ -863,9 +877,9 @@ body:has(.shared-page:not([hidden])) {
   min-width: 0;
   border: 1px solid var(--shared-border);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 11px 13px;
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   background: #fff;
   color: var(--shared-text);
@@ -879,11 +893,11 @@ body:has(.shared-page:not([hidden])) {
 .shared-todo__add {
   border: 0;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   background: var(--shared-green);
   color: #fff;
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
@@ -903,7 +917,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-sync {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--shared-muted);
 }
@@ -919,7 +933,7 @@ body:has(.shared-page:not([hidden])) {
 
 .shared-setup-hint {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.45;
   color: var(--shared-muted);
