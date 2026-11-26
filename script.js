@@ -1472,16 +1472,18 @@ function renderSharedRequestPanel(panel) {
   }
 
   items.forEach((item) => {
+    const authorId = normalizeSharedMemberId(item.createdBy || "");
     const row = document.createElement("li");
     row.className = "shared-request-item";
+    row.dataset.member = authorId;
 
     const body = document.createElement("div");
     body.className = "shared-request-item__body";
 
     const from = document.createElement("p");
     from.className = "shared-request-item__from";
-    from.dataset.member = item.createdBy || "";
-    from.textContent = item.createdBy || "unknown";
+    from.dataset.member = authorId;
+    from.textContent = authorId;
 
     const text = document.createElement("p");
     text.className = "shared-request-item__text";
