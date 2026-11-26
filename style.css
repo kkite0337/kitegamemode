@@ -434,11 +434,17 @@ body:has(.shared-page:not([hidden])) {
   gap: 8px;
 }
 
-.shared-subsection__head-left {
+.shared-subsection__head-left,
+.shared-subsection__head-right {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.shared-subsection__head-right {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .shared-subsection__title {
