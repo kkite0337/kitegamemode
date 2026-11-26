@@ -3,9 +3,27 @@ const DRAFTS_KEY = "kitegamemode-drafts";
 const MEMOS_KEY = "kitegamemode-memos";
 const LANGUAGE_ENTRIES_KEY = "kitegamemode-language-entries";
 const LANGUAGE_DRAFTS_KEY = "kitegamemode-language-drafts";
-const ROUTINE_ITEMS_KEY = "kitegamemode-routine-items";
 const ROUTINE_WEEK_KEY = "kitegamemode-routine-week";
 const ROUTINE_DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+const ROUTINE_MATRIX_GROUPS = [
+  [
+    { id: "morning", label: "오전루틴" },
+    { id: "lang-study", label: "외국어공부" },
+    { id: "econ-study", label: "경제공부" },
+    { id: "podcast", label: "팟캐스트" },
+  ],
+  [
+    { id: "supplements", label: "영양제" },
+    { id: "water", label: "물2리터" },
+    { id: "no-dessert", label: "디저트X" },
+  ],
+  [
+    { id: "afternoon", label: "오후루틴" },
+    { id: "tidy", label: "짐정리" },
+    { id: "skincare", label: "피부관리" },
+    { id: "night", label: "나이트루틴" },
+  ],
+];
 const CLEANING_ITEMS = [
   { id: "laundry", label: "빨래" },
   { id: "floor", label: "바닥" },
@@ -58,15 +76,12 @@ const headerActions = document.getElementById("headerActions");
 const economyActions = document.getElementById("economyActions");
 const languageActions = document.getElementById("languageActions");
 const routineActions = document.getElementById("routineActions");
-const addRoutineBtn = document.getElementById("addRoutineBtn");
 const routineWeekTitle = document.getElementById("routineWeekTitle");
 const routineWeekPrev = document.getElementById("routineWeekPrev");
 const routineWeekNext = document.getElementById("routineWeekNext");
 const cleaningList = document.getElementById("cleaningList");
 const exerciseList = document.getElementById("exerciseList");
-const routineDays = document.getElementById("routineDays");
-const routineList = document.getElementById("routineList");
-const routineEmpty = document.getElementById("routineEmpty");
+const routineMatrix = document.getElementById("routineMatrix");
 const routineSheet = document.getElementById("routineSheet");
 const routineSheetBackdrop = document.getElementById("routineSheetBackdrop");
 const routineSheetClose = document.getElementById("routineSheetClose");
@@ -287,7 +302,7 @@ function setActiveSection(section) {
   routineActions.classList.toggle("is-hidden", section !== "routine");
   headerActions.classList.toggle(
     "is-empty",
-    section !== "economy" && section !== "language" && section !== "routine",
+    section !== "economy" && section !== "language",
   );
 
   pageTabs.forEach((tab) => {
@@ -396,15 +411,6 @@ function formatRoutineWeekTitle(monday) {
   const { year, monthIndex, week } = weekNumberInMajorityMonth(monday);
   const shortYear = String(year).slice(-2);
   return `${shortYear}년 ${monthIndex + 1}월 ${week}주차`;
-}
-
-function loadRoutineItems() {
-  const items = readJson(ROUTINE_ITEMS_KEY, []);
-  return Array.isArray(items) ? items : [];
-}
-
-function saveRoutineItems(items) {
-  writeJson(ROUTINE_ITEMS_KEY, items);
 }
 
 function normalizeWeekBucket(bucket) {
@@ -595,58 +601,11 @@ function shiftRoutineWeek(delta) {
   renderRoutineBoard();
 }
 
-function openRoutineSheet() {
-  routineTitleInput.value = "";
-  routineSheet.hidden = false;
-  window.setTimeout(() => routineTitleInput.focus(), 0);
-}
-
 function closeRoutineSheet() {
   if (!routineSheet) {
     return;
   }
   routineSheet.hidden = true;
-}
-
-function addRoutineItem(title) {
-  const trimmed = title.trim();
-  if (!trimmed) {
-    showToast("루틴 이름을 입력해 주세요");
-    return false;
-  }
-
-  const items = loadRoutineItems();
-  items.push({
-    id: `routine-${Date.now()}`,
-    title: trimmed,
-    createdAt: Date.now(),
-  });
-  saveRoutineItems(items);
-  return true;
-}
-
-function deleteRoutineItem(itemId) {
-  if (!window.confirm("이 루틴을 삭제할까요?")) {
-    return;
-  }
-
-  saveRoutineItems(loadRoutineItems().filter((item) => item.id !== itemId));
-  const state = loadRoutineWeekState();
-  const weeks = { ...state.weeks };
-  Object.keys(weeks).forEach((weekKey) => {
-    const bucket = normalizeWeekBucket(weeks[weekKey]);
-    if (!bucket.checks[itemId]) {
-      weeks[weekKey] = bucket;
-      return;
-    }
-    const nextChecks = { ...bucket.checks };
-    delete nextChecks[itemId];
-    weeks[weekKey] = { ...bucket, checks: nextChecks };
-  });
-  state.weeks = weeks;
-  saveRoutineWeekState(state);
-  renderRoutineBoard();
-  showToast("루틴을 삭제했습니다");
 }
 
 function renderCleaningList() {
@@ -743,73 +702,72 @@ function renderRoutineBoard() {
   const weekKey = dateKey(monday);
   const days = weekDateList(monday);
   const today = todayDate();
-  const items = loadRoutineItems();
 
   routineWeekTitle.textContent = formatRoutineWeekTitle(monday);
   renderCleaningList();
   renderExerciseList();
-  routineDays.replaceChildren();
+  routineMatrix.replaceChildren();
 
-  const nameHeader = document.createElement("span");
-  nameHeader.textContent = "루틴";
-  routineDays.appendChild(nameHeader);
-
+  const head = document.createElement("div");
+  head.className = "routine-matrix__head";
+  const headSpacer = document.createElement("span");
+  headSpacer.className = "routine-matrix__spacer";
+  head.appendChild(headSpacer);
   days.forEach((day, index) => {
     const label = document.createElement("span");
+    label.className = "routine-matrix__day";
     label.textContent = ROUTINE_DAY_LABELS[index];
     if (sameDay(day, today)) {
       label.classList.add("is-today");
     }
-    routineDays.appendChild(label);
+    head.appendChild(label);
   });
+  routineMatrix.appendChild(head);
 
-  routineList.replaceChildren();
-  routineEmpty.hidden = items.length > 0;
+  ROUTINE_MATRIX_GROUPS.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      const divider = document.createElement("div");
+      divider.className = "routine-matrix__divider";
+      divider.setAttribute("aria-hidden", "true");
+      routineMatrix.appendChild(divider);
+    }
 
-  items.forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "routine-row";
+    group.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "routine-matrix__row";
 
-    const titleWrap = document.createElement("div");
-    titleWrap.className = "routine-row__title";
-    const name = document.createElement("p");
-    name.className = "routine-row__name";
-    name.textContent = item.title;
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "routine-row__delete";
-    deleteBtn.textContent = "삭제";
-    deleteBtn.addEventListener("click", () => deleteRoutineItem(item.id));
-    titleWrap.append(name, deleteBtn);
+      const name = document.createElement("p");
+      name.className = "routine-matrix__label";
+      name.textContent = item.label;
+      row.appendChild(name);
 
-    row.appendChild(titleWrap);
-
-    days.forEach((day) => {
-      const dayKey = dateKey(day);
-      const checked = isRoutineChecked(item.id, dayKey, weekKey);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "routine-check";
-      button.textContent = "✓";
-      button.setAttribute(
-        "aria-label",
-        `${item.title} ${day.getMonth() + 1}/${day.getDate()}`,
-      );
-      button.setAttribute("aria-pressed", checked ? "true" : "false");
-      if (checked) {
-        button.classList.add("is-done");
-      }
-      if (sameDay(day, today)) {
-        button.classList.add("is-today");
-      }
-      button.addEventListener("click", () => {
-        setRoutineChecked(item.id, dayKey, !checked);
-        renderRoutineBoard();
+      days.forEach((day) => {
+        const dayKey = dateKey(day);
+        const checked = isRoutineChecked(item.id, dayKey, weekKey);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "routine-check";
+        button.textContent = "✓";
+        button.setAttribute(
+          "aria-label",
+          `${item.label} ${day.getMonth() + 1}/${day.getDate()}`,
+        );
+        button.setAttribute("aria-pressed", checked ? "true" : "false");
+        if (checked) {
+          button.classList.add("is-done");
+        }
+        if (sameDay(day, today)) {
+          button.classList.add("is-today");
+        }
+        button.addEventListener("click", () => {
+          setRoutineChecked(item.id, dayKey, !checked);
+          renderRoutineBoard();
+        });
+        row.appendChild(button);
       });
-      row.appendChild(button);
-    });
 
-    routineList.appendChild(row);
+      routineMatrix.appendChild(row);
+    });
   });
 }
 
@@ -2648,20 +2606,14 @@ pageTabs.forEach((tab) => {
 });
 addMemoBtn.addEventListener("click", () => openMemoForm());
 addLangBtn.addEventListener("click", () => openLangForm());
-addRoutineBtn.addEventListener("click", openRoutineSheet);
 routineWeekPrev.addEventListener("click", () => shiftRoutineWeek(-1));
 routineWeekNext.addEventListener("click", () => shiftRoutineWeek(1));
-routineSheetBackdrop.addEventListener("click", closeRoutineSheet);
-routineSheetClose.addEventListener("click", closeRoutineSheet);
-routineForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  if (!addRoutineItem(routineTitleInput.value)) {
-    return;
-  }
-  closeRoutineSheet();
-  renderRoutineBoard();
-  showToast("루틴을 추가했습니다");
-});
+if (routineSheetBackdrop) {
+  routineSheetBackdrop.addEventListener("click", closeRoutineSheet);
+}
+if (routineSheetClose) {
+  routineSheetClose.addEventListener("click", closeRoutineSheet);
+}
 pdfBtn.addEventListener("click", () => {
   downloadMonthPdf();
 });
