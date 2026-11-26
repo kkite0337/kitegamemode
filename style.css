@@ -216,7 +216,7 @@ body:has(.home-page:not([hidden])) .app {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   min-height: 0;
   padding-top: 8px;
 }
@@ -227,8 +227,9 @@ body:has(.home-page:not([hidden])) .app {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  max-width: 420px;
+  max-width: 360px;
   margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .routine-week-title {
@@ -241,7 +242,29 @@ body:has(.home-page:not([hidden])) .app {
   color: #222;
 }
 
+.routine-main {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 16px;
+  min-height: 0;
+}
+
+.routine-col {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
 .routine-board {
+  flex: 1;
   border: 1px solid #ddd4c4;
   border-radius: 14px;
   background: #fff;
@@ -383,6 +406,16 @@ body:has(.home-page:not([hidden])) .app {
 }
 
 @media (max-width: 760px) {
+  .routine-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .routine-col {
+    width: 100%;
+    flex: none;
+  }
+
   .routine-days,
   .routine-row {
     grid-template-columns: minmax(72px, 1.1fr) repeat(7, minmax(26px, 1fr));
