@@ -344,28 +344,43 @@ body:has(.shared-page:not([hidden])) .app {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.shared-cal {
+.shared-subsection {
+  border: 1px solid #ebe4d7;
+  border-radius: 12px;
+  background: #fbfaf7;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
-.shared-cal__head {
+.shared-subsection__head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
 
-.shared-cal__label {
+.shared-subsection__title {
   margin: 0;
   font-size: 14px;
   font-weight: 800;
   color: #5c574e;
+}
+
+.shared-subsection__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.shared-cal {
+  flex-shrink: 0;
 }
 
 .shared-cal__list {
@@ -445,24 +460,11 @@ body:has(.shared-page:not([hidden])) .app {
 
 .shared-todo {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   min-height: 0;
 }
 
-.shared-todo__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.shared-todo__label {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 800;
-  color: #5c574e;
+.shared-todo .shared-subsection__body {
+  flex: 1;
 }
 
 .shared-todo__count {
